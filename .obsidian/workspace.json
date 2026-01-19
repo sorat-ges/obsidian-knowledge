@@ -11,12 +11,14 @@
             "id": "77538ddb5a522fb4",
             "type": "leaf",
             "state": {
-              "type": "image",
+              "type": "markdown",
               "state": {
-                "file": "Images/RateLimit.png"
+                "file": "Kube/Kong/Ratelimit.md",
+                "mode": "source",
+                "source": false
               },
-              "icon": "lucide-image",
-              "title": "RateLimit"
+              "icon": "lucide-file",
+              "title": "Ratelimit"
             }
           }
         ]
@@ -183,11 +185,14 @@
   },
   "active": "77538ddb5a522fb4",
   "lastOpenFiles": [
+    "Kube/Kong/Ingress.md",
+    "Kube/Kong/Ratelimit.md",
+    "Images/RateLimit.png",
+    "Kube/Ingress.md",
+    "Kube/Kong/ratelimit-example.yaml",
     "Untitled 1.base",
     "Untitled.base",
-    "Kube/Kong/Ratelimit.md",
     "Welcome.md",
-    "Images/RateLimit.png",
     "Images",
     "Screenshot 2569-01-17 at 11.33.19.png",
     "RateLimit 1.png",
