@@ -1,0 +1,197 @@
+{
+  "main": {
+    "id": "9ab9dfe7a58ba1c9",
+    "type": "split",
+    "children": [
+      {
+        "id": "8e3d9e35121685d4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "77538ddb5a522fb4",
+            "type": "leaf",
+            "state": {
+              "type": "image",
+              "state": {
+                "file": "Images/RateLimit.png"
+              },
+              "icon": "lucide-image",
+              "title": "RateLimit"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "bd768135fc147eb9",
+    "type": "split",
+    "children": [
+      {
+        "id": "e778176ed2f1eb56",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "abae11206eacb6c4",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "5dcd0c88b4418bd8",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "00bba17afec941c8",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "b8e3961669af3033",
+    "type": "split",
+    "children": [
+      {
+        "id": "196b75b316e4b9c6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4955add9db9c912e",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Images/RateLimit.png",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for RateLimit"
+            }
+          },
+          {
+            "id": "c29496031744fc17",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Images/RateLimit.png",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from RateLimit"
+            }
+          },
+          {
+            "id": "12f503a800da9f44",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "808d36bebad411a9",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "3e73c67d3f66dfba",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Images/RateLimit.png",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of RateLimit"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "77538ddb5a522fb4",
+  "lastOpenFiles": [
+    "Untitled 1.base",
+    "Untitled.base",
+    "Kube/Kong/Ratelimit.md",
+    "Welcome.md",
+    "Images/RateLimit.png",
+    "Images",
+    "Screenshot 2569-01-17 at 11.33.19.png",
+    "RateLimit 1.png",
+    "Kube/Kong",
+    "Kube"
+  ]
+}
