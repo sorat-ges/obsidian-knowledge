@@ -1,4 +1,15 @@
+---
+title: Flutter App Deployment Guide
+tags: [guide, flutter, deployment, mobile]
+status: active
+difficulty: intermediate
+created: 2026-01-20
+last-updated: 2026-01-20
+---
+
 # Flutter App Deployment Guide
+
+**Navigation**: [[Home]] | Development | Flutter
 
 This guide covers the steps to prepare and deploy a Flutter application to the Google Play Store (Android) and Apple App Store (iOS).
 
@@ -137,3 +148,10 @@ flutter build appbundle
 *   **CocoaPods errors**: Run `cd ios && pod install --repo-update`.
 *   **Keystore errors**: Verify the path in `key.properties` is absolute or correctly relative.
 *   **Version conflict**: Ensure `versionCode` (Android) and `Build` number (iOS) are incremented for every upload.
+
+## Related
+- [[Biglot/Biglot|Big Lot Architecture]]
+
+## Notes
+- Keep keystore file backed up securely - losing it means you cannot update your app
+- Test on both platforms before submitting to stores

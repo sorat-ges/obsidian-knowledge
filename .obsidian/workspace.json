@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Biglot/Biglot.md",
-                "mode": "source",
+                "file": "Finance/Management-Fee-Spread.md",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Biglot"
+              "title": "Management-Fee-Spread"
             }
           }
         ]
@@ -186,11 +186,17 @@
   "active": "77538ddb5a522fb4",
   "lastOpenFiles": [
     "Flutter/Deployment.md",
+    "Finance/Management-Fee-Spread.md",
     "Biglot/Biglot.md",
+    "Finance",
+    "Biglot/Management-Fee-Spread.md",
     "Images/FlowBiglot.png",
-    "Images/RateLimit.png",
+    "README.md",
+    "Documentation-Guide.md",
+    "Home.md",
     "Kube/Kong/Ingress.md",
     "Kube/Kong/Ratelimit.md",
+    "Images/RateLimit.png",
     "Flutter",
     "Kube/Ingress.md",
     "Kube/Kong/ratelimit-example.yaml",

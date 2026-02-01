@@ -1,6 +1,16 @@
-![[RateLimit.png]]
+---
+title: Kong Rate Limiting
+tags: [config, kubernetes, kong, ratelimit]
+status: active
+created: 2026-01-19
+last-updated: 2026-01-19
+---
 
 # Kong Rate Limiting
+
+**Navigation**: [[Home]] | Infrastructure | Kubernetes | Kong
+
+![[RateLimit.png]]
 
 ## Description
 Rate limiting is a traffic management strategy used to control the rate of traffic sent or received by a network interface controller. It effectively puts a cap on how often someone can repeat an action within a certain timeframe. This is crucial for:
@@ -65,3 +75,10 @@ spec:
             port:
               number: 80
 ```
+
+## Related
+- [[Kube/Kong/Ingress|Kong Ingress Configuration]]
+
+## Notes
+- Use `policy: redis` for production multi-pod deployments for accurate rate limiting
+- `policy: local` is suitable for development or single-pod setups
