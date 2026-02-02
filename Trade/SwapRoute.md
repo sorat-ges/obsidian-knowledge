@@ -11,47 +11,47 @@
 ```text
                  GetSwapRoutes Architecture
         ╔═══════════════════════════════════════════════════╗
-        ║                                               ║
-        ║            HTTP REQUEST                        ║
-        ║     POST /api/v1/order-trade/routes/inquiry    ║
-        ║                                               ║
-        ║     { pair: "BTC-THB", unit: "50000",          ║
-        ║       side: "BUY", id: "xxx" }                ║
+        ║                                                   ║
+        ║            HTTP REQUEST                           ║
+        ║     POST /api/v1/order-trade/routes/inquiry       ║
+        ║                                                   ║
+        ║     { pair: "BTC-THB", unit: "50000",             ║
+        ║       side: "BUY", id: "xxx" }                    ║
         ╚═══════════════════════════════════════════════════╝
                           │
                           ▼
         ╔═══════════════════════════════════════════════════╗
-        ║          Handler Layer                          ║
-        ║    order_trade_handler.go:687-805               ║
-        ╟─────────────────────────────────────────────────╢
-        ║  • Parse Request                               ║
-        ║  • Validate Input                              ║
-        ║  • Call Service Layer                          ║
-        ║  • Format Response                             ║
+        ║          Handler Layer                            ║
+        ║    order_trade_handler.go:687-805                 ║
+        ╟───────────────────────────────────────────────────╢
+        ║  • Parse Request                                  ║
+        ║  • Validate Input                                 ║
+        ║  • Call Service Layer                             ║
+        ║  • Format Response                                ║
         ╚═══════════════════════════════════════════════════╝
                           │
                           ▼
         ╔═══════════════════════════════════════════════════╗
-        ║          Service Layer                           ║
-        ║      service.go:1088-1152                        ║
-        ╟─────────────────────────────────────────────────╢
-        ║  1. getMinimumAmountForSwap (1168-1212)          ║
-        ║  2. newRemarketerService.GetRoutes              ║
-        ║  3. GetSwapBuyRoute / GetSwapSellRoute           ║
-        ║  4. Sort by NetAmount (DESC)                    ║
-        ║  5. SortBestRoute (1153-1166)                   ║
+        ║          Service Layer                            ║
+        ║      service.go:1088-1152                         ║
+        ╟───────────────────────────────────────────────────╢
+        ║  1. getMinimumAmountForSwap (1168-1212)           ║
+        ║  2. newRemarketerService.GetRoutes                ║
+        ║  3. GetSwapBuyRoute / GetSwapSellRoute            ║
+        ║  4. Sort by NetAmount (DESC)                      ║
+        ║  5. SortBestRoute (1153-1166)                     ║
         ╚═══════════════════════════════════════════════════╝
                           │
         ┌─────────────────┼─────────────────┐
         │                 │                 │
         ▼                 ▼                 ▼
     ┌─────────┐    ┌───────────┐    ┌──────────────┐
-    │Remarketer│    │Credential │    │ Other        │
-    │Service   │    │Centric    │    │Services      │
-    │          │    │           │    │              │
-    │•GetRoutes│    │•GetToken  │    │•Product      │
-    │•Trade    │    │           │    │•Customer     │
-    │•GetRate  │    │           │    │•FeeConfig    │
+    │Remarketer│    │Credential │   │ Other        │
+    │Service   │    │Centric    │   │ Services     │
+    │          │    │           │   │              │
+    │•GetRoutes│    │•GetToken  │   │ •Product     │
+    │•Trade    │    │           │   │ •Customer    │
+    │•GetRate  │    │           │   │ •FeeConfig   │
     │•Cancel  │    │           │    │•MarkToMarket │
     └─────────┘    └───────────┘    └──────────────┘
         │                 │                 │
