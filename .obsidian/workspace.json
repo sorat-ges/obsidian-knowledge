@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Trade/SwapFee.md",
-                "mode": "source",
+                "file": "Trade/SwapRoute.md",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "SwapFee"
+              "title": "SwapRoute"
             }
           }
         ]
@@ -185,13 +185,14 @@
   },
   "active": "634fb1c9d95c3038",
   "lastOpenFiles": [
-    "Trade/Management-Fee-Spread.md",
-    "Trade/SwapFee.md",
+    "Documentation-Guide.md",
     "Trade/SwapRoute.md",
+    "Trade/BestRoute.md",
+    "Trade/SwapFee.md",
+    "Trade/Management-Fee-Spread.md",
+    "Trade/Fee-Campaign-System.md",
     "Biglot/Biglot.md",
     "Flutter/Deployment.md",
-    "Trade/BestRoute.md",
-    "Trade/Fee-Campaign-System.md",
     "Home.md",
     "Finance/SwapFee.md",
     "Trade/SwapRoute",
@@ -203,7 +204,6 @@
     "Biglot/Management-Fee-Spread.md",
     "Images/FlowBiglot.png",
     "README.md",
-    "Documentation-Guide.md",
     "Kube/Kong/Ingress.md",
     "Kube/Kong/Ratelimit.md",
     "Images/RateLimit.png",
