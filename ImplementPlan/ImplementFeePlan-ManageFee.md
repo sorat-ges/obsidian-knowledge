@@ -8,10 +8,10 @@ Refactor `getPossibleFeeRate` to return only ONE transaction fee with simplified
 ## Requirements
 
 1. **Return single fee** as value, not array: `(ResponseGetPossibleFeeRate, error)`
-2. **Ordering**: Priority ASC → Fee Rate ASC
+2. **Ordering**: Priority ASC → Fee Rate ASC → SyncedAt ASC
 3. **Filter conditions**: CustomerTier, RouteName, OnboardingDay, OnboardingDate, VolumeSize, Symbol
 4. **Match**: Return first matching fee (ALL conditions must match - AND logic)
-5. **Flat rate**: No condition = fallback when nothing matches
+5. **Flat rate**: Treated same as conditional fees - sorted by priority. If `Condition` is empty, `IsMatch()` returns `true` (matches all).
 6. **Error when no fee found**: Return error instead of empty array
 7. **⚠️ BUG FIX**: Check BOTH StartDate AND EndDate for ALL fees (current code only checks StartDate for non-onboarding fees)
 8. **Remove IsIncludeAdditionalFee**: No additional fee concept anymore
@@ -39,54 +39,31 @@ Refactor `getPossibleFeeRate` to return only ONE transaction fee with simplified
               └───────────────┬───────────────┘
                               │
                               ▼
-              ┌───────────────┴───────────────┐
-              │                               │
-              ▼                               ▼
-┌─────────────────────────┐      ┌─────────────────────┐
-│   Conditional Fees      │      │     Flat Rate        │
-│  (has Condition JSON)   │      │  (no Condition)      │
-└─────────────────────────┘      └─────────────────────┘
-              │                               │
-              ▼                               │
-┌─────────────────────────┐                    │
-│  Sort by Priority ASC   │                    │
-│  Then FeeValue ASC      │                    │
-└─────────────────────────┘                    │
-              │                               │
-              ▼                               │
-┌─────────────────────────┐                    │
-│ Check Filter Match      │                    │
-│ (IsMatch with params)   │                    │
-└─────────────────────────┘                    │
-              │                               │
-              ▼                               │
-         ┌────┴─────┐                         │
-         │  Match?  │                         │
-         └────┬─────┘                         │
-              │                               │
-     ┌────────┴────────┐                      │
-     │ Yes             │ No                   │
-     ▼                 ▼                      │
-┌─────────┐     ┌───────────┐                 │
-│ RETURN  │     │ Continue  │                 │
-│  Fee    │     │   Loop    │                 │
-└─────────┘     └───────────┘                 │
-                          │                    │
-                          └────────────────────┤
-                                               │
-                    ┌──────────────────────────┘
-                    ▼
-            ┌───────────────┐
-            │ Return Flat   │
-            │    Rate       │
-            └───────────────┘
-                    │
-                    ▼
-            ┌───────────────┐
-            │ Return nil    │
-            │ (if no flat)  │
-            └───────────────┘
+              ┌───────────────────────────────┐
+              │   Sort ALL valid fees by:     │
+              │   1. Priority ASC             │
+              │   2. FeeValue ASC             │
+              │   3. SyncedAt ASC (oldest)    │
+              └───────────────┬───────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │   Loop through sorted fees    │
+              │   Check IsMatch(params)       │
+              │   - Conditional: check if ALL │
+              │     conditions match (AND)    │
+              │   - Flat rate: no condition   │
+              │     = always matches          │
+              └───────────────┬───────────────┘
+                              │
+                              ▼
+         ┌────────────────────────────────┐
+         │  First matching fee?  → RETURN │
+         │  No match?            → nil    │
+         └────────────────────────────────┘
 ```
+
+**Note:** Flat rate (no condition) is treated like any other fee. Its `IsMatch()` returns `true` for all params. If a flat rate has lower priority number than conditional fees, it will be selected first.
 
 ---
 
@@ -166,7 +143,15 @@ New behavior: ❌ Fee is skipped (correct - expired)
 | `pkg/order_trade/service_fee_rate_test.go` | UPDATE tests | ~15 tests | Update assertions |
 | `pkg/order_crypto/service_test.go` | UPDATE tests | ~5 tests | Update mocks |
 
-**Net change**: ~350 lines reduction (in service_fee_rate.go alone)
+### Additional Cleanup (Post-Refactoring)
+
+| File | Change Type | Lines | Notes |
+|------|-------------|-------|-------|
+| `internal/domain/transaction_fee.go` | REMOVE struct | ~5 lines | Remove `SelectedFee` struct (no longer used) |
+| `internal/domain/transaction_fee.go` | REMOVE field | 1 line | Remove `IsIncludeAdditionalFee` from `TransactionFeeDB` |
+| `internal/constants/enum/transaction_fee.go` | DELETE FILE | ~13 lines | Remove unused `PossibleFeeRateType` enum |
+
+**Net change**: ~350 lines reduction (in service_fee_rate.go alone) + ~20 lines cleanup in domain layer
 
 **Breaking Changes**: ✅ YES - Production code changes required (3-4 call sites)
 
@@ -244,12 +229,28 @@ func buildFilterParams(filter FeeFilterCondition, customerAccount *entities.Cust
 **Location**: Replace lines 345-364
 
 ```go
+// isValidFee checks if a fee is within valid date range (StartDate <= now <= EndDate)
+func isValidFee(tf domain.TransactionFee, now time.Time) bool {
+    if now.Before(tf.Data.StartDate) {
+        return false
+    }
+    if tf.Data.EndDate != nil && now.After(*tf.Data.EndDate) {
+        return false
+    }
+    return true
+}
+
 // getPossibleFeeRate returns a single transaction fee based on filter conditions.
-// It searches conditional fees first (sorted by priority → fee value), then falls back to flat rate.
+// It sorts ALL valid fees by (Priority ASC → FeeValue ASC → SyncedAt ASC),
+// then returns the first fee where IsMatch() returns true.
 //
 // IMPORTANT: This function checks BOTH StartDate AND EndDate for all fees.
 // This fixes the bug in the old implementation where expired fees (EndDate < now)
 // were still being returned for non-onboarding fees.
+//
+// Note: Flat rate (no Condition) is treated like any other fee. Its IsMatch()
+// returns true for all params. If a flat rate has lower priority than conditional
+// fees, it will be selected first.
 func getPossibleFeeRate(
     transactionFee []domain.TransactionFee,
     filter FeeFilterCondition,
@@ -257,55 +258,41 @@ func getPossibleFeeRate(
 ) *domain.TransactionFee {
 
     now := utils.GetTimeNow()
-    conditionalFees := []domain.TransactionFee{}
-    var flatRate *domain.TransactionFee = nil
+    validFees := []domain.TransactionFee{}
 
-    // Separate conditional fees vs flat rate
+    // Filter valid date range
     for _, tf := range transactionFee {
-        // ✅ Check StartDate: Skip fees that haven't started yet
-        if now.Before(tf.Data.StartDate) {
-            continue
+        if isValidFee(tf, now) {
+            validFees = append(validFees, tf)
         }
-
-        // ✅ ⚠️ BUG FIX: Check EndDate: Skip expired fees
-        // Old code only checked this for onboarding fees
-        if tf.Data.EndDate != nil && now.After(*tf.Data.EndDate) {
-            continue
-        }
-
-        // Check if this is a flat rate (no condition)
-        if len(tf.Data.Condition) == 0 {
-            if flatRate == nil {
-                flatRate = &tf
-            }
-            continue
-        }
-
-        conditionalFees = append(conditionalFees, tf)
     }
 
     // Build filter params
     params := buildFilterParams(filter, customerAccount)
 
-    // Sort by Priority ASC, then FeeValue ASC
-    sort.Slice(conditionalFees, func(i, j int) bool {
-        if conditionalFees[i].Data.Priority != conditionalFees[j].Data.Priority {
-            return conditionalFees[i].Data.Priority < conditionalFees[j].Data.Priority
+    // Sort ALL fees by Priority ASC, then FeeValue ASC, then SyncedAt ASC
+    sort.Slice(validFees, func(i, j int) bool {
+        if validFees[i].Data.Priority != validFees[j].Data.Priority {
+            return validFees[i].Data.Priority < validFees[j].Data.Priority
         }
-        feeI := conditionalFees[i].GetFeeValue()
-        feeJ := conditionalFees[j].GetFeeValue()
-        return feeI.LessThan(feeJ)
+        feeI := validFees[i].GetFeeValue()
+        feeJ := validFees[j].GetFeeValue()
+        if !feeI.Equal(feeJ) {
+            return feeI.LessThan(feeJ)
+        }
+        // If Priority and FeeValue are equal, sort by SyncedAt (oldest first)
+        return validFees[i].Data.SyncedAt.Before(validFees[j].Data.SyncedAt)
     })
 
-    // Find first matching fee
-    for _, fee := range conditionalFees {
+    // Return first matching fee
+    for _, fee := range validFees {
         if fee.IsMatch(params) {
             return &fee
         }
     }
 
-    // Return flat rate as fallback
-    return flatRate
+    // No match found
+    return nil
 }
 ```
 
@@ -339,12 +326,12 @@ func (s *orderTradeService) GetPossibleFeeRate(
     }
 
     filter := FeeFilterCondition{
-        CustomerTier:   utils.ToStringPtr(customerAccount.CustomerTier()),
+        CustomerTier:   nil, // Will use customerAccount.CustomerTier() in buildFilterParams
         RouteName:      request.RouteName,
         OnboardingDay:  onboardingDay,
         OnboardingDate: onboardingDate,
         VolumeSize:     request.VolumeSize,   // Support for bulk/normal volume type
-        Symbol:         request.Symbol,        // Support for symbol-specific fees (e.g., "ETH")
+        Symbol:         utils.ToPointer(product.Symbol),  // Support for symbol-specific fees (e.g., "ETH")
     }
 
     selectedFee := getPossibleFeeRate(transactionFee, filter, customerAccount)
@@ -405,6 +392,35 @@ Add `"sort"` to imports if not already present.
 
 ---
 
+### 7. Design Decisions
+
+#### Symbol Field Handling
+
+**Decision**: Symbol is derived from `product.Symbol` inside the service, NOT passed by the caller.
+
+**Rationale**:
+- **Simpler API**: Callers don't need to extract and pass the symbol manually
+- **Consistency**: Symbol always matches the actual product being traded
+- **Error Prevention**: Eliminates potential bugs from mismatched symbols between ProductId and Symbol
+- **Maintainability**: One less field for callers to manage
+
+**Implementation**:
+```go
+// In GetPossibleFeeRate function
+filter := FeeFilterCondition{
+    CustomerTier:   nil,
+    RouteName:      request.RouteName,
+    OnboardingDay:  onboardingDay,
+    OnboardingDate: onboardingDate,
+    VolumeSize:     request.VolumeSize,
+    Symbol:         utils.ToPointer(product.Symbol),  // ← Derived from product
+}
+```
+
+**Alternative Considered**: Adding `Symbol *string` to `RequestGetPossibleFeeRate` and requiring callers to pass it. This was rejected because it adds complexity without benefit.
+
+---
+
 ## Feature: Volume Size Filter (Bulk Trade Support)
 
 ### Overview
@@ -453,27 +469,29 @@ type RequestGetPossibleFeeRate struct {
     TransactionType   enum.OrderType
     RouteName         *string
     ProductId         uuid.UUID
-    FeeRateType       enum.PossibleFeeRateType
     VolumeSize        *string  // ← Add for bulk trade support
-    Symbol            *string  // ← Add for symbol-specific fees
+    // Note: FeeRateType removed - no longer needed
+    // Note: Symbol derived from product.Symbol inside the service (not passed by caller)
 }
 ```
 
-**Pass from Caller**:
+**Implementation in `GetPossibleFeeRate`**:
 ```go
-// In GetSwapBuyRouteWithNewRemarketer or GetSwapSellRouteWithNewRemarketer
-currencyPair := domain.CurrencyPair{Pair: swapPair}
-
-request := RequestGetPossibleFeeRate{
-    CustomerAccountId: customerAccountId,
-    TransactionType:   enum.Swap,
-    RouteName:         utils.ToPointer(route.Name()),
-    ProductId:         product.ID(),
-    FeeRateType:       feeRateType,
-    VolumeSize:        swapOrderInput.VolumeSize,
-    Symbol:            utils.ToStringPtr(currencyPair.BaseCurrency()),  // ← Pass symbol from pair
+// Symbol is derived from product, not passed by caller
+filter := FeeFilterCondition{
+    CustomerTier:   nil, // Will use customerAccount.CustomerTier() in buildFilterParams
+    RouteName:      request.RouteName,
+    OnboardingDay:  onboardingDay,
+    OnboardingDate: onboardingDate,
+    VolumeSize:     request.VolumeSize,
+    Symbol:         utils.ToPointer(product.Symbol),  // ← Derived from product
 }
 ```
+
+**Design Decision**: Symbol is derived from `product.Symbol` inside the service rather than being passed by the caller. This approach:
+- Keeps the API simpler (callers don't need to extract/pass symbol)
+- Ensures consistency (symbol always matches the actual product)
+- Reduces potential errors from mismatched symbols
 
 ### Example Flow
 
@@ -532,30 +550,27 @@ Provide special fees for specific coins or promote trading of certain cryptocurr
 
 ### Code Changes Required
 
-**Update `RequestGetPossibleFeeRate` in `input.go`**:
+**Note**: Symbol field is **NOT added** to `RequestGetPossibleFeeRate`. Instead, it is derived from `product.Symbol` inside the service. See the "Volume Size Filter" section above for the implementation details.
+
+**Current `RequestGetPossibleFeeRate` in `input.go`**:
 ```go
 type RequestGetPossibleFeeRate struct {
     CustomerAccountId uuid.UUID
     TransactionType   enum.OrderType
     RouteName         *string
     ProductId         uuid.UUID
-    FeeRateType       enum.PossibleFeeRateType
-    VolumeSize        *string
-    Symbol            *string  // ← Add this field
+    VolumeSize        *string  // e.g., "bulk", "normal" - for bulk trade support
+    // Note: FeeRateType removed - no longer needed
+    // Note: Symbol derived from product.Symbol inside the service (not passed by caller)
 }
 ```
 
-**Pass from Caller**:
+**Symbol Filter Implementation**:
+The symbol is automatically extracted from the product inside `GetPossibleFeeRate`:
 ```go
-// In GetSwapBuyRouteWithNewRemarketer or GetSwapSellRouteWithNewRemarketer
-request := RequestGetPossibleFeeRate{
-    CustomerAccountId: customerAccountId,
-    TransactionType:   enum.Swap,
-    RouteName:         utils.ToPointer(route.Name()),
-    ProductId:         product.ID(),
-    FeeRateType:       feeRateType,
-    VolumeSize:        swapOrderInput.VolumeSize,
-    Symbol:            &pair.BaseCurrency(),  // ← Extract symbol from trading pair
+filter := FeeFilterCondition{
+    // ... other fields ...
+    Symbol: utils.ToPointer(product.Symbol),  // ← Derived from product
 }
 ```
 

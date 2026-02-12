@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "ImplementPlan/ImplementFeePlan-ManageFee.md",
+                "file": "Trade/Campaign.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "ImplementFeePlan-ManageFee"
+              "title": "Campaign"
             }
           }
         ]
@@ -185,9 +185,14 @@
   },
   "active": "634fb1c9d95c3038",
   "lastOpenFiles": [
-    "ImplementPlan/swap-hide-route-selection.md",
-    "ImplementPlan/ImplementFeePlan-ManageFee.md",
+    "Trade/Fee-IO.md",
+    "Trade/Campaign.md",
+    "Trade/Camplain",
     "Trade/BestRoute.md",
+    "Trade/SwapRoute.md",
+    "Trade/SwapFee.md",
+    "ImplementPlan/ImplementFeePlan-ManageFee.md",
+    "ImplementPlan/swap-hide-route-selection.md",
     "Trade/Fee-Campaign-System.md",
     "Trade/Management-Fee-Spread.md",
     "Trade/Input Output.md",
@@ -195,8 +200,6 @@
     "Kube/Kong/KongCommand.md",
     "Kube/Kong/Ingress.md",
     "Kube/Kong/kong.md",
-    "Trade/SwapFee.md",
-    "Trade/SwapRoute.md",
     "Documentation-Guide.md",
     "Biglot/Biglot.md",
     "Flutter/Deployment.md",
@@ -221,7 +224,6 @@
     "Welcome.md",
     "Images",
     "Screenshot 2569-01-17 at 11.33.19.png",
-    "RateLimit 1.png",
-    "Kube/Kong"
+    "RateLimit 1.png"
   ]
 }
