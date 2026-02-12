@@ -1,4 +1,14 @@
+---
+title: Fee Campaign System
+tags: [trading, architecture, fees]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # Fee Campaign System Documentation
+
+**Navigation**: [[Home]] | Trade
 
 ## Overview
 
@@ -268,3 +278,9 @@ Applies 8% fee for all transactions during December.
 - `internal/service/transaction_fee_service.go` - Business logic
 - `handler/transaction_fee_handler.go` - HTTP handlers
 - `routes/transaction_fee_routes.go` - Route definitions
+
+## Related
+
+- [[Trade/Campaign|Campaign API]] - Campaign CRUD and condition system
+- [[Trade/Fee-IO|Fee I/O]] - `GetPossibleFeeRate` input/output reference
+- [[Trade/SwapFee|Swap Fee]] - OrderFee calculation

@@ -1,4 +1,14 @@
+---
+title: GetPossibleFeeRate I/O
+tags: [trading, api, fees]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # GetPossibleFeeRate - Input/Output
+
+**Navigation**: [[Home]] | Trade
 
 ## Function Signature
 

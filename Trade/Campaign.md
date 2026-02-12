@@ -1,4 +1,14 @@
+---
+title: Campaign Module
+tags: [trading, api, fees]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # Campaign Module Documentation
+
+**Navigation**: [[Home]] | Trade
 
 ## Overview
 

@@ -1,4 +1,14 @@
+---
+title: Kubernetes Ingress with Kong
+tags: [kubernetes, kong, architecture]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # Kubernetes Ingress: What You Should Know
+
+**Navigation**: [[Home]] | Infrastructure
 
 ## 1. What is Ingress?
 Ingress is an API object that manages external access to the services in a cluster, typically HTTP and HTTPS. In simpler terms, it acts as a "smart router" or entry point for your cluster.
@@ -154,3 +164,8 @@ autoscaling:
 
 *   **Resource Constraints**:
     *   The `limits` and `requests` are set quite low (256Mi - 512Mi RAM). This is safe because of the aggressive tuning of Nginx workers and Lua dictionaries above.
+
+## Related
+
+- [[Kube/Kong/Ratelimit|Kong Rate Limiting]] - Rate limiting configuration
+- [[Kube/Kong/KongCommand|Kong Debug Commands]] - kubectl commands for debugging Kong

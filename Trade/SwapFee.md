@@ -1,4 +1,14 @@
+---
+title: OrderFee Calculation
+tags: [trading, fees, swap]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # OrderFee - ที่มาและการคำนวณรายละเอียด
+
+**Navigation**: [[Home]] | Trade
 
 ## ภาพรวม
 
@@ -10,7 +20,7 @@ OrderFee คือค่าธรรมเนียมที่คำนวณ�
 
 ---
 
-# ส่วนที่ 1: ที่มาของ Fee Rate
+## ส่วนที่ 1: ที่มาของ Fee Rate
 
 ## 1.1 Database Table: transaction_fee
 
@@ -84,7 +94,7 @@ ORDER BY priority ASC;
 
 ---
 
-# ส่วนที่ 2: GetPossibleFeeRate Function
+## ส่วนที่ 2: GetPossibleFeeRate Function
 
 ## 2.1 การทำงาน
 
@@ -167,7 +177,7 @@ Response:
 
 ---
 
-# ส่วนที่ 3: CalculateTotalFeeRate Function
+## ส่วนที่ 3: CalculateTotalFeeRate Function
 
 **ไฟล์:** `pkg/order_trade/service_fee_rate.go` (บรรทัด 390-398)
 
@@ -201,7 +211,7 @@ totalSwapFee = sum(feeRate[].FeeValue)
 
 ---
 
-# ส่วนที่ 4: Flow ที่ 1 - GetSwapRoutes
+## ส่วนที่ 4: Flow ที่ 1 - GetSwapRoutes
 
 ## 4.1 ภาพรวม
 
@@ -302,7 +312,7 @@ TransactionFeeAmount = 11.94 THB
 
 ---
 
-# ส่วนที่ 5: Flow ที่ 2 - OrderTradeWebhook
+## ส่วนที่ 5: Flow ที่ 2 - OrderTradeWebhook
 
 ## 5.1 ภาพรวม
 
@@ -717,7 +727,7 @@ func (s *orderTradeService) validateFilledSwap(filledSwap domain.FilledSwap) {
 
 ---
 
-# ส่วนที่ 6: VAT Calculation
+## ส่วนที่ 6: VAT Calculation
 
 **ไฟล์:** `internal/domain/filled_swap.go` (บรรทัด 166-171)
 
@@ -762,7 +772,7 @@ VAT = 0.78 THB
 
 ---
 
-# ส่วนที่ 7: สรุปสูตรทั้งหมด
+## ส่วนที่ 7: สรุปสูตรทั้งหมด
 
 ## 7.1 GetSwapRoutes Flow
 
@@ -786,7 +796,7 @@ VAT = OrderFee × 7 / 107
 
 ---
 
-# ส่วนที่ 8: Flow Diagram ฉบับสมบูรณ์
+## ส่วนที่ 8: Flow Diagram ฉบับสมบูรณ์
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -853,7 +863,7 @@ VAT = OrderFee × 7 / 107
 
 ---
 
-# ส่วนที่ 9: ข้อมูลตัวอย่างใน Database
+## ส่วนที่ 9: ข้อมูลตัวอย่างใน Database
 
 ## 9.1 ตัวอย่าง transaction_fee rows
 
@@ -981,7 +991,7 @@ GetPossibleFeeRate Match:
 
 ---
 
-# ส่วนที่ 10: คำถามที่พบบ่อย
+## ส่วนที่ 10: คำถามที่พบบ่อย
 
 ## Q1: ทำไม GetSwapRoutes กับ Webhook คำนวณต่างกัน?
 
@@ -1011,7 +1021,7 @@ VAT = OrderFee × 7 / 107
 
 ---
 
-# ส่วนที่ 11: หลังจากคำนวณ OrderFee แล้ว - การบันทึกข้อมูล
+## ส่วนที่ 11: หลังจากคำนวณ OrderFee แล้ว - การบันทึกข้อมูล
 
 ## 11.1 ภาพรวม Flow การบันทึกข้อมูล
 
@@ -1278,7 +1288,7 @@ Step 7: อัปเดต OrderTrade Status → FILLED
 
 ---
 
-# สรุป
+## สรุป
 
 | หัวข้อ                 | คำอธิบาย                                          |
 | ---------------------- | ------------------------------------------------- |
@@ -1294,3 +1304,11 @@ Step 7: อัปเดต OrderTrade Status → FILLED
 | **บันทึก FeeDetail**   | Table `order_trade_transaction.fee_detail` (JSON) |
 | **รวม Fee ทั้งหมด**    | Table `order_trade_information.sum_order_fee`     |
 | **ส่งไป Ledger**       | Kafka Topic → Ledger Service → Balance            |
+
+## Related
+
+- [[Trade/SwapRoute|GetSwapRoutes]] - Route inquiry flow (uses OrderFee)
+- [[Trade/BestRoute|Best Route]] - Best route selection logic
+- [[Trade/Fee-IO|Fee I/O]] - `GetPossibleFeeRate` input/output reference
+- [[Trade/Fee-Campaign-System|Fee Campaign System]] - Campaign-based fee management
+- [[Trade/Management-Fee-Spread|Management Fee & Spread]] - FX spread calculation

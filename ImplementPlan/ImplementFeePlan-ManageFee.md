@@ -1,4 +1,14 @@
+---
+title: Fee Logic Refactor Plan
+tags: [trading, fees, implementation-plan]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # Fee Logic Refactor Implementation Plan
+
+**Navigation**: [[Home]] | Implementation Plans
 
 ## Overview
 Refactor `getPossibleFeeRate` to return only ONE transaction fee with simplified selection logic.

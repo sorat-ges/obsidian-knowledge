@@ -1,3 +1,15 @@
+---
+title: Kong Debugging Commands
+tags: [kubernetes, kong, config]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
+# Kong Debugging Commands
+
+**Navigation**: [[Home]] | Infrastructure
+
 นี่คือรวมชุดคำสั่งสำหรับ **"X-Ray ดูไส้ใน Kong"** แบบครบทุกมุมครับ แนะนำให้ไล่เช็คตามลำดับนี้เพื่อหาสาเหตุที่ Pod ใหม่มันค้างครับ
 
 ### 1. ดูภาพรวม (Status & Health)
@@ -79,3 +91,8 @@ kubectl get ingress -A
 ```
 
 **แนะนำ:** ตอนนี้ให้เริ่มจาก **ข้อ 2 (Describe)** และ **ข้อ 3 (Logs -c proxy)** กับ Pod ตัวใหม่ที่ค้างอยู่ครับ จะเจอคำตอบแน่นอน
+
+## Related
+
+- [[Kube/Kong/Ingress|Kong Ingress]] - Ingress resource and controller setup
+- [[Kube/Kong/Ratelimit|Kong Rate Limiting]] - Rate limiting configuration

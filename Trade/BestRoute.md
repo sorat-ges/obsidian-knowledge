@@ -1,4 +1,14 @@
+---
+title: Best Route Logic
+tags: [trading, architecture, swap]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # Best Route Logic
+
+**Navigation**: [[Home]] | Trade
 
 ## ภาพรวม
 
@@ -372,3 +382,9 @@ type Route interface {
 2. **Best Route ได้เพียง 1 ตัว** - เนื่องจากมี `break`
 3. **เงื่อนไข Best Route:** `HasOrder = true` AND `FullMatched`
 4. **Route ที่ NetAmount สูงสุด ไม่จำเป็น Best Route** - ต้อง Full Matched ด้วย
+
+## Related
+
+- [[Trade/SwapRoute|GetSwapRoutes]] - Route inquiry flow (calls SortBestRoute)
+- [[Trade/SwapFee|Swap Fee]] - OrderFee calculation
+- [[Trade/Fee-IO|Fee I/O]] - `GetPossibleFeeRate` input/output reference

@@ -1,4 +1,14 @@
+---
+title: GetSwapRoutes
+tags: [trading, architecture, swap]
+status: active
+created: 2026-02-01
+last-updated: 2026-02-12
+---
+
 # GetSwapRoutes - คำอธิบายรายละเอียด
+
+**Navigation**: [[Home]] | Trade
 
 ## ภาพรวม
 
@@ -1101,3 +1111,10 @@ MarketPrice = DA.NavPU × FX.NavPU
 | Digital Asset Mark to Market | ดึงราคาสินทรัพย์ |
 | FX Mark to Market | ดึงอัตราแลกเปลี่ยน |
 | Liquidity Config | ดึงขีดจำกัดสภาพคล่อง |
+
+## Related
+
+- [[Trade/BestRoute|Best Route]] - Best route selection logic
+- [[Trade/SwapFee|Swap Fee]] - OrderFee calculation (Webhook flow)
+- [[Trade/Fee-IO|Fee I/O]] - `GetPossibleFeeRate` input/output reference
+- [[Trade/Fee-Campaign-System|Fee Campaign System]] - Campaign-based fee management

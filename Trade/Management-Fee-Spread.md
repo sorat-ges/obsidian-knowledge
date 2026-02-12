@@ -8,7 +8,7 @@ last-updated: 2026-02-01
 
 # Management Fee & Spread
 
-**Navigation**: [[Home]] | Finance
+**Navigation**: [[Home]] | Trade
 
 ## Overview
 
@@ -136,7 +136,8 @@ Spread Cost (Stock) = (Ask Price - Bid Price) × Quantity
 
 ## Related
 
-- [[Flutter/Deployment|Deployment Guide]]
+- [[Trade/SwapFee|Swap Fee]] - OrderFee calculation
+- [[Trade/Fee-Campaign-System|Fee Campaign System]] - Campaign-based fee management
 
 ## References
 
