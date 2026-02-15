@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
+                "file": "ImplementPlan/Permission-Implementation-Plan.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "AdditionalFee_DeepDive_Feature"
+              "title": "Permission-Implementation-Plan"
             }
           }
         ]
@@ -78,7 +78,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "b8e3961669af3033",
@@ -185,24 +186,25 @@
   },
   "active": "634fb1c9d95c3038",
   "lastOpenFiles": [
-    "Trade/Fee/AdditionalFee_DeepDive_Main.md",
-    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
-    "ImplementPlan/OldFeePlan.md",
-    "ImplementPlan/OldAdditionalFee-Logic.md",
     "ImplementPlan/ImplementFeePlan-ManageFee.md",
+    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
+    "ImplementPlan/Permission-Implementation-Plan.md",
+    "Trade/BestRoute.md",
+    "ImplementPlan/swap-hide-route-selection.md",
     "ImplementPlan/ImplementFeePlan-ManageFee-AdditionalFee.md",
+    "Kube/Kong/Ratelimit.md",
+    "Kube/Kong/Ingress.md",
+    "ImplementPlan/OldAdditionalFee-Logic.md",
+    "Trade/Fee/AdditionalFee_DeepDive_Main.md",
+    "ImplementPlan/OldFeePlan.md",
     "Trade/BestRouteV2.md",
     "ImplementPlan/plan.md",
-    "Trade/BestRoute.md",
     "Trade/Fee-Campaign-System.md",
     "Trade/Campaign.md",
     "Trade/Fee-IO.md",
     "Trade/SwapFee.md",
     "Trade/Management-Fee-Spread.md",
-    "Kube/Kong/Ratelimit.md",
     "Kube/Kong/KongCommand.md",
-    "Kube/Kong/Ingress.md",
-    "ImplementPlan/swap-hide-route-selection.md",
     "Trade/Camplain",
     "Trade/SwapRoute.md",
     "Trade/Input Output.md",
@@ -211,7 +213,6 @@
     "Documentation-Guide.md",
     "Biglot/Biglot.md",
     "Flutter/Deployment.md",
-    "Home.md",
     "Trade/SwapRoute",
     "Trade",
     "Finance/SwapRoute",
