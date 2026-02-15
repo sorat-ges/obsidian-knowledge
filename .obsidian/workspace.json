@@ -11,10 +11,14 @@
             "id": "634fb1c9d95c3038",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
+                "mode": "preview",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "AdditionalFee_DeepDive_Feature"
             }
           }
         ]
@@ -181,6 +185,8 @@
   },
   "active": "634fb1c9d95c3038",
   "lastOpenFiles": [
+    "Trade/Fee/AdditionalFee_DeepDive_Main.md",
+    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
     "ImplementPlan/OldFeePlan.md",
     "ImplementPlan/OldAdditionalFee-Logic.md",
     "ImplementPlan/ImplementFeePlan-ManageFee.md",
@@ -206,11 +212,9 @@
     "Biglot/Biglot.md",
     "Flutter/Deployment.md",
     "Home.md",
-    "Finance/SwapFee.md",
     "Trade/SwapRoute",
     "Trade",
     "Finance/SwapRoute",
-    "Finance/Fee-Campaign-System.md",
     "Finance",
     "Images/FlowBiglot.png",
     "Images/RateLimit.png",
