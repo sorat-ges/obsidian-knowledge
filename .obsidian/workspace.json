@@ -4,24 +4,39 @@
     "type": "split",
     "children": [
       {
-        "id": "870a232c80520fa0",
+        "id": "18fcfb42b521c490",
         "type": "tabs",
         "children": [
           {
-            "id": "bc8a6ee3cdb6bf3b",
+            "id": "fa2133807ab2adfc",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "ImplementPlan/QRWithdrawTransaction-Implement-Plan.md",
+                "file": "ImplementPlan/TradingWeb wrong login.md",
+                "mode": "preview",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "TradingWeb wrong login"
+            }
+          },
+          {
+            "id": "6c4bc8a24f4f3421",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "ImplementPlan/TradingWeb wrong login.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "QRWithdrawTransaction-Implement-Plan"
+              "title": "TradingWeb wrong login"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -78,7 +93,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 389.5
   },
   "right": {
     "id": "b8e3961669af3033",
@@ -183,46 +198,46 @@
       "bases:Create new base": false
     }
   },
-  "active": "bc8a6ee3cdb6bf3b",
+  "active": "6c4bc8a24f4f3421",
   "lastOpenFiles": [
-    "ImplementPlan/ImplementFeePlan-ManageFee.md",
-    "ImplementPlan/Open Claw.md",
-    "ImplementPlan/Permission-Implementation-Plan.md",
-    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
-    "Trade/BestRoute.md",
-    "ImplementPlan/swap-hide-route-selection.md",
-    "ImplementPlan/ImplementFeePlan-ManageFee-AdditionalFee.md",
-    "Kube/Kong/Ratelimit.md",
-    "Kube/Kong/Ingress.md",
-    "ImplementPlan/OldAdditionalFee-Logic.md",
-    "Trade/Fee/AdditionalFee_DeepDive_Main.md",
-    "ImplementPlan/OldFeePlan.md",
-    "Trade/BestRouteV2.md",
-    "ImplementPlan/plan.md",
-    "Trade/Fee-Campaign-System.md",
-    "Trade/Campaign.md",
-    "Trade/Fee-IO.md",
-    "Trade/SwapFee.md",
-    "Trade/Management-Fee-Spread.md",
-    "Kube/Kong/KongCommand.md",
-    "Trade/Camplain",
-    "Trade/SwapRoute.md",
-    "Trade/Input Output.md",
-    "Trade/ImplementFeePlan-ManageFee.md",
-    "Kube/Kong/kong.md",
     "Documentation-Guide.md",
-    "Biglot/Biglot.md",
-    "Trade/SwapRoute",
-    "Trade",
-    "Finance/SwapRoute",
-    "Finance",
+    "Home.md",
+    "Move infrastuctor.md",
+    "README.md",
+    "ImplementPlan/Yield/**Yield Payment Module**.md",
+    "ImplementPlan/Asset-Balance-Dealer.md",
+    "ImplementPlan/Dealer Internal Transfer.md",
+    "ImplementPlan/TradingWeb wrong login.md",
+    "ImplementPlan/Yield",
+    "ImplementPlan/OTP Limit/OTP Countdown Rate-Limit via Redis.md",
+    "ImplementPlan/SIRIHUB 2 Cant Swap Limit/Plan Disable Limit Swap for SIRIHUB2 (and Future Assets).md",
+    "ImplementPlan/OTP Limit/OTP Cooldown Flow.md",
+    "ImplementPlan/SQL Injection/Implementation Plan Replace Handler SQL Injection Validation with Struct Validate Tags.md",
+    "ImplementPlan/SIRIHUB 2 Cant Swap Limit",
+    "Trade/# BigLot Trading Flow Documentation.md",
+    "ImplementPlan/OTP Limit",
+    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
+    "Sql Injection/SQL Injection Prevention Review - Order ServiceUntitled.md",
+    "ImplementPlan/Trading-Web/Withdraw Crypto History.md",
+    "Permission/BackEnd-API.md",
+    "ImplementPlan/ICO/Plan Edit ICO Order Placement API.md",
+    "Sql Injection/Untitled",
+    "Sql Injection",
+    "ImplementPlan/ICO/Implementation Plan ICO Order Placement - Draft Save & Edit Existing Order.md",
+    "ImplementPlan/Auditlog/Audit Log - Deposit Crypto Wallet Plan.md",
+    "ImplementPlan/ICO/Update Payment Slip Plan.md",
+    "ImplementPlan/Auditlog",
+    "ImplementPlan/SQL Injection/🔴 SQL Injection Vulnerability Scan Report.md",
+    "ImplementPlan/ICO",
+    "ImplementPlan/SQL Injection",
+    "Permission",
+    "ImplementPlan/Get Trading Withdraw Crypto Detail/API Implementation Plan  Get Trading Withdraw Crypto Detail.md",
+    "ImplementPlan/Trading-Web",
+    "ImplementPlan/AddressBook/TradingWeb-AddressBook-ImplementPlan.md",
+    "ImplementPlan/AddressBook/Prompts WorkFlow for AI Agent.md",
+    "ImplementPlan/AddressBook/OrderService-GetAllAdressBook-ImplementPlan.md",
     "Images/FlowBiglot.png",
     "Images/RateLimit.png",
-    "Flutter",
-    "Kube/Kong/ratelimit-example.yaml",
-    "Untitled 1.base",
-    "Untitled.base",
-    "Images",
     "Screenshot 2569-01-17 at 11.33.19.png",
     "RateLimit 1.png"
   ]
