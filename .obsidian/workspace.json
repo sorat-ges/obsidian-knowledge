@@ -4,39 +4,24 @@
     "type": "split",
     "children": [
       {
-        "id": "18fcfb42b521c490",
+        "id": "917ce673f890def4",
         "type": "tabs",
         "children": [
           {
-            "id": "fa2133807ab2adfc",
+            "id": "9b8c0a89711b3c2a",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "ImplementPlan/TradingWeb wrong login.md",
-                "mode": "preview",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "TradingWeb wrong login"
-            }
-          },
-          {
-            "id": "6c4bc8a24f4f3421",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "ImplementPlan/AddressBook/Remove-Hardcode-ProductTypeCode-Plan.md",
+                "file": "Trade/Trading Web/Withdraw Fiat Fee Flow.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Remove-Hardcode-ProductTypeCode-Plan"
+              "title": "Withdraw Fiat Fee Flow"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -198,44 +183,44 @@
       "bases:Create new base": false
     }
   },
-  "active": "6c4bc8a24f4f3421",
+  "active": "9b8c0a89711b3c2a",
   "lastOpenFiles": [
+    "Trade/Trading Web/Special Fee — Implement Plan.md",
+    "Trade/Trading Web/Withdraw Fiat Fee Flow.md",
+    "Trade/Fee/AdditionalFee_DeepDive_Main.md",
+    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
+    "ImplementPlan/ImplementFeePlan-ManageFee.md",
+    "ImplementPlan/ICO/Update Payment Slip Plan.md",
+    "ImplementPlan/ICO/XM-14225 ICO Referral Field Wealth Advisor Code.md",
+    "ImplementPlan/ICO/XM-14225 Task - mobile redesign confirm order + wealth advisor dropdown.md",
+    "ImplementPlan/ICO/XM-14225 Referral Field - Wealth Advisor Code.md",
+    "ImplementPlan/ICO/XM-14225 Task - product-service get referral config.md",
+    "Trade/Trading Web/OTP Flow — Withdraw Fiat.md",
+    "Trade/Fee/Fee-Campaign-System.md",
+    "Trade/Fee/Fee-IO.md",
+    "Trade/Trading Web/Login Flow.md",
+    "Trade/Login Flow.md",
+    "Trade/Trading Web",
+    "Trade/trading-web/Login Flow.md",
+    "Trade/trading-web",
+    "ImplementPlan/TradingWeb wrong login.md",
+    "ImplementPlan/AddressBook/Remove-Hardcode-ProductTypeCode-Plan.md",
     "ImplementPlan/AddressBook/OrderService-GetAllAdressBook-ImplementPlan.md",
     "ImplementPlan/AddressBook/TradingWeb-AddressBook-ImplementPlan.md",
     "ImplementPlan/AddressBook/Prompts WorkFlow for AI Agent.md",
     "ImplementPlan/Dealer Internal Transfer.md",
     "ImplementPlan/Asset-Balance-Dealer.md",
     "ImplementPlan/Yield/**Yield Payment Module**.md",
-    "ImplementPlan/TradingWeb wrong login.md",
     "Documentation-Guide.md",
     "Home.md",
-    "Move infrastuctor.md",
-    "README.md",
     "ImplementPlan/Yield",
-    "ImplementPlan/OTP Limit/OTP Countdown Rate-Limit via Redis.md",
-    "ImplementPlan/SIRIHUB 2 Cant Swap Limit/Plan Disable Limit Swap for SIRIHUB2 (and Future Assets).md",
-    "ImplementPlan/OTP Limit/OTP Cooldown Flow.md",
-    "ImplementPlan/SQL Injection/Implementation Plan Replace Handler SQL Injection Validation with Struct Validate Tags.md",
     "ImplementPlan/SIRIHUB 2 Cant Swap Limit",
-    "Trade/# BigLot Trading Flow Documentation.md",
     "ImplementPlan/OTP Limit",
-    "Trade/Fee/AdditionalFee_DeepDive_Feature.md",
-    "Sql Injection/SQL Injection Prevention Review - Order ServiceUntitled.md",
-    "ImplementPlan/Trading-Web/Withdraw Crypto History.md",
-    "Permission/BackEnd-API.md",
-    "ImplementPlan/ICO/Plan Edit ICO Order Placement API.md",
     "Sql Injection/Untitled",
     "Sql Injection",
-    "ImplementPlan/ICO/Implementation Plan ICO Order Placement - Draft Save & Edit Existing Order.md",
-    "ImplementPlan/Auditlog/Audit Log - Deposit Crypto Wallet Plan.md",
-    "ImplementPlan/ICO/Update Payment Slip Plan.md",
     "ImplementPlan/Auditlog",
-    "ImplementPlan/SQL Injection/🔴 SQL Injection Vulnerability Scan Report.md",
     "ImplementPlan/ICO",
     "ImplementPlan/SQL Injection",
-    "Permission",
-    "ImplementPlan/Get Trading Withdraw Crypto Detail/API Implementation Plan  Get Trading Withdraw Crypto Detail.md",
-    "ImplementPlan/Trading-Web",
     "Images/FlowBiglot.png",
     "Images/RateLimit.png",
     "Screenshot 2569-01-17 at 11.33.19.png",
