@@ -30,6 +30,7 @@ last-updated: 2026-04-06
 - [**BigLot Rules**](./02-Business-Logic/Order-Service/BigLot-Rules.md): กฎการเทรดล็อตใหญ่ (Bulk)
 - [**Fee & Campaign Rules**](./02-Business-Logic/Order-Service/Fee-Campaign-Rules.md): ลำดับความสำคัญของ Fee
 - [**Withdraw Rules**](./02-Business-Logic/Order-Service/Withdraw-Rules.md): การถอนเงินบาทและค่าโอน
+- [**Fireblocks Hook Rules**](./02-Business-Logic/Order-Service/Fireblocks-Hook-Rules.md): การจัดการ Webhook ฝาก/ถอนคริปโต
 - [**Ledger Rules**](./02-Business-Logic/Order-Service/Ledger-Rules.md): การหมุนเวียนของเงิน (Money Flow)
 - [**State Machine Rules**](./02-Business-Logic/Order-Service/State-Rules.md): วงจรชีวิตของออเดอร์ (Lifecycle)
 

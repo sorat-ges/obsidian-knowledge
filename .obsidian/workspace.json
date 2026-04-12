@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Trade/Trading Web/Withdraw Fiat Fee Flow.md",
+                "file": "03-Implementation/Active/Transfer.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Withdraw Fiat Fee Flow"
+              "title": "Transfer"
             }
           }
         ]
@@ -185,6 +185,9 @@
   },
   "active": "9b8c0a89711b3c2a",
   "lastOpenFiles": [
+    "03-Implementation/Active/WLLXXX-split-transferable-flag-and-delist-journey.md",
+    "03-Implementation/Active/Transfer.md",
+    "02-Business-Logic/Order-Service/Fireblocks-Hook-Rules.md",
     "Trade/Trading Web/Special Fee — Implement Plan.md",
     "Trade/Trading Web/Withdraw Fiat Fee Flow.md",
     "Trade/Fee/AdditionalFee_DeepDive_Main.md",
@@ -210,9 +213,6 @@
     "ImplementPlan/AddressBook/Prompts WorkFlow for AI Agent.md",
     "ImplementPlan/Dealer Internal Transfer.md",
     "ImplementPlan/Asset-Balance-Dealer.md",
-    "ImplementPlan/Yield/**Yield Payment Module**.md",
-    "Documentation-Guide.md",
-    "Home.md",
     "ImplementPlan/Yield",
     "ImplementPlan/SIRIHUB 2 Cant Swap Limit",
     "ImplementPlan/OTP Limit",
