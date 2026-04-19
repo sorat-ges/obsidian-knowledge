@@ -1,89 +1,114 @@
-# WLLXXX - Separate Flag: Transferable for Deposit/Withdraw and Support Delist Journey
+# WLLXXX - การแยก Flag: Transferable สำหรับการฝาก/ถอน และรองรับกระบวนการ Delist (Delist Journey)
 
-## Objective
-To separate the existing `Transferable` flag into `Depositable` and `Withdrawable` and to implement the delisting journey for digital assets, ensuring that delisted coins do not affect customer balances and that their open limit orders are cancelled.
+## วัตถุประสงค์ (Objective)
+เพื่อแยก Flag `Transferable` ที่มีอยู่ออกเป็น `Depositable` (ฝากได้) และ `Withdrawable` (ถอนได้) และเพื่อเตรียมระบบรองรับกระบวนการเพิกถอนสินทรัพย์ (Delisting) เพื่อให้มั่นใจว่าเหรียญที่ถูก Delist จะไม่กระทบต่อยอดคงเหลือของลูกค้า และออเดอร์ Limit ที่ค้างอยู่จะถูกยกเลิกโดยอัตโนมัติ
 
-## Acceptance Criteria (AC)
-1.  **Channels**: MOB / Web Trade / Weare.
-2.  **Flag Separation**: Split `Transferable` into `Depositable` and `Withdrawable`. Update all relevant logic to use the correct flag based on the operation (Deposit or Withdraw).
-3.  **Delist Info**: Ensure coin information is displayed correctly after delisting.
-4.  **Balance Protection**: When `Depositable = FALSE` (Delisted), do not process incoming webhooks/hooks to avoid updating customer balances.
-5.  **Cancel Limit Orders**: Automatically cancel all open limit orders for delisted assets and ensure movements are correctly recorded.
-6.  **Market Data**: Stop fetching prices and clear existing price data from the `product_digital_asset_mark_to_market` table.
-
----
-
-## 1. Database & Schema Changes
-
-### 1.1 Table `product_digital_asset_extension`
-- Add column `depositable` (boolean, default true).
-- Add column `withdrawable` (boolean, default true).
-- (Optional) Keep `transferable` for backward compatibility or migrate its value to the new columns.
-
-### 1.2 Table `product_digital_asset_mark_to_market`
-- Ensure a mechanism to delete rows by `product_id`.
+## เกณฑ์การยอมรับ (Acceptance Criteria - AC)
+1.  **ช่องทาง (Channels)**: รองรับ MOB / Web Trade / Weare
+2.  **การแยก Flag**: แยก `Transferable` เป็น `Depositable` และ `Withdrawable` พร้อมอัปเดต Logic ที่เกี่ยวข้องให้ใช้ Flag ที่ถูกต้องตามประเภทธุรกรรม (ฝาก หรือ ถอน)
+3.  **ข้อมูลการ Delist**: ตรวจสอบว่าข้อมูลเหรียญยังแสดงผลได้ถูกต้องหลังจาก Delist
+4.  **การป้องกันยอดคงเหลือ (Balance Protection)**: เมื่อ `Depositable = FALSE` (Delisted) ระบบจะต้องไม่ประมวลผล Webhook/Hook ที่เข้ามา เพื่อป้องกันการอัปเดตยอดเงินลูกค้าผิดพลาด
+5.  **ยกเลิก Limit Orders**: ยกเลิกออเดอร์ Limit ที่เปิดค้างไว้ทั้งหมดสำหรับสินทรัพย์ที่ถูก Delist โดยอัตโนมัติ และตรวจสอบว่ามีการบันทึกการเคลื่อนไหวของ Ledger (Ledger Movements) อย่างถูกต้อง
+6.  **ข้อมูลตลาด (Market Data)**: หยุดดึงราคา (Price Fetching) และลบข้อมูลราคาที่มีอยู่ในตาราง `product_digital_asset_mark_to_market`
 
 ---
 
-## 2. Domain & Entity Layer Changes
+## 1. การเปลี่ยนแปลง Database & Schema
 
-### 2.1 Update `internal/domain/product_digital_asset_extension.go`
-- Modify `ProductDAExtensionDB` to include `Depositable` and `Withdrawable` fields with proper GORM tags.
+### 1.1 ตาราง `product_digital_asset_extension`
+- เพิ่มคอลัมน์ `depositable` (boolean, default true)
+- เพิ่มคอลัมน์ `withdrawable` (boolean, default true)
+- (ทางเลือก) เก็บ `transferable` ไว้เพื่อรองรับ Backward Compatibility หรือทำการ Migrate ค่าไปยังคอลัมน์ใหม่
 
-### 2.2 Update `internal/domain/product_on_shelf.go`
-- Modify `ProductOnShelfOption` to replace `IsTransferable` with `IsDepositable` and `IsWithdrawable`.
-
----
-
-## 3. Repository Layer Changes
-
-### 3.1 Update `storages/postgres/productrespository/product_repository.go`
-- Modify `GetProductOnShelf` to use the correct flag:
-    - If filtering for **Deposit**: Use `pdae.depositable = ?`.
-    - If filtering for **Withdrawal**: Use `pdae.withdrawable = ?`.
-
-### 3.2 Update `storages/postgres/productrespository/product_digital_asset_mark_to_market_repository.go`
-- Implement a `DeleteByProductID(productID uuid.UUID) error` method to clear price data for delisted assets.
-
-### 3.3 Update `pkg/order_trade/repository.go`
-- Implement a method to find all open limit orders by a specific asset (where asset is base or quote).
+### 1.2 ตาราง `product_digital_asset_mark_to_market`
+- เตรียม Mechanism สำหรับการลบข้อมูลตาม `product_id`
 
 ---
 
-## 4. Service Layer Implementation
+## 2. การเปลี่ยนแปลง Domain & Entity Layer
 
-### 4.1 Update Crypto Product Service (`pkg/crypto_product/service.go`)
-- In `GetProductCrypto`, update `ProductOnShelfOption` initialization to set `IsDepositable` or `IsWithdrawable` based on the requested operation type.
+### 2.1 อัปเดต `internal/domain/product_digital_asset_extension.go`
+- แก้ไข `ProductDAExtensionDB` ให้รวมฟิลด์ `Depositable` และ `Withdrawable` พร้อมระบุ GORM tags ที่ถูกต้อง
 
-### 4.2 Update Crypto Order Service (`pkg/crypto/service.go`)
-- **Webhook Check**: In `HandleDepositCryptoWebhook`, check the `Depositable` flag from the product extension. If `Depositable == FALSE`, log the event and return early (skip balance processing).
-
-### 4.3 Update Order Trade Service (`pkg/order_trade/service.go`)
-- Implement a new internal method `CancelAllOrdersForAsset(assetID uuid.UUID)` that:
-    1. Fetches all open orders for the asset.
-    2. Iterates and calls existing `CancelSwapOrder` logic for each.
-    3. Ensures ledger movements are recorded correctly for cancellations.
+### 2.2 อัปเดต `internal/domain/product_on_shelf.go`
+- แก้ไข `ProductOnShelfOption` โดยเปลี่ยน `IsTransferable` เป็น `IsDepositable` และ `IsWithdrawable`
 
 ---
 
-## 5. Delist Journey Execution Plan (Trigger Mechanism)
+## 3. การเปลี่ยนแปลง Repository Layer
 
-The Delist process should follow these steps:
-1.  **Update Database Flags**: Set `depositable = FALSE` and `withdrawable = FALSE` for the target asset.
-2.  **Cancel Open Orders**: Execute the batch cancellation logic developed in 4.3.
-3.  **Clear Market Data**: Execute the deletion of mark-to-market data developed in 3.2.
-4.  **Stop Price Fetching**: Disable the asset in the price fetcher configuration (external to this service if applicable).
+### 3.1 อัปเดต `storages/postgres/productrespository/product_repository.go`
+- แก้ไข `GetProductOnShelf` ให้ใช้ Flag ที่ถูกต้อง:
+    - หากกรองสำหรับการ **ฝาก (Deposit)**: ใช้ `pdae.depositable = ?`
+    - หากกรองสำหรับการ **ถอน (Withdrawal)**: ใช้ `pdae.withdrawable = ?`
+
+### 3.2 อัปเดต `storages/postgres/productrespository/product_digital_asset_mark_to_market_repository.go`
+- พัฒนา Method `DeleteByProductID(productID uuid.UUID) error` เพื่อล้างข้อมูลราคาสำหรับสินทรัพย์ที่ถูก Delist
+
+### 3.3 อัปเดต `pkg/order_trade/repository.go`
+- พัฒนา Method สำหรับหาออเดอร์ Limit ทั้งหมดที่เปิดค้างไว้ตาม Asset (ไม่ว่า Asset นั้นจะเป็น Base หรือ Quote)
 
 ---
 
-## 6. Verification & Testing Strategy
+## 4. การดำเนินการใน Service Layer
+
+### 4.1 อัปเดต Crypto Product Service (`pkg/crypto_product/service.go`)
+- ใน `GetProductCrypto` ให้หน่วยค่า `ProductOnShelfOption` โดยตั้งค่า `IsDepositable` หรือ `IsWithdrawable` ตามประเภทการทำงานที่ร้องขอ
+
+### 4.2 อัปเดต Crypto Order Service (`pkg/crypto/service.go`)
+- **การตรวจสอบ Webhook**: ใน `HandleDepositCryptoWebhook` ให้ตรวจสอบ Flag `Depositable` จาก Product Extension หาก `Depositable == FALSE` ให้ Log เหตุการณ์และ Return ทันที (ข้ามการประมวลผลยอดเงิน)
+
+### 4.3 อัปเดต Order Trade Service (`pkg/order_trade/service.go`)
+- พัฒนา Method ภายในใหม่ `CancelAllOrdersForAsset(assetID uuid.UUID)` ซึ่งมีขั้นตอนดังนี้:
+    1. ดึงออเดอร์ที่เปิดค้างอยู่ทั้งหมดสำหรับ Asset นั้น
+    2. วนลูปเรียกใช้ Logic `CancelSwapOrder` ที่มีอยู่สำหรับแต่ละออเดอร์
+    3. ตรวจสอบว่ามีการบันทึก Ledger Movements อย่างถูกต้องสำหรับการยกเลิก
+
+---
+
+## 5. แผนการดำเนินงานกระบวนการ Delist (Trigger Mechanism)
+
+กระบวนการ Delist ควรดำเนินการตามขั้นตอนดังนี้:
+1.  **อัปเดต Database Flags**: ตั้งค่า `depositable = FALSE` และ `withdrawable = FALSE` สำหรับ Asset ที่ต้องการ
+2.  **ยกเลิกออเดอร์ที่ค้างอยู่**: รัน Logic การยกเลิกแบบ Batch ที่พัฒนาในข้อ 4.3
+3.  **ล้างข้อมูลราคา (Market Data)**: รันการลบข้อมูล Mark-to-Market ที่พัฒนาในข้อ 3.2
+4.  **หยุดการดึงราคา**: ปิดการใช้งาน Asset นั้นในชุดคำสั่ง Price Fetcher (ถ้ามี)
+
+---
+
+## 6. กลยุทธ์การตรวจสอบและการทดสอบ
 
 ### 6.1 Unit Tests
-- Test `GetProductOnShelf` with the new flags.
-- Test `HandleDepositCryptoWebhook` to ensure it skips processing when `Depositable = FALSE`.
-- Test `CancelAllOrdersForAsset` with mocked repository data.
+- ทดสอบ `GetProductOnShelf` ร่วมกับ Flag ใหม่
+- ทดสอบ `HandleDepositCryptoWebhook` เพื่อให้มั่นใจว่าข้ามการประมวลผลเมื่อ `Depositable = FALSE`
+- ทดสอบ `CancelAllOrdersForAsset` โดยใช้ข้อมูล Mocked Repository
 
 ### 6.2 Integration Tests
-- Verify that a deposit hook for a delisted asset does not increase customer balance.
-- Verify that open limit orders are cancelled and funds are unlocked (if applicable) after delisting.
-- Verify that the `mark-to-market` table is cleared for the delisted asset.
+- ตรวจสอบว่า Deposit Hook สำหรับสินทรัพย์ที่ Delist แล้ว จะไม่เพิ่มยอดเงินในบัญชีลูกค้า
+- ตรวจสอบว่าออเดอร์ Limit ที่เปิดค้างอยู่ถูกยกเลิก และเงินที่ถูกล็อกไว้ถูกปลดล็อก (ถ้ามี) หลังจาก Delist
+- ตรวจสอบว่าตาราง `mark-to-market` ถูกล้างข้อมูลสำหรับสินทรัพย์ที่ Delist แล้ว
+
+---
+
+## 7. ข้อกำหนดทาง UI/UX และ Platform (UI/UX & Platform Requirements)
+
+### 7.1 พฤติกรรมของเหรียญที่ถูก Delist (Delisted Coin Behavior)
+- **สถานะ Flag**: สำหรับเหรียญ Delist ให้ตั้งค่า `Transferable = FALSE`, `Depositable = FALSE` แต่ให้คง `Withdrawable = TRUE` เพื่อให้ลูกค้ายังสามารถถอนสินทรัพย์ที่เหลืออยู่ออกไปได้
+- **ขอบเขต (Scope)**: การแยก Flag `Depositable` และ `Withdrawable` นี้จะใช้กับ **Digital Assets (Crypto) เท่านั้น** และจะไม่รวมถึงระบบ Fiat (เงินบาท)
+- **Sale Channel**: เหรียญที่ Delist แล้วจะยังคงอยู่ใน Sale Channel เดิมเพื่อการแสดงผลประวัติและยอดคงเหลือ
+
+### 7.2 การแสดงผลบน Mobile และ Web Trade
+- **หน้าฝาก (Deposit)**: ห้ามแสดงเหรียญหรือต้องทำการ Disable ปุ่มฝากสำหรับเหรียญที่มีสถานะ `Depositable = FALSE`
+- **หน้าถอน (Withdraw)**: ยังคงต้องแสดงเหรียญและอนุญาตให้ลูกค้าทำรายการถอนได้หาก `Withdrawable = TRUE`
+- **หน้า Wallet/Portfolio**: แสดง Label หรือสัญลักษณ์ที่ชัดเจนสำหรับเหรียญที่ถูก Delist เพื่อแจ้งเตือนลูกค้า
+
+### 7.3 ระบบหลังบ้าน (Back-Office - BOF)
+- **หน้าจอจัดการสินค้า (Product Management)**: เพิ่มตัวเลือกให้ Admin สามารถปรับค่า `Depositable` และ `Withdrawable` แยกกันได้อิสระ
+- **การตรวจสอบ**: ระบบต้องมีการบันทึก Audit Log ทุกครั้งที่มีการปรับเปลี่ยน Flag เหล่านี้
+
+---
+
+## 8. การบูรณาการร่วมกับ Dealer และ Remarketer (RM Integration)
+
+- **บัญชี Dealer**: บัญชีประเภท Dealer (`customer_main`) จะมีพฤติกรรมการใช้งานในส่วนของ Swap, Deposit และ Withdraw **เหมือนกับลูกค้าทั่วไป (Customer)** โดยต้องผ่านการตรวจสอบ Flag เดียวกันทั้งหมด
+- **การเชื่อมต่อ Remarketer (RM)**: เมื่อเหรียญถูกตั้งค่าเป็น Delist (Depositable/Withdrawable = FALSE) ระบบจะต้องระงับการส่งคำสั่ง Swap หรือการดึงราคาไปยัง RM ที่เกี่ยวข้องทันที

@@ -30,13 +30,20 @@ last-updated: 2026-04-06
 - [**BigLot Rules**](./02-Business-Logic/Order-Service/BigLot-Rules.md): กฎการเทรดล็อตใหญ่ (Bulk)
 - [**Fee & Campaign Rules**](./02-Business-Logic/Order-Service/Fee-Campaign-Rules.md): ลำดับความสำคัญของ Fee
 - [**Withdraw Rules**](./02-Business-Logic/Order-Service/Withdraw-Rules.md): การถอนเงินบาทและค่าโอน
+- [**Internal Transfer Rules**](./02-Business-Logic/Order-Service/Internal-Transfer-Rules.md): การโอนสินทรัพย์ระหว่างลูกค้า (White Glove)
 - [**Fireblocks Hook Rules**](./02-Business-Logic/Order-Service/Fireblocks-Hook-Rules.md): การจัดการ Webhook ฝาก/ถอนคริปโต
+- [**Hedge Rules**](./02-Business-Logic/Order-Service/Hedge-Rules.md): การจัดการความเสี่ยง FX (Auto Hedge)
 - [**Ledger Rules**](./02-Business-Logic/Order-Service/Ledger-Rules.md): การหมุนเวียนของเงิน (Money Flow)
 - [**State Machine Rules**](./02-Business-Logic/Order-Service/State-Rules.md): วงจรชีวิตของออเดอร์ (Lifecycle)
 
 ### [Asset-Service](./02-Business-Logic/Asset-Service/)
 - [**Asset Rules**](./02-Business-Logic/Asset-Service/Asset-Rules.md): พอร์ตการลงทุนและยอดคงเหลือ (Balance)
 - [**Report Rules**](./02-Business-Logic/Asset-Service/Report-Rules.md): สถานะบัญชีและกฎการออกรายงาน
+
+### [Asset-Consumer](./02-Business-Logic/Asset-Consumer/)
+- [**Ledger Processing Rules**](./02-Business-Logic/Asset-Consumer/Ledger-Processing-Rules.md): การบันทึก Ledger ลง Portfolio และคำนวณต้นทุน
+- [**XD Sync Rules**](./02-Business-Logic/Asset-Consumer/XD-Sync-Rules.md): การซิงค์ยอดเงินและต้นทุนจากระบบภายนอก (XD)
+- [**Master Data Sync Rules**](./02-Business-Logic/Asset-Consumer/Master-Data-Sync-Rules.md): การซิงค์ข้อมูลลูกค้าและสินค้าพื้นฐาน
 
 ---
 
