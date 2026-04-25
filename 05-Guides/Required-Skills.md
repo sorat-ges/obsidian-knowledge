@@ -22,14 +22,18 @@ last-updated: 2026-04-19
 *   **Crypto Operations:** เข้าใจกระบวนการฝาก/ถอนคริปโต, การจัดการ Webhooks (เช่น Fireblocks), และสถานะของ Transaction
 *   **State Machine:** เข้าใจวงจรชีวิตของออเดอร์ (Order Lifecycle) และการเปลี่ยนสถานะที่ถูกต้อง (State Transition)
 
-## 🤖 3. การวิศวกรรมความรู้ (Knowledge Engineering)
-*   **AI-Ready Documentation:** ทักษะการเขียน Markdown ที่กระชับและมีโครงสร้างเพื่อให้ AI Agent อ่านและประมวลผลได้แม่นยำ
-*   **Systems Analysis:** ความสามารถในการ "แกะโค้ด" (Reverse Engineering) เพื่อสรุปออกมาเป็นกฎธุรกิจ (Business Logic)
-*   **Context Management:** รู้วิธีการแบ่งข้อมูล (Atomic Docs) เพื่อประหยัด Token และเพิ่มความแม่นยำให้กับ AI
+## 🤖 3. การวิศวกรรมความรู้และทักษะด้าน AI (AI & Knowledge Engineering)
+*   **AI-Ready Content Structuring:** ทักษะการเขียน Markdown ที่มีโครงสร้างชัดเจน (High Signal) เพื่อให้ AI Agent เข้าใจลำดับความสำคัญของข้อมูลได้ทันทีโดยไม่สับสน
+*   **Context Window Management:** เข้าใจข้อจำกัดของ Context Window และรู้วิธีการแบ่งเอกสารเป็นส่วนย่อย (Atomic Docs) เพื่อให้ AI ทำงานได้แม่นยำและประหยัด Token
+*   **Token Optimization:** รู้วิธีการเขียนข้อมูลที่ตัด "Filler words" ออก แต่ยังคง "Semantic meaning" ไว้ครบถ้วน เพื่อลดค่าใช้จ่ายและเพิ่มความเร็วของ AI
+*   **Grounding & Verification:** ทักษะการใช้ AI ในการตรวจสอบความถูกต้องระหว่าง "เอกสาร" และ "โค้ดจริง" (Cross-referencing) เพื่อป้องกันปัญหา Documentation Rot
+*   **Sub-agent Orchestration:** เข้าใจความต่างของ AI Agent แต่ละประเภท (เช่น `codebase_investigator` vs `generalist`) และรู้วิธีมอบหมายงาน (Delegation) ให้ถูกตัว
+*   **Standardized Prompting:** เชี่ยวชาญการใช้และปรับปรุงชุดคำสั่งมาตรฐาน (`05-Guides/*.md`) เพื่อควบคุมผลลัพธ์ (Output) ของ AI ให้มีคุณภาพระดับ Production-ready
 
-## 🚀 4. การทำงานร่วมกับ AI (AI Collaboration)
-*   **Prompt Engineering:** ทักษะการใช้ชุดคำสั่ง (Prompts) ในการสั่งงาน AI เพื่อตรวจสอบหรือแก้ไขโค้ด (เช่น การใช้ AI-Investigation/Implementation Prompts)
-*   **AI Tooling:** เข้าใจการใช้เครื่องมืออย่าง MCP (Model Context Protocol) และ AI-Agent ต่างๆ เพื่อเพิ่มความเร็วในการทำงาน
+## 🚀 4. การทำงานร่วมกับ AI (AI Collaboration Workflow)
+*   **Research-Strategy-Execution Loop:** เข้าใจขั้นตอนการทำงานร่วมกับ AI ตั้งแต่การสำรวจ (Research), วางแผน (Strategy) ไปจนถึงการลงมือทำ (Execution)
+*   **Surgical Updates:** ทักษะการสั่งให้ AI แก้ไขโค้ดแบบ "ผ่าตัดเฉพาะจุด" เพื่อลดความเสี่ยงในการเกิด Side Effects ต่อระบบใหญ่
+*   **AI Maintenance Awareness:** มีนิสัยในการอัปเดต Gus Knowledge ทุกครั้งที่มีการเปลี่ยนแปลง Logic เพื่อให้ AI "มีความรู้" ที่ทันสมัยอยู่เสมอ
 
 ---
 

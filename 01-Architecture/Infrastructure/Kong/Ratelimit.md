@@ -2,83 +2,36 @@
 title: Kong Rate Limiting
 tags: [config, kubernetes, kong, ratelimit]
 status: active
-created: 2026-01-19
-last-updated: 2026-01-19
+last-updated: 2026-04-19
 ---
 
-# Kong Rate Limiting
+# 🚥 Kong Rate Limiting
 
-**Navigation**: [[Home]] | Infrastructure | Kubernetes | Kong
+## 🎯 วัตถุประสงค์
+อธิบายวิธีการตั้งค่าและใช้งาน Rate Limiting Plugin ผ่าน Kong Ingress เพื่อป้องกันการโจมตีแบบ DoS และจำกัดปริมาณคำขอ API
 
-![[RateLimit.png]]
+## 📜 กฎธุรกิจ (Rate Limiting Rules)
 
-## Description
-Rate limiting is a traffic management strategy used to control the rate of traffic sent or received by a network interface controller. It effectively puts a cap on how often someone can repeat an action within a certain timeframe. This is crucial for:
-- Preventing DoS (Denial of Service) attacks.
-- Limiting web scraping.
-- Preventing cascading failures by managing load.
-- Enforcing resource quotas for API consumers.
+| Parameter | Value | Rule |
+| :--- | :--- | :--- |
+| `limit_by` | `ip` | จำกัดตามหมายเลข IP (มาตรฐานสำหรับ Public API) |
+| `policy` | `local` | เก็บ Counter ในหน่วยความจำของ Pod (แนะนำสำหรับ Dev) |
+| `policy` | `redis` | เก็บ Counter ใน Redis (แนะนำสำหรับ Production หลาย Pod) |
 
-In Kubernetes with the Kong Ingress Controller, you can use the `rate-limiting` plugin. This plugin allows you to limit the number of HTTP requests a developer can make in a given period (seconds, minutes, hours, days, etc.).
+- ✅ การเปิดใช้งานต้องทำผ่าน `KongPlugin` resource
+- ✅ การนำไปใช้ต้องระบุผ่าน Annotation `konghq.com/plugins` ใน Ingress
 
-## Configuration Example
+## 🛠️ Technical Reference
+- **Plugin Type**: `rate-limiting`
+- **Configuration (Example 5 req/min)**:
+  ```yaml
+  config: 
+    minute: 5
+    limit_by: ip
+    policy: local
+  ```
 
-You can find the raw YAML file here: [[ratelimit-example.yaml]]
-
-To enable rate limiting, you first define a `KongPlugin` resource and then annotate your Ingress or Service to use it.
-
-### 1. Define the KongPlugin
-
-This example configures a limit of **5 requests per minute**.
-
-```yaml
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: global-rate-limit
-  namespace: default 
-config: 
-  minute: 5
-  limit_by: ip
-  policy: local
-plugin: rate-limiting
-```
-
-**Key Parameters:**
-*   `minute`: The number of requests allowed per minute. You can also use `second`, `hour`, `day`, etc.
-*   `limit_by`: How to aggregate the limits (e.g., `ip`, `consumer`, `credential`). `ip` is common for public endpoints.
-*   `policy`: The storage backend for the counters (`local`, `cluster`, `redis`). `local` stores counters in the memory of each Kong pod (least accurate but fastest), while `redis` uses an external Redis server (most accurate for clusters).
-
-### 2. Apply it to an Ingress
-
-Use the `konghq.com/plugins` annotation to attach the plugin to an Ingress resource.
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: demo-ingress
-  namespace: default
-  annotations:
-    konghq.com/plugins: global-rate-limit
-spec:
-  ingressClassName: kong
-  rules:
-  - host: api.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: echo-service
-            port:
-              number: 80
-```
-
-## Related
-- [[Kube/Kong/Ingress|Kong Ingress Configuration]]
-
-## Notes
-- Use `policy: redis` for production multi-pod deployments for accurate rate limiting
-- `policy: local` is suitable for development or single-pod setups
+## 🤖 How to Verify
+1. ส่งคำขอ API เกินค่าที่กำหนด (e.g., มากกว่า 5 ครั้งต่อนาที)
+2. ยืนยันว่าระบบตอบกลับด้วย HTTP Status `429 Too Many Requests`
+3. ตรวจสอบ Response Headers ว่ามีข้อมูล `X-RateLimit-Limit` และ `X-RateLimit-Remaining`

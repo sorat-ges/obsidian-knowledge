@@ -2,46 +2,30 @@
 title: Third-Party Integrations Profile
 tags: [architecture, integration, external, sdk]
 status: active
-last-updated: 2026-04-06
+last-updated: 2026-04-19
 ---
 
 # 🔌 Third-Party Integrations Profile
 
-สรุปข้อมูลการเชื่อมต่อกับบริการภายนอก (External Partners) ที่ระบบ `order-service` และ `asset-service` ใช้งาน
+## 🎯 วัตถุประสงค์
+รวบรวมข้อมูลและกฎการเชื่อมต่อกับบริการภายนอก (Third-Party Services) เพื่อให้ระบบ `order-service` และ `asset-service` ทำงานร่วมกับ Partners ได้อย่างถูกต้อง
 
-## 🪙 Trading & Liquidity
-### 1. Remarketer Service
-- **บทบาท**: ศูนย์กลางการกระจายคำสั่งซื้อขาย (Smart Order Routing)
-- **การเชื่อมต่อ**: REST API / Kafka
-- **หน้าที่หลัก**: 
-  - ให้ข้อมูล Swap Routes ในขั้นตอน Inquiry
-  - รับคำสั่งเทรด (Execute) และแจ้งผลกลับผ่าน Webhook
+## 📜 กฎธุรกิจ (Integration Rules)
 
-### 2. Digital Asset Custody (Fireblocks)
-- **บทบาท**: ผู้ดูแลรักษาความปลอดภัยของสินทรัพย์ดิจิทัล (Vault)
-- **หน้าที่หลัก**: 
-  - ตรวจสอบสถานะ Transaction บน Blockchain
-  - แจ้งผลการถอนคริปโต (Withdrawal) ผ่าน Webhook
+| Partner | Role | Core Responsibility |
+| :--- | :--- | :--- |
+| **Remarketer** | Trading & Liquidity | Smart Order Routing (SOR) และการ Execute คำสั่งเทรด |
+| **Fireblocks** | Asset Custody | ดูแล Vault, ตรวจสอบ Blockchain Transaction และ Withdrawal |
+| **Payment Gateway** | Fiat Transfer | จัดการการถอนเงินบาท (SCB/KBank) และแจ้งสถานะ |
+| **Thai Bulk** | OTP Service | ส่งรหัส OTP ผ่าน SMS/Email เพื่อยืนยันตัวตน |
+| **Credential Centric** | Identity & KYC | ยืนยันตัวตนและข้อมูลโปรไฟล์ลูกค้า |
 
-## 💸 Payment & Banking
-### 1. Payment Gateway (SCB / KBank)
-- **บทบาท**: ช่องทางการโอนเงินบาท (Fiat Transfer)
-- **หน้าที่หลัก**: 
-  - จัดการการถอนเงิน (Withdrawal)
-  - แจ้งสถานะการโอนสำเร็จ/ล้มเหลวกลับมายังระบบ
+## 🛠️ Technical Reference
+- ✅ **Webhook Timeout**: ต้องจัดการ Retry เมื่อไม่ได้รับ Response ภายในกำหนด
+- ✅ **Idempotency Key**: ต้องใช้เพื่อป้องกันการทำรายการซ้ำ (Double Entry)
+- ✅ **Circuit Breaker**: ต้องหยุดระบบ Trading ทันทีหาก Remarketer ล่ม
 
-### 2. Thai Bulk (OTP Service)
-- **บทบาท**: ผู้ให้บริการส่งรหัสผ่านใช้ครั้งเดียว (One-Time Password)
-- **การเชื่อมต่อ**: REST API
-- **หน้าที่หลัก**: ส่งรหัส OTP ไปยัง SMS/Email ของลูกค้าเพื่อยืนยันตัวตน
-
-## 🆔 Identity & Compliance
-### 1. Credential Centric
-- **บทบาท**: ระบบจัดการข้อมูลโปรไฟล์ลูกค้าและ KYC
-- **หน้าที่หลัก**: ยืนยันตัวตนและสิทธิ์ของลูกค้าก่อนทำรายการ
-
----
-
-## ⚠️ retry & Failure Policy (นโยบายการจัดการความล้มเหลว)
-- **Webhook Timeout**: หากระบบรับ Webhook ไม่ได้ภายในเวลาที่กำหนด ต้องมีระบบ Retry (Idempotency Key สำคัญมาก)
-- **Circuit Breaker**: หากระบบ Remarketer ล่ม ระบบเทรดแบบ Market ต้องปิดตัวลงทันทีเพื่อความปลอดภัยของลูกค้า
+## 🤖 How to Verify
+1. ทดสอบ Webhook Callback และตรวจสอบ Logs ของ Idempotency Key
+2. จำลองสถานะ Partner ล่ม (e.g., Timeout) และยืนยันผลลัพธ์ของ Circuit Breaker
+3. ตรวจสอบการส่ง OTP และยืนยันสถานะความสำเร็จจาก Partner Logs

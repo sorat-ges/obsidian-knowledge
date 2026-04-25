@@ -2,7 +2,7 @@
 title: Gus Knowledge 2.0 - Central Index
 tags: [home, index, hub]
 status: active
-last-updated: 2026-04-06
+last-updated: 2026-04-19
 ---
 
 # 🏠 Gus Knowledge (AI-Ready Knowledge Base)
@@ -25,6 +25,7 @@ last-updated: 2026-04-06
 
 ### [Order-Service](./02-Business-Logic/Order-Service/)
 - [**Order-Service Rules (AGENTS)**](./02-Business-Logic/Order-Service/AGENTS.md): กฎเหล็กในการเขียนโค้ด
+- [**Order Offering Validation Rules**](./02-Business-Logic/Order-Service/Order-Offering-Rules.md): การตรวจสอบ Min/Max/Step ของ Offering
 - [**Swap Rules**](./02-Business-Logic/Order-Service/Swap-Rules.md): การเทรด Swap และภาษี (VAT)
 - [**Routing Rules**](./02-Business-Logic/Order-Service/Routing-Rules.md): การเลือกเส้นทางที่ดีที่สุด
 - [**BigLot Rules**](./02-Business-Logic/Order-Service/BigLot-Rules.md): กฎการเทรดล็อตใหญ่ (Bulk)
@@ -54,6 +55,7 @@ last-updated: 2026-04-06
 ---
 
 ## 🛠️ เครื่องมือสำหรับ AI Agent (AI Toolbox)
+- [**🎯 Required Skills**](./05-Guides/Required-Skills.md): ทักษะที่จำเป็นในการดูแลโปรเจกต์และ Gus Knowledge
 - [**🚀 AI Development Workflow**](./05-Guides/AI-Development-Workflow.md): **(แนะนำ)** ขั้นตอนมาตรฐานในการใช้ Gus Knowledge เพื่อแก้โค้ด
 - [**AI Investigation Prompt**](./05-Guides/AI-Investigation-Prompt.md): สำหรับดึงความรู้จากโค้ด
 - [**AI Implementation Prompt**](./05-Guides/AI-Implementation-Prompt.md): สำหรับลงมือแก้ไขโค้ด

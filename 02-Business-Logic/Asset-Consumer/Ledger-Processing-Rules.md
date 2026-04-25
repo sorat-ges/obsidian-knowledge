@@ -2,7 +2,7 @@
 title: Consumer Logical Ledger Processing Rules
 tags: [logic, asset-consumer, ledger, portfolio, cost-calculation]
 status: active
-last-updated: 2026-04-12
+last-updated: 2026-04-19
 ---
 
 # ⚙️ Business Logic: Consumer Logical Ledger Write to Business
@@ -10,16 +10,9 @@ last-updated: 2026-04-12
 ## 🎯 วัตถุประสงค์
 เพื่อประมวลผลข้อมูลบัญชีแยกประเภท (Logical Ledger Entries) และนำมาอัปเดตเป็นยอดถือครองสินทรัพย์จริง (Business Holdings) ในระบบ Portfolio ของลูกค้าให้มีความถูกต้องและเป็นปัจจุบัน
 
-## 🔄 ภาพรวมกระบวนการ (Process Flow)
-1. **Consume:** รับข้อมูล Ledger จาก Kafka Topic `customer_logical_entry`.
-2. **Persistence:** บันทึกประวัติรายการลงในตาราง Audit Trail (`dw_order.logical_ledger_transaction`).
-3. **Business State Update:** อัปเดตยอดคงเหลือและต้นทุนใน `xpg_asset.asset_portfolio` ภายใต้ Database Transaction เดียวกัน.
-4. **Broadcast:** ส่งข้อความแจ้งการเปลี่ยนแปลง Portfolio ไปยัง Downstream Services.
+## 📜 กฎธุรกิจ (Business Rules)
 
-## 📜 ตรรกะการจัดการยอดคงเหลือ (Balance Mapping Rules)
-
-ระบบจะอัปเดต Field ใน Portfolio ตามการจับคู่ระหว่าง `LedgerType` และทิศทางของรายการ (`Type`):
-
+### 1. การจัดการยอดคงเหลือ (Balance Mapping)
 | Ledger Type | Movement (Type) | ผลกระทบต่อ Asset Portfolio |
 | :--- | :--- | :--- |
 | **`AVAILABLE`** | **INCREASE** | เพิ่ม `available_unit_balance` และ `unit_balance` |
@@ -28,32 +21,25 @@ last-updated: 2026-04-12
 | **`HOLD_IN_ORDER`** | **DECREASE** | ลด `pending_out_unit_balance` และ `unit_balance` (เมื่อรายการสำเร็จหรือถูกยกเลิก) |
 | **`PENDING_DEPOSIT`** | **INC/DEC** | อัปเดต `pending_in_unit_balance` (รายการฝากที่รอ Confirm) |
 
-## ➗ ตรรกะการคำนวณต้นทุน (Cost Calculation Logic)
+### 2. การคำนวณต้นทุน (Cost Calculation Logic)
+- **Weighted Average Cost**: `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่`
+- **Fiat (THB)**: ต้นทุนคงที่ที่ **1.0** เสมอ
+- **Zero Balance Protection**: หาก `unit_balance` เป็น **0** ต้อง Reset `average_cost` และ `total_cost` เป็น **0** ทันที
 
-### 1. สินทรัพย์ดิจิทัล (Crypto/Token)
-ใช้หลักการ **Weighted Average Cost** ในการบันทึกต้นทุน:
-- **เมื่อสินทรัพย์เพิ่มขึ้น:** 
-  - `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่`
-  - `TotalCost = UnitBalanceรวมใหม่ * AverageCost` (ปัดเศษลง 18 ตำแหน่ง)
-- **เมื่อสินทรัพย์ลดลง:**
-  - `AverageCost` **คงเดิม**
-  - `TotalCost` = `UnitBalanceที่เหลือ * AverageCost`
-
-### 2. เงินสด (Fiat - THB)
-- ต้นทุนจะถูก Hardcode เป็น **1.0** เสมอ เนื่องจากค่าของเงินบาทคงที่
-
-### 3. การป้องกันข้อมูลค้าง (Zero Balance Protection)
-- **(Critical)** หากยอด `unit_balance` เหลือ **0** หลังการประมวลผล ระบบต้องทำการ **Reset** ทั้ง `average_cost` และ `total_cost` ให้เป็น **0** ทันที เพื่อป้องกันเศษทศนิยมค้างสำหรับการคำนวณในอนาคต
+## 🔄 ขั้นตอนการทำงาน (Logic Flow)
+1. **Consume**: รับข้อมูลจาก Kafka Topic `customer_logical_entry`
+2. **Persistence**: บันทึก Audit Trail ลงใน `dw_order.logical_ledger_transaction`
+3. **Business State Update**: อัปเดต `xpg_asset.asset_portfolio` ภายใต้ DB Transaction เดียวกัน
+4. **Broadcast**: ส่งข้อความแจ้งการเปลี่ยนแปลงไปยัง Downstream Services
 
 ## 🛠️ Technical Reference
-- **Consumer Service**: `pkg/customer-logical-entry/service.go`
-- **Main Logic Function**: `UpdateAssetPortfolio`, `updateAssetPortfolioFields`
+- **Domain/Service**: Asset Consumer Service
+- **Relevant Code Path**: `pkg/customer-logical-entry/service.go`
 - **Database Tables**: 
   - `dw_order.logical_ledger_transaction` (History)
-  - `xpg_asset.asset_portfolio` (Business State)
+  - `xpg_asset.asset_portfolio` (Current State)
 
-## 🤖 How to Verify (For AI Agent)
-ตรวจสอบการแมป Ledger ได้ที่ฟังก์ชัน `updateAssetPortfolioFields`:
-`grep -n "case transaction.IncreaseAvailable():" pkg/customer-logical-entry/service.go`
-ตรวจสอบการคำนวณต้นทุนเฉลี่ย:
-`grep -n "func (svc customerLogicalEntryService) calculateAverageCost" pkg/customer-logical-entry/service.go`
+## 🤖 How to Verify
+1. ตรวจสอบฟังก์ชันการแมป Ledger: `grep -n "case transaction.IncreaseAvailable():" pkg/customer-logical-entry/service.go`
+2. ตรวจสอบการคำนวณต้นทุนเฉลี่ย: `grep -n "func (svc customerLogicalEntryService) calculateAverageCost" pkg/customer-logical-entry/service.go`
+3. ยืนยัน Logic การ Reset ยอดเป็นศูนย์: `grep -n "Reset average_cost" pkg/customer-logical-entry/service.go`
