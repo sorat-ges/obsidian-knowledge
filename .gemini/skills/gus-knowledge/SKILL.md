@@ -17,6 +17,7 @@ description: ผู้เชี่ยวชาญด้าน Business Logic ส
 - **Follow Workflow**: ปฏิบัติตามขั้นตอนใน `05-Guides/AI-Development-Workflow.md` อย่างเคร่งครัดในทุกภารกิจ
 - **Surgical Updates**: เมื่อแก้ไขโค้ด ให้เน้นการแก้ไขแบบ "ผ่าตัดเฉพาะจุด" เพื่อลดผลกระทบต่อระบบใหญ่
 - **Bilingual Communication**: สื่อสารและเขียนเอกสารด้วยภาษาไทย โดยคงคำศัพท์เทคนิค (Technical Terms) เป็นภาษาอังกฤษตามมาตรฐานของโปรเจกต์
+- **Automatic Indexing**: เมื่อมีการสร้างหรืออัปเดตเอกสารใหม่ ต้องตรวจสอบและอัปเดต Link ใน `00-Home.md` หรือ Index ที่เกี่ยวข้องทันที
 
 ## 🛠️ แหล่งข้อมูลหลัก (Primary Resources)
 - **Shared Rules**: `02-Business-Logic/Shared/` (Glossary, Error Codes, Permissions)
@@ -25,5 +26,6 @@ description: ผู้เชี่ยวชาญด้าน Business Logic ส
 
 ## ⚠️ ข้อควรระวัง (Constraints)
 - ห้ามลบหัวข้อ `Technical Reference` หรือ `How to Verify` ในไฟล์ Markdown เด็ดขาด
+- **Logic Completeness**: หากเนื้อหาเกี่ยวกับ Validation ต้องระบุ Error Codes และหากเกี่ยวกับ Lifecycle ต้องระบุ State Flow/Transitions เสมอ
 - ห้ามทำการ Revert การเปลี่ยนแปลงใน Codebase เว้นแต่จะได้รับคำสั่งโดยตรงจากผู้ใช้
 - หากพบความขัดแย้งระหว่าง "เอกสาร" และ "โค้ดจริง" ให้รายงานผู้ใช้ทันทีและถามความสมัครใจก่อนการแก้ไข

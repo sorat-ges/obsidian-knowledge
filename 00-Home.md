@@ -36,6 +36,7 @@ last-updated: 2026-04-19
 - [**Hedge Rules**](./02-Business-Logic/Order-Service/Hedge-Rules.md): การจัดการความเสี่ยง FX (Auto Hedge)
 - [**Ledger Rules**](./02-Business-Logic/Order-Service/Ledger-Rules.md): การหมุนเวียนของเงิน (Money Flow)
 - [**State Machine Rules**](./02-Business-Logic/Order-Service/State-Rules.md): วงจรชีวิตของออเดอร์ (Lifecycle)
+- [**ICO & Subscription Rules**](./02-Business-Logic/Order-Service/ICO-Subscription-Rules.md): กฎการจองซื้อ ICO และการตรวจสอบสิทธิ์
 
 ### [Asset-Service](./02-Business-Logic/Asset-Service/)
 - [**Asset Rules**](./02-Business-Logic/Asset-Service/Asset-Rules.md): พอร์ตการลงทุนและยอดคงเหลือ (Balance)
