@@ -1,3 +1,10 @@
+---
+title: AI Prompt: Business Logic Extraction
+tags: [guides]
+status: active
+last-updated: 2026-05-31
+---
+
 # 🤖 AI Prompt: Business Logic Extraction
 
 ใช้ชุดคำสั่งนี้เมื่อต้องการให้ AI ไปอ่านโค้ดใน `order-service` เพื่อนำมาสรุปเป็นกฎธุรกิจ (Business Logic) ลงใน Gus Knowledge

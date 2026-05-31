@@ -1,3 +1,10 @@
+---
+title: Implementation Plan: Internal Transfer Source Account Validation
+tags: [implementation]
+status: active
+last-updated: 2026-05-31
+---
+
 # Implementation Plan: Internal Transfer Source Account Validation
 
 ## 🎯 Objective
@@ -23,7 +30,7 @@ Add a validation step to `CreateInternalCustomerTransfer` to ensure that the `So
 ## 🔄 Logic Flow
 1. **Request**: Dealer calls `POST /transfer/internal`.
 2. **Auth**: Middleware validates token and populates `PortalClaims`.
-3. **Handler**: 
+3. **Handler**:
    - Extracts `EmployeeID` from `claims.Subject`.
    - Calls `InternalCustomerTransfer(ctx, employeeID, input)`.
 4. **Service**:

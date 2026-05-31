@@ -25,7 +25,7 @@ last-updated: 2026-04-19
 - **Plugin Type**: `rate-limiting`
 - **Configuration (Example 5 req/min)**:
   ```yaml
-  config: 
+  config:
     minute: 5
     limit_by: ip
     policy: local

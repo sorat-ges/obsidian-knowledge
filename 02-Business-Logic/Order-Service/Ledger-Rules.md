@@ -29,7 +29,7 @@ last-updated: 2026-04-06
 
 ### กรณีการถอนเงิน (Withdrawal)
 1. **Hold Phase:** ลด `AVAILABLE` และเพิ่ม `PENDING_WITHDRAWAL` ของลูกค้าตามยอดที่สั่งถอน
-2. **Fee Phase:** 
+2. **Fee Phase:**
    - บันทึกรายได้เข้า `xd_fee` (หักจากลูกค้า)
    - บันทึกต้นทุนเข้า `external_fee` (จ่ายให้ธนาคาร)
 3. **Completion:** เมื่อธนาคารยืนยันผล ให้ลด `PENDING_WITHDRAWAL` ของลูกค้าออก

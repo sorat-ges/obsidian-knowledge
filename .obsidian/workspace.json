@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "02-Business-Logic/payment-gateway/SCB-Adaptor-Worker-Rules.md",
+                "file": "00-Home.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "SCB-Adaptor-Worker-Rules"
+              "title": "00-Home"
             }
           }
         ]
@@ -183,13 +183,28 @@
       "bases:Create new base": false
     }
   },
-  "active": "487527925819508f",
+  "active": "abae11206eacb6c4",
   "lastOpenFiles": [
+    "tools/serve-docs-site.mjs",
+    "tools/check-docs-site.mjs",
+    "package.json",
+    "README.md",
+    "00-Home.md",
+    "02-Business-Logic/payment-gateway/SCB-Adaptor-Worker-Rules.md",
+    "site/assets/RateLimit.png",
+    "site/assets/FlowBiglot.png",
+    "site/README.html",
+    "site/05-Guides/Required-Skills.html",
+    "site/05-Guides/Flutter-Deployment.html",
+    "site/05-Guides/Documentation-Guide.html",
+    "site/05-Guides/AI-Maintenance-Prompt.html",
+    "site/05-Guides/AI-Investigation-Prompt.html",
+    "site/05-Guides/AI-Implementation-Prompt.html",
+    "site/05-Guides/AI-Development-Workflow.html",
     "02-Business-Logic/payment-gateway/Payment-Request-Rules.md",
     "02-Business-Logic/payment-gateway/Payment-Inquiry-Worker-Rules.md",
     "02-Business-Logic/payment-gateway/Payment-End-to-End-Flow.md",
     "05-Guides/AI-Development-Workflow.md",
-    "00-Home.md",
     "05-Guides/Required-Skills.md",
     "02-Business-Logic/Shared/Glossary.md",
     "03-Implementation/Active/fire-block-v2-implementplan.md",
@@ -197,7 +212,6 @@
     "03-Implementation/Active/white-glove-internal-transfer-cost-input.md",
     "03-Implementation/Archive/Transfer.md",
     "03-Implementation/Active/implementplan.md",
-    "02-Business-Logic/payment-gateway/SCB-Adaptor-Worker-Rules.md",
     "03-Implementation/Archive/WLLXXX-split-transferable-flag-and-delist-journey.md",
     "03-Implementation/Active/Transfer.md",
     "02-Business-Logic/Order-Service/Order-Offering-Rules.md",
@@ -209,18 +223,6 @@
     "02-Business-Logic/Asset-Service/Report-Rules.md",
     "02-Business-Logic/Order-Service/Fireblocks-Hook-Rules.md",
     "02-Business-Logic/Order-Service/Internal-Transfer-Rules.md",
-    "02-Business-Logic/Order-Service/State-Rules.md",
-    "02-Business-Logic/Order-Service/Swap-Rules.md",
-    "02-Business-Logic/Asset-Consumer",
-    "Trade/Trading Web",
-    "Trade/trading-web",
-    "ImplementPlan/Yield",
-    "ImplementPlan/SIRIHUB 2 Cant Swap Limit",
-    "ImplementPlan/OTP Limit",
-    "Sql Injection/Untitled",
-    "Sql Injection",
-    "ImplementPlan/Auditlog",
-    "ImplementPlan/ICO",
     "Images/FlowBiglot.png",
     "Images/RateLimit.png",
     "Screenshot 2569-01-17 at 11.33.19.png",

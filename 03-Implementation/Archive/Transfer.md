@@ -1,20 +1,27 @@
+---
+title: Implementation Plan: Internal Customer Transfer (White Glove) - FINAL
+tags: [implementation, archive]
+status: active
+last-updated: 2026-05-31
+---
+
 # Implementation Plan: Internal Customer Transfer (White Glove) - FINAL
 
-  
+
 
 ## 1. Overview
 
 สร้าง API สำหรับเจ้าหน้าที่ RM/Dealer เพื่อทำการโอนสินทรัพย์ระหว่างบัญชีลูกค้าโดยตรง (**Customer-to-Customer**) ภายใต้ Identification เดียวกัน แบบรายการเดียวต่อคำขอ และรองรับการข้ามการตรวจสอบยอดคงเหลือ (**Skip Balance Validation**) สำหรับบัญชีต้นทางที่กำหนดไว้ใน Config
 
-  
+
 
 ---
 
-  
+
 
 ## 2. API Specifications
 
-  
+
 
 ### Endpoint
 
@@ -24,7 +31,7 @@
 
 - **Auth:** ใช้ Authentication/Authorization ผ่าน `PortalClaims` และตรวจสอบสิทธิ์ผ่าน Permission Key `constants.P0293` (ระดับเดียวกับ Dealer Transfer)
 
-  
+
 
 ### Request Body (JSON)
 
@@ -46,7 +53,7 @@
 
 ```
 
-  
+
 
 ### Request Validation
 
@@ -54,7 +61,7 @@
 
 - ใช้ `OrderDealerTransferTypeTransferOut` (ค่าคงที่ที่มีค่าเป็น `"transfer_out"`) เป็นประเภทรายการ
 
-  
+
 
 ### Response (JSON)
 
@@ -62,11 +69,11 @@
 
 - **Failure (400/500):** หากเกิดข้อผิดพลาดระบบจะ Rollback และคืน identifiers เท่าที่มี (`order_id`, `order_transfer_id`) แบบ best-effort
 
-  
+
 
 ---
 
-  
+
 
 ## 3. Configuration
 
@@ -76,21 +83,21 @@
 
 - **Logic:** ใน Service จะใช้ `strings.EqualFold` และ `strings.TrimSpace` ในการเปรียบเทียบเพื่อความ robust
 
-  
+
 
 ---
 
-  
+
 
 ## 4. Technical Logic (Service Layer)
 
-  
+
 
 ### 4.1 Ledger Settlement Flow (Optimized Batch)
 
 แยกฟังก์ชันจัดการ Ledger ออกมาใหม่เฉพาะสำหรับ Internal Transfer ใน `service_internal_ledger.go`:
 
-  
+
 
 1. **Hold Source:** (`internalTransferLogicalBatchHold`)
 
@@ -114,7 +121,7 @@
 
 - หากขั้นตอน Settle ล้มเหลว: ลด Hold และเพิ่ม Available กลับคืนให้บัญชีต้นทาง
 
-  
+
 
 ### 4.2 Observability & Audit
 
@@ -124,15 +131,15 @@
 
 - **Audit Log:** บันทึกผ่าน `auditLogWithdrawCryptoSvc.SaveAuditLog` ในระดับ Handler ทุกครั้ง
 
-  
+
 
 ---
 
-  
+
 
 ## 5. Affected Files & Structures
 
-  
+
 
 ### Data Models
 
@@ -140,7 +147,7 @@
 
 - **Handler Layer:** `CreateInternalCustomerTransferRequest/Response` ใน `handler/white_glove_dto.go`
 
-  
+
 
 ### Core Service
 
@@ -148,7 +155,7 @@
 
 - `pkg/order_transfer/service_internal_ledger.go`: Logic การทำ Batch Settlement และ Helper `buildLedgerRequest` (ใช้ Parameter Struct เพื่อลดจำนวน Arguments)
 
-  
+
 
 ### Repository
 
@@ -156,11 +163,11 @@
 
 - `storages/postgres/ordercryptorepository/order_transfer_repository.go`: Implementation ของ `UpdateStatus`
 
-  
+
 
 ---
 
-  
+
 
 ## 6. Security & Integrity ⚠️
 

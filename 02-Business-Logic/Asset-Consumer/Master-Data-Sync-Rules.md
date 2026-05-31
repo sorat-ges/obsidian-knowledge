@@ -27,7 +27,7 @@ last-updated: 2026-04-19
 
 ## 🛠️ Technical Reference
 - **Domain/Service**: Asset Consumer Sync Service
-- **Sync Services**: 
+- **Sync Services**:
   - `pkg/customer-account/service.go`
   - `pkg/product-mf/service.go`
 - **Database Tables**:

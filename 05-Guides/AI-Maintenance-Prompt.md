@@ -1,3 +1,10 @@
+---
+title: AI Prompt: Knowledge Maintenance
+tags: [guides]
+status: active
+last-updated: 2026-05-31
+---
+
 # 🧹 AI Prompt: Knowledge Maintenance
 
 ใช้ชุดคำสั่งนี้เมื่อต้องการตรวจสอบว่ากฎธุรกิจ (Business Logic) ใน Gus Knowledge ยังตรงกับโค้ดล่าสุดในโปรเจกต์หรือไม่ (ควรทำทุกครั้งหลังจบ Sprint)

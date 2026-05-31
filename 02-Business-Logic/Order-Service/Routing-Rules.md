@@ -34,7 +34,7 @@ last-updated: 2026-04-06
 ## 🔄 ขั้นตอนการทำงาน (Routing Flow)
 1. **Inquiry:** เรียก Remarketer Service เพื่อดึง Route ทั้งหมดที่เป็นไปได้
 2. **Calculation:** คำนวณ Fee และ Net Amount ของทุก Route ตามกฎใน `Swap-Rules.md`
-3. **Finalize:** 
+3. **Finalize:**
    - จัดลำดับตาม Net Amount
    - จัดการ Mixed Route และ Best Route (ตามกฎด้านบน)
    - Trim รายการออกตามสิทธิ์ของผู้ใช้งาน (Dealer/Customer)

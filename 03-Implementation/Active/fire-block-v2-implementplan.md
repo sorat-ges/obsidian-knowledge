@@ -1,3 +1,10 @@
+---
+title: Fireblocks Webhooks V2 Migration Implementation Plan
+tags: [implementation, active]
+status: active
+last-updated: 2026-05-31
+---
+
 # Fireblocks Webhooks V2 Migration Implementation Plan
 
 ## Context

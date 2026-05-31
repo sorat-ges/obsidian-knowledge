@@ -1,3 +1,10 @@
+---
+title: WLLXXX - การแยก Flag: Transferable สำหรับการฝาก/ถอน และรองรับกระบวนการ Delist (Delist Journey)
+tags: [implementation, archive]
+status: active
+last-updated: 2026-05-31
+---
+
 # WLLXXX - การแยก Flag: Transferable สำหรับการฝาก/ถอน และรองรับกระบวนการ Delist (Delist Journey)
 
 ## วัตถุประสงค์ (Objective)

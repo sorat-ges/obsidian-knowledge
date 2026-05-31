@@ -35,7 +35,7 @@ last-updated: 2026-04-19
 ## 🛠️ Technical Reference
 - **Domain/Service**: Asset Consumer Service
 - **Relevant Code Path**: `pkg/customer-logical-entry/service.go`
-- **Database Tables**: 
+- **Database Tables**:
   - `dw_order.logical_ledger_transaction` (History)
   - `xpg_asset.asset_portfolio` (Current State)
 

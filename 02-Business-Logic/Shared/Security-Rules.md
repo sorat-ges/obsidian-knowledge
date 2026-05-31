@@ -16,7 +16,7 @@ last-updated: 2026-04-06
 ระบบจะใช้ Redis ในการทำ Cooldown เพื่อป้องกันการขอ OTP ซ้ำในระยะเวลาที่สั้นเกินไป
 - **ระยะเวลา Cooldown:** 60 วินาที
 - **Redis Key Format:** `otp:countdown:{sequence}:{accountID}:{productID}` **(อัปเดตตาม Code)**
-- **พฤติกรรม:** 
+- **พฤติกรรม:**
   - หากมีการขอ OTP ซ้ำในขณะที่ Key ใน Redis ยังไม่หมดอายุ ระบบจะตอบกลับด้วย `HTTP 429 Too Many Requests`
   - ระบบจะแยก Cooldown ตามบัญชีลูกค้า (`accountID`) และสินค้า (`productID`)
 

@@ -1,3 +1,10 @@
+---
+title: Merge Transfer Create API
+tags: [implementation, active]
+status: active
+last-updated: 2026-05-31
+---
+
 # Merge Transfer Create API
 
 ## Goal

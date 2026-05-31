@@ -1,3 +1,10 @@
+---
+title: White Glove Internal Transfer: Use Input Cost
+tags: [implementation, active]
+status: active
+last-updated: 2026-05-31
+---
+
 # White Glove Internal Transfer: Use Input Cost
 
 ## Goal

@@ -1,3 +1,10 @@
+---
+title: AI Prompt: Business Logic Implementation
+tags: [guides]
+status: active
+last-updated: 2026-05-31
+---
+
 # 💻 AI Prompt: Business Logic Implementation
 
 ใช้ชุดคำสั่งนี้เมื่อต้องการให้ AI แก้ไขหรือเพิ่มฟีเจอร์ใน `order-service` โดยอ้างอิงกฎธุรกิจจาก Gus Knowledge
@@ -13,7 +20,7 @@
 > **Context & Rules:**
 > 1. **Read Logic First:** ให้อ่านกฎธุรกิจจากไฟล์ **[ระบุชื่อไฟล์ เช่น 02-Business-Logic/Shared/Swap-Rules.md]** เพื่อทำความเข้าใจเงื่อนไขและสูตรที่ต้องใช้
 > 2. **Coding Standards:** ต้องปฏิบัติธามกฎใน **02-Business-Logic/Order-Service/AGENTS.md** อย่างเคร่งครัด (เช่น การจัดการ Error, การใช้ Decimal, Early Return)
-> 3. **Surgical Edit:** 
+> 3. **Surgical Edit:**
 >    - ใช้ `grep_search` ค้นหาจุดที่ต้องแก้ไขใน `pkg/` หรือ `internal/domain/`
 >    - ใช้ `replace` เพื่อแก้ไขโค้ดเฉพาะจุด ห้ามลบโค้ดส่วนอื่นที่ไม่เกี่ยวข้อง
 >    - ห้ามแก้ไขไฟล์ใน `vendor/` หรือไฟล์ที่ Auto-generated (`.pb.go`)

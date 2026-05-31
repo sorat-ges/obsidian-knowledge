@@ -1,0 +1,11 @@
+{
+  "name": "gus-knowledge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:normalize": "node tools/normalize-markdown.mjs",
+    "docs:build": "node tools/build-docs-site.mjs",
+    "docs:check": "node tools/check-docs-site.mjs",
+    "docs:serve": "npm run docs:build && node tools/serve-docs-site.mjs"
+  }
+}
