@@ -2,68 +2,106 @@
 title: Gus Knowledge 2.0 - Central Index
 tags: [home, index, hub]
 status: active
-last-updated: 2026-04-19
+last-updated: 2026-05-31
 ---
 
-# 🏠 Gus Knowledge (AI-Ready Knowledge Base)
+# Gus Knowledge
 
-ยินดีต้อนรับสู่แหล่งรวม Business Logic และคู่มือระบบ Gus Knowledge เวอร์ชัน 2.0 ออกแบบมาเพื่อความแม่นยำและประหยัด Token สำหรับ AI Agent
+Gus Knowledge คือฐานความรู้สำหรับเก็บ Business Logic, Architecture, Workflow และกฎสำคัญของระบบ เพื่อให้ทั้งคนและ AI Agent อ่านได้เร็วและอ้างอิงได้ตรงกัน
 
----
+## Quick Start
 
-## 🧭 กฎธุรกิจส่วนกลาง (Shared Logic)
-*กฎมาตรฐานที่ใช้ร่วมกันทุก Service ภายในโปรเจกต์*
+| ผู้อ่าน | เริ่มจาก | ใช้เมื่อ |
+| --- | --- | --- |
+| Human | [Domain Glossary](./02-Business-Logic/Shared/Glossary.md) | ต้องเข้าใจคำศัพท์และภาพรวมธุรกิจ |
+| Developer | [AI Development Workflow](./05-Guides/AI-Development-Workflow.md) | ต้องใช้เอกสารนี้ประกอบการแก้โค้ด |
+| AI Agent | [Required Skills](./05-Guides/Required-Skills.md) | ต้องรู้ workflow และข้อควรระวังก่อนเริ่มงาน |
+| Maintainer | [Documentation Guide](./05-Guides/Documentation-Guide.md) | ต้องเพิ่มหรือปรับปรุงเอกสารให้เป็นมาตรฐาน |
 
-- [**📖 Domain Glossary**](./02-Business-Logic/Shared/Glossary.md): รวมคำศัพท์เทคนิคและธุรกิจ (Must Read!)
-- [**Error Code Registry**](./02-Business-Logic/Shared/Error-Codes.md): สารานุกรมสำหรับการวินิจฉัยปัญหา
-- [**Permission Rules**](./02-Business-Logic/Shared/Permission-Rules.md): สิทธิ์การใช้งาน (ACL) และบทบาทผู้ใช้
-- [**Security Rules**](./02-Business-Logic/Shared/Security-Rules.md): การควบคุม OTP, Rate Limit และ Redis
+## Writing Rule
 
----
+- ใช้ Markdown เป็น source of truth เพราะอ่านง่ายสำหรับ Git, Obsidian และ AI
+- แยก 1 ไฟล์ต่อ 1 เรื่องหรือ 1 business rule
+- ใช้หัวข้อ, bullet และ table แทนย่อหน้ายาว
+- อ้างอิง code path หรือ service name เมื่อเอกสารเกี่ยวกับ implementation
+- ถ้าต้องการอ่านแบบสวยขึ้น ให้ render Markdown เป็น HTML site แทนการเขียน `.html` โดยตรง
 
-## 📦 กฎเฉพาะบริการ (Domain Specific Logic)
+## Shared Business Logic
 
-### [Order-Service](./02-Business-Logic/Order-Service/)
-- [**Order-Service Rules (AGENTS)**](./02-Business-Logic/Order-Service/AGENTS.md): กฎเหล็กในการเขียนโค้ด
-- [**Order Offering Validation Rules**](./02-Business-Logic/Order-Service/Order-Offering-Rules.md): การตรวจสอบ Min/Max/Step ของ Offering
-- [**Swap Rules**](./02-Business-Logic/Order-Service/Swap-Rules.md): การเทรด Swap และภาษี (VAT)
-- [**Routing Rules**](./02-Business-Logic/Order-Service/Routing-Rules.md): การเลือกเส้นทางที่ดีที่สุด
-- [**BigLot Rules**](./02-Business-Logic/Order-Service/BigLot-Rules.md): กฎการเทรดล็อตใหญ่ (Bulk)
-- [**Fee & Campaign Rules**](./02-Business-Logic/Order-Service/Fee-Campaign-Rules.md): ลำดับความสำคัญของ Fee
-- [**Withdraw Rules**](./02-Business-Logic/Order-Service/Withdraw-Rules.md): การถอนเงินบาทและค่าโอน
-- [**Internal Transfer Rules**](./02-Business-Logic/Order-Service/Internal-Transfer-Rules.md): การโอนสินทรัพย์ระหว่างลูกค้า (White Glove)
-- [**Fireblocks Hook Rules**](./02-Business-Logic/Order-Service/Fireblocks-Hook-Rules.md): การจัดการ Webhook ฝาก/ถอนคริปโต
-- [**Hedge Rules**](./02-Business-Logic/Order-Service/Hedge-Rules.md): การจัดการความเสี่ยง FX (Auto Hedge)
-- [**Ledger Rules**](./02-Business-Logic/Order-Service/Ledger-Rules.md): การหมุนเวียนของเงิน (Money Flow)
-- [**State Machine Rules**](./02-Business-Logic/Order-Service/State-Rules.md): วงจรชีวิตของออเดอร์ (Lifecycle)
-- [**ICO & Subscription Rules**](./02-Business-Logic/Order-Service/ICO-Subscription-Rules.md): กฎการจองซื้อ ICO และการตรวจสอบสิทธิ์
+กฎกลางที่ทุก service ต้องอ้างอิงร่วมกัน
 
-### [Asset-Service](./02-Business-Logic/Asset-Service/)
-- [**Asset Rules**](./02-Business-Logic/Asset-Service/Asset-Rules.md): พอร์ตการลงทุนและยอดคงเหลือ (Balance)
-- [**Report Rules**](./02-Business-Logic/Asset-Service/Report-Rules.md): สถานะบัญชีและกฎการออกรายงาน
+| Document | Scope |
+| --- | --- |
+| [Domain Glossary](./02-Business-Logic/Shared/Glossary.md) | คำศัพท์เทคนิคและธุรกิจ |
+| [Error Code Registry](./02-Business-Logic/Shared/Error-Codes.md) | Error code และแนวทางวินิจฉัยปัญหา |
+| [Permission Rules](./02-Business-Logic/Shared/Permission-Rules.md) | ACL และ role ของผู้ใช้ |
+| [Security Rules](./02-Business-Logic/Shared/Security-Rules.md) | OTP, rate limit, Redis และ security guardrails |
 
-### [Asset-Consumer](./02-Business-Logic/Asset-Consumer/)
-- [**Ledger Processing Rules**](./02-Business-Logic/Asset-Consumer/Ledger-Processing-Rules.md): การบันทึก Ledger ลง Portfolio และคำนวณต้นทุน
-- [**XD Sync Rules**](./02-Business-Logic/Asset-Consumer/XD-Sync-Rules.md): การซิงค์ยอดเงินและต้นทุนจากระบบภายนอก (XD)
-- [**Master Data Sync Rules**](./02-Business-Logic/Asset-Consumer/Master-Data-Sync-Rules.md): การซิงค์ข้อมูลลูกค้าและสินค้าพื้นฐาน
+## Domain Logic
 
----
+### Order-Service
 
-## 🏗️ สถาปัตยกรรม (Architecture)
-- [**🔌 Integrations Profile**](./01-Architecture/Integrations/Profiles.md): ข้อมูลการเชื่อมต่อ Remarketer, Fireblocks, Bank
-- [**🏗️ System Constraints**](./01-Architecture/Infrastructure/System-Constraints.md): ข้อจำกัด Kong, Rate Limits, และ K8s
+| Document | Scope |
+| --- | --- |
+| [Order-Service Rules (AGENTS)](./02-Business-Logic/Order-Service/AGENTS.md) | กฎสำคัญในการเขียนหรือแก้โค้ด |
+| [Order Offering Validation Rules](./02-Business-Logic/Order-Service/Order-Offering-Rules.md) | Min, max และ step validation ของ offering |
+| [Swap Rules](./02-Business-Logic/Order-Service/Swap-Rules.md) | Swap trading และ VAT |
+| [Routing Rules](./02-Business-Logic/Order-Service/Routing-Rules.md) | การเลือกเส้นทางที่ดีที่สุด |
+| [BigLot Rules](./02-Business-Logic/Order-Service/BigLot-Rules.md) | กฎการเทรดล็อตใหญ่ |
+| [Fee & Campaign Rules](./02-Business-Logic/Order-Service/Fee-Campaign-Rules.md) | ลำดับความสำคัญของ fee และ campaign |
+| [Withdraw Rules](./02-Business-Logic/Order-Service/Withdraw-Rules.md) | การถอนเงินบาทและค่าโอน |
+| [Internal Transfer Rules](./02-Business-Logic/Order-Service/Internal-Transfer-Rules.md) | การโอนสินทรัพย์ระหว่างลูกค้า |
+| [Fireblocks Hook Rules](./02-Business-Logic/Order-Service/Fireblocks-Hook-Rules.md) | Webhook ฝากและถอนคริปโต |
+| [Hedge Rules](./02-Business-Logic/Order-Service/Hedge-Rules.md) | FX risk และ auto hedge |
+| [Ledger Rules](./02-Business-Logic/Order-Service/Ledger-Rules.md) | Money flow และ ledger behavior |
+| [State Machine Rules](./02-Business-Logic/Order-Service/State-Rules.md) | Order lifecycle |
+| [ICO & Subscription Rules](./02-Business-Logic/Order-Service/ICO-Subscription-Rules.md) | ICO subscription และ eligibility |
 
----
+### Asset-Service
 
-## 🛠️ เครื่องมือสำหรับ AI Agent (AI Toolbox)
-- [**🎯 Required Skills**](./05-Guides/Required-Skills.md): ทักษะที่จำเป็นในการดูแลโปรเจกต์และ Gus Knowledge
-- [**🚀 AI Development Workflow**](./05-Guides/AI-Development-Workflow.md): **(แนะนำ)** ขั้นตอนมาตรฐานในการใช้ Gus Knowledge เพื่อแก้โค้ด
-- [**AI Investigation Prompt**](./05-Guides/AI-Investigation-Prompt.md): สำหรับดึงความรู้จากโค้ด
-- [**AI Implementation Prompt**](./05-Guides/AI-Implementation-Prompt.md): สำหรับลงมือแก้ไขโค้ด
-- [**AI Maintenance Prompt**](./05-Guides/AI-Maintenance-Prompt.md): สำหรับบำรุงรักษาเอกสาร
+| Document | Scope |
+| --- | --- |
+| [Asset Rules](./02-Business-Logic/Asset-Service/Asset-Rules.md) | Portfolio และ balance |
+| [Report Rules](./02-Business-Logic/Asset-Service/Report-Rules.md) | Account state และ report generation |
 
----
+### Asset-Consumer
 
-## 📂 แหล่งข้อมูลอื่น
-- [**05-Guides/**](./05-Guides/): คู่มือการทำงานอื่นๆ
-- [**03-Implementation/Archive/**](./03-Implementation/Archive/): (Empty - Cleaned Up)
+| Document | Scope |
+| --- | --- |
+| [Ledger Processing Rules](./02-Business-Logic/Asset-Consumer/Ledger-Processing-Rules.md) | บันทึก ledger ลง portfolio และคำนวณต้นทุน |
+| [XD Sync Rules](./02-Business-Logic/Asset-Consumer/XD-Sync-Rules.md) | Sync ยอดเงินและต้นทุนจาก XD |
+| [Master Data Sync Rules](./02-Business-Logic/Asset-Consumer/Master-Data-Sync-Rules.md) | Sync customer และ master data |
+
+### Payment-Gateway
+
+| Document | Scope |
+| --- | --- |
+| [Payment End-to-End Flow](./02-Business-Logic/payment-gateway/Payment-End-to-End-Flow.md) | Flow จาก core service ไป adaptor, transaction event, inquiry summary และ callback |
+| [Payment Request Rules](./02-Business-Logic/payment-gateway/Payment-Request-Rules.md) | Validate payment request, IMBANK, initial status และ gateway event |
+| [SCB Adaptor Worker Rules](./02-Business-Logic/payment-gateway/SCB-Adaptor-Worker-Rules.md) | Worker ที่ consume `payment.initial.scb` และเรียก SCB Bank Transfer API |
+| [Payment Inquiry Worker Rules](./02-Business-Logic/payment-gateway/Payment-Inquiry-Worker-Rules.md) | Worker ที่ consume request/transaction events, สร้าง summary และ callback |
+
+## Architecture
+
+| Document | Scope |
+| --- | --- |
+| [Integrations Profile](./01-Architecture/Integrations/Profiles.md) | Remarketer, Fireblocks, Bank และ external integration |
+| [System Constraints](./01-Architecture/Infrastructure/System-Constraints.md) | Kong, rate limit, Kubernetes และ infrastructure constraints |
+
+## AI Toolbox
+
+| Document | Scope |
+| --- | --- |
+| [Required Skills](./05-Guides/Required-Skills.md) | ทักษะที่จำเป็นในการดูแลโปรเจกต์และ Gus Knowledge |
+| [AI Development Workflow](./05-Guides/AI-Development-Workflow.md) | ขั้นตอนมาตรฐานในการใช้ Gus Knowledge เพื่อแก้โค้ด |
+| [AI Investigation Prompt](./05-Guides/AI-Investigation-Prompt.md) | Prompt สำหรับดึงความรู้จากโค้ด |
+| [AI Implementation Prompt](./05-Guides/AI-Implementation-Prompt.md) | Prompt สำหรับลงมือแก้ไขโค้ด |
+| [AI Maintenance Prompt](./05-Guides/AI-Maintenance-Prompt.md) | Prompt สำหรับบำรุงรักษาเอกสาร |
+
+## Other Areas
+
+| Path | Scope |
+| --- | --- |
+| [05-Guides/](./05-Guides/) | คู่มือการทำงานอื่นๆ |
+| [03-Implementation/Active/](./03-Implementation/Active/) | แผน implementation ที่กำลังใช้งาน |
+| [03-Implementation/Archive/](./03-Implementation/Archive/) | แผนเก่าหรือเอกสารที่จบแล้ว |
