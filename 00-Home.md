@@ -94,6 +94,7 @@ Gus Knowledge คือฐานความรู้สำหรับเก็
 | --- | --- |
 | [Required Skills](./05-Guides/Required-Skills.md) | ทักษะที่จำเป็นในการดูแลโปรเจกต์และ Gus Knowledge |
 | [AI Development Workflow](./05-Guides/AI-Development-Workflow.md) | ขั้นตอนมาตรฐานในการใช้ Gus Knowledge เพื่อแก้โค้ด |
+| [Logging & Sonar Best Practices](./05-Guides/Logging-and-Sonar-Best-Practices.md) | มาตรฐานการทำ Logging และ Sonar Code Quality ของทีม |
 | [AI Investigation Prompt](./05-Guides/AI-Investigation-Prompt.md) | Prompt สำหรับดึงความรู้จากโค้ด |
 | [AI Implementation Prompt](./05-Guides/AI-Implementation-Prompt.md) | Prompt สำหรับลงมือแก้ไขโค้ด |
 | [AI Maintenance Prompt](./05-Guides/AI-Maintenance-Prompt.md) | Prompt สำหรับบำรุงรักษาเอกสาร |

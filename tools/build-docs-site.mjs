@@ -261,6 +261,7 @@ function layout({ title, content, nav, toc, sourcePath, htmlPath }) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} - Gus Knowledge</title>
   <link rel="stylesheet" href="${prefix}/assets/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
   <aside class="sidebar">
@@ -298,6 +299,8 @@ function layout({ title, content, nav, toc, sourcePath, htmlPath }) {
       }
     });
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-go.min.js"></script>
 </body>
 </html>`;
 }
