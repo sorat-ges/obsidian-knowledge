@@ -214,16 +214,19 @@ func RunBatchJob() {
 
 #### B. โครงสร้าง Response ที่ส่งกลับหา Client (HTTP Response Payload)
 
-เมื่อระบบเกิด Error หรือทำงานล้มเหลว จะต้องส่ง Response Body ที่แสดง **X-Correlation-ID** แนบกลับไปหาผู้ใช้งาน เพื่อให้ผู้ใช้สามารถจดจำหรือ Capture คีย์ดังกล่าวส่งให้ทีมงานใช้ค้นหาร่องรอยใน Elasticsearch ได้รวดเร็ว:
+เมื่อระบบเกิด Error หรือทำงานล้มเหลว จะต้องส่ง Response Body ที่สอดคล้องกับโครงสร้าง Response ของไลบรารีกลุ่มพัฒนา (`httpserv.Response`) ซึ่งมีโครงสร้าง JSON มาตรฐานโดยแสดง **X-Correlation-ID** แนบอยู่ภายใต้ฟิลด์ `data` และแสดง Error Code 5 หลัก (เช่นระบบเทรด `90001` หรืออื่นๆ) ในฟิลด์ `code`:
 
 ```json
 {
-  "status_code": 400,
-  "error_code": "ORDER_CONFIRMATION_FAILED",
+  "code": "90001",
   "message": "Failed to verify confirmation token. Please check your token or try again.",
-  "X-Correlation-ID": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+  "data": {
+    "X-Correlation-ID": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+  }
 }
 ```
+
+---
 
 #### C. ตัวอย่างการจัดการ Error ในแต่ละ Layer (Multi-layer Error Handling & Logging)
 
@@ -280,7 +283,7 @@ func (h *OrderHandler) CreateOrder(req *httpserv.Request) (*httpserv.Response, e
         
         return &httpserv.Response{
             StatusCode: 500,
-            Code:       "ORDER_CREATION_FAILED",
+            Code:       constants.CodeTradingServiceMaintenance, // ดึงรหัส Error Code 5 หลักจาก Constants ("90000")
             Message:    "Failed to create order transaction due to internal server issue.",
             Data:       map[string]any{"X-Correlation-ID": GetCorrelationID(ctx)},
         }, err
