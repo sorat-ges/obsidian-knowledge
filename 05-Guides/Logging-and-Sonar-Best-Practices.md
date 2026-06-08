@@ -24,10 +24,19 @@ func InfoLog(funcName, str string) {
 * **ผลกระทบ:** ในระบบรวมรวม Log (เช่น Elasticsearch, Kibana, AWS CloudWatch) ข้อความหลักของ log ทุกบรรทัดจะแสดงคำว่า `"Log"` หรือ `"Internal Error"` เหมือนกันหมด ทำให้ไม่สามารถค้นหา คัดกรอง หรือจัดกลุ่มตามเหตุการณ์จริงที่เกิดขึ้นในระดับหน้าแรกได้เลย
 
 #### B. ความเสี่ยงต่อการเกิด Elasticsearch Type Conflict (Mapping Conflict)
-ในระบบมีการป้อนค่าเข้าไปที่ตัวแปรคีย์ `logs.ErrorLog` ด้วยชนิดข้อมูล (Data Type) ที่แตกต่างกันอย่างสิ้นเชิงในแต่ละจุดของโค้ด:
-* **ส่งเป็น String:** `map[string]any{logs.ErrorLog: "fail to bind query params"}`
-* **ส่งเป็น Error Type:** `map[string]any{logs.ErrorLog: err}`
-* **ส่งเป็น Nested Map (โครงสร้าง Object ซ้อน):** `map[string]interface{}{logs.ErrorLog: map[string]interface{}{"err": err, "order_request_id": orderRequestId.String()}}`
+* ตัวอย่างชนิดข้อมูลที่ขัดแย้งกันในโค้ด:
+
+```go
+// 1. ส่งเป็น String
+map[string]any{logs.ErrorLog: "fail to bind query params"}
+
+// 2. ส่งเป็น Error Type
+map[string]any{logs.ErrorLog: err}
+
+// 3. ส่งเป็น Nested Map (โครงสร้าง Object ซ้อน)
+map[string]interface{}{logs.ErrorLog: map[string]interface{}{"err": err, "order_request_id": orderRequestId.String()}}
+```
+
 * **ผลกระทบ:** ระบบจัดการ Log เช่น Elasticsearch จะทำดัชนี (Index) ฟิลด์แบบไดนามิกตามเอกสารแรกที่ได้รับ หากจุดหนึ่งส่งเป็นข้อความธรรมดา (String) แต่อีกจุดหนึ่งส่งเป็น Object/JSON ซ้อนในชื่อฟิลด์เดียวกัน (`error_log`) จะเกิด **Type Mapping Conflict** ซึ่งส่งผลให้ Elasticsearch **ปฏิเสธและทิ้ง Log บรรทัดนั้นๆ โดยไม่มีการบันทึก (Dropped Logs)** ทำให้ข้อมูล Log ที่สำคัญสูญหายไปในระบบการผลิต
 
 #### C. การใช้ชื่อฟังก์ชันเป็นข้อความหลักของ Log

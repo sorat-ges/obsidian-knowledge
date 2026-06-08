@@ -56,6 +56,7 @@ Gus Knowledge คือฐานความรู้สำหรับเก็
 | [Ledger Rules](./02-Business-Logic/Order-Service/Ledger-Rules.md) | Money flow และ ledger behavior |
 | [State Machine Rules](./02-Business-Logic/Order-Service/State-Rules.md) | Order lifecycle |
 | [ICO & Subscription Rules](./02-Business-Logic/Order-Service/ICO-Subscription-Rules.md) | ICO subscription และ eligibility |
+| [Logging & Sonar Refactoring Plan](./03-Implementation/Active/logging-and-sonar-refactoring-plan.md) | แผนการปรับปรุง Logging และ Sonar Code Quality |
 
 ### Asset-Service
 
