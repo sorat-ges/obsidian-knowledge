@@ -46,6 +46,7 @@ Gus Knowledge คือฐานความรู้สำหรับเก็
 | [Order-Service Rules (AGENTS)](./02-Business-Logic/Order-Service/AGENTS.md) | กฎสำคัญในการเขียนหรือแก้โค้ด |
 | [Order Offering Validation Rules](./02-Business-Logic/Order-Service/Order-Offering-Rules.md) | Min, max และ step validation ของ offering |
 | [Swap Rules](./02-Business-Logic/Order-Service/Swap-Rules.md) | Swap trading และ VAT |
+| [ลำดับการทำงานของ Swap Limit Order](./02-Business-Logic/Order-Service/Swap-Limit-Order-Flow.md) | การสร้าง limit order, Remarketer webhook, ledger และการอัปเดต asset balance แบบ end-to-end |
 | [Routing Rules](./02-Business-Logic/Order-Service/Routing-Rules.md) | การเลือกเส้นทางที่ดีที่สุด |
 | [BigLot Rules](./02-Business-Logic/Order-Service/BigLot-Rules.md) | กฎการเทรดล็อตใหญ่ |
 | [Fee & Campaign Rules](./02-Business-Logic/Order-Service/Fee-Campaign-Rules.md) | ลำดับความสำคัญของ fee และ campaign |
