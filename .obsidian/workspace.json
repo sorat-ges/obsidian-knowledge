@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "00-Home.md",
-                "mode": "source",
+                "file": "05-Guides/order-portfolio-hold-discrepancy.md",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "00-Home"
+              "title": "order-portfolio-hold-discrepancy"
             }
           }
         ]
@@ -78,7 +78,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 389.5
+    "width": 389.5,
+    "collapsed": true
   },
   "right": {
     "id": "b8e3961669af3033",
@@ -183,15 +184,15 @@
       "bases:Create new base": false
     }
   },
-  "active": "abae11206eacb6c4",
+  "active": "487527925819508f",
   "lastOpenFiles": [
+    "00-Home.md",
     "site/05-Guides/order-portfolio-hold-discrepancy.html",
     "05-Guides/order-portfolio-hold-discrepancy.md",
     "tools/serve-docs-site.mjs",
     "tools/check-docs-site.mjs",
     "package.json",
     "README.md",
-    "00-Home.md",
     "02-Business-Logic/payment-gateway/SCB-Adaptor-Worker-Rules.md",
     "site/assets/RateLimit.png",
     "site/assets/FlowBiglot.png",
@@ -201,7 +202,6 @@
     "site/05-Guides/Documentation-Guide.html",
     "site/05-Guides/AI-Maintenance-Prompt.html",
     "site/05-Guides/AI-Investigation-Prompt.html",
-    "site/05-Guides/AI-Implementation-Prompt.html",
     "02-Business-Logic/payment-gateway/Payment-Request-Rules.md",
     "02-Business-Logic/payment-gateway/Payment-Inquiry-Worker-Rules.md",
     "02-Business-Logic/payment-gateway/Payment-End-to-End-Flow.md",
