@@ -359,6 +359,67 @@ test("Pagefind filters cross-service ownership for fund and asset flows", async 
   }
 });
 
+test("Pagefind finds Payment and Offering flows by ownership, integration, and aliases", async () => {
+  const paymentIndexRoute = "/business-flows/payment/";
+  const paymentRequestRoute =
+    "/business-flows/payment/payment-request-and-transfer/";
+  const paymentInquiryRoute =
+    "/business-flows/payment/payment-inquiry-and-callback/";
+  const offeringRoute =
+    "/business-flows/offering/subscription-and-eligibility/";
+
+  const filters = await pagefind.filters();
+  assert.ok(filters.service["payment-inquiry-service"] >= 1);
+  assert.ok(filters.service["payment-adaptor-service-scb"] >= 1);
+  assert.ok(filters.service["payment-gateway"] >= 3);
+  assert.ok(filters.integration.kafka >= 3);
+
+  assert.ok(
+    (
+      await searchUrls(null, {
+        filters: { service: "payment-inquiry-service" },
+      })
+    ).includes(paymentInquiryRoute),
+  );
+  assert.ok(
+    (
+      await searchUrls(null, {
+        filters: { service: "payment-adaptor-service-scb" },
+      })
+    ).includes(paymentRequestRoute),
+  );
+
+  const umbrellaRoutes = await searchUrls(null, {
+    filters: { service: "payment-gateway" },
+  });
+  for (const route of [
+    paymentIndexRoute,
+    paymentRequestRoute,
+    paymentInquiryRoute,
+  ]) {
+    assert.ok(umbrellaRoutes.includes(route));
+  }
+
+  const kafkaRoutes = await searchUrls(null, {
+    filters: { integration: "kafka" },
+  });
+  for (const route of [
+    paymentIndexRoute,
+    paymentRequestRoute,
+    paymentInquiryRoute,
+  ]) {
+    assert.ok(kafkaRoutes.includes(route));
+  }
+
+  for (const alias of ["IMBANK", "ชำระเงิน"]) {
+    assert.ok((await searchUrls(alias)).includes(paymentRequestRoute));
+  }
+  assert.ok((await searchUrls("payment inquiry")).includes(paymentInquiryRoute));
+  for (const alias of ["subscription", "eligibility"]) {
+    assert.ok((await searchUrls(alias)).includes(offeringRoute));
+  }
+});
+
 test("the Pagefind file fetch adapter accepts string, URL, and Request inputs", async () => {
   const pagefindUrl = pathToFileURL(
     path.join(root, "dist/pagefind/pagefind.js"),
