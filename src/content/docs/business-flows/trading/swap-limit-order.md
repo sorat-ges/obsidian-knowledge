@@ -12,7 +12,7 @@ documentType: flow
 
 ## Purpose and scope
 
-อธิบาย Swap แบบ `limit` ตั้งแต่รับคำสั่ง ล็อกยอด ส่งไป Remarketer รับ webhook, settle ledger และแสดง portfolio ที่อัปเดตแล้ว การสร้างคำสั่งสำเร็จยังไม่ใช่การซื้อขายสำเร็จ เพราะสินทรัพย์ต้นทางจะถูกล็อกจนกว่าจะ Match, Reject หรือ Cancel
+<span class="search-alias-variants sr-only" aria-hidden="true" data-pagefind-weight="10">คำ สั่ง ลิ มิต</span> คำสั่งลิมิต (Swap Limit Order) คือ Swap แบบ `limit` หน้านี้อธิบายตั้งแต่รับคำสั่ง ล็อกยอด ส่งไป Remarketer รับ webhook, settle ledger และแสดง portfolio ที่อัปเดตแล้ว การสร้างคำสั่งสำเร็จยังไม่ใช่การซื้อขายสำเร็จ เพราะสินทรัพย์ต้นทางจะถูกล็อกจนกว่าจะ Match, Reject หรือ Cancel
 
 ## Trigger and preconditions
 

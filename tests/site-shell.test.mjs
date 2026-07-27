@@ -335,6 +335,66 @@ test("Pagefind ranks the exact Thai Swap Limit alias first and filters its execu
   );
 });
 
+test("Pagefind default search ranks the exact Thai Swap Limit phrase first", async () => {
+  const response = await pagefind.search("คำสั่งลิมิต");
+  const urls = await Promise.all(
+    response.results.map(async (result) => (await result.data()).raw_url),
+  );
+
+  assert.equal(urls[0], "/business-flows/trading/swap-limit-order/");
+});
+
+test("Pagefind ranks the browser-segmented Thai Swap Limit query first", async () => {
+  const response = await pagefind.search("คำ สั่ง ลิ มิต", {
+    ranking: pagefindRanking,
+  });
+  const first = await response.results[0].data();
+  assert.equal(first.raw_url, "/business-flows/trading/swap-limit-order/");
+  assert.match(first.plain_excerpt, /คำสั่งลิมิต \(Swap Limit Order\)/);
+});
+
+test("Swap Limit visible body includes the exact Thai search phrase", () => {
+  const document = parse(swapLimitHtml);
+  const body = elements(
+    document,
+    (node) =>
+      node.tagName === "div" &&
+      attribute(node, "class")?.split(" ").includes("sl-markdown-content"),
+  )[0];
+  assert.ok(body, "missing Swap Limit document body");
+
+  assert.match(textContent(body), /คำสั่งลิมิต \(Swap Limit Order\)/);
+});
+
+test("renders weighted segmented Thai aliases for search without changing visible aliases", () => {
+  const document = parse(swapLimitHtml);
+  const body = elements(
+    document,
+    (node) =>
+      node.tagName === "div" &&
+      attribute(node, "class")?.split(" ").includes("sl-markdown-content"),
+  )[0];
+  assert.ok(body, "missing Swap Limit document body");
+  const variants = elements(
+    body,
+    (node) =>
+      attribute(node, "class")
+        ?.split(" ")
+        .includes("search-alias-variants"),
+  );
+
+  assert.equal(variants.length, 1);
+  assert.equal(attribute(variants[0], "aria-hidden"), "true");
+  assert.equal(attribute(variants[0], "data-pagefind-weight"), "10");
+  assert.equal(attribute(variants[0], "data-pagefind-ignore"), undefined);
+  assert.equal(textContent(variants[0]).trim(), "คำ สั่ง ลิ มิต");
+  assert.doesNotMatch(textContent(variants[0]), /swap limit|limit order/);
+  assert.equal(
+    textContent(metadataValue(document, "คำค้น")).trim(),
+    "swap limit, limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต",
+  );
+});
+
 test("Pagefind filters cross-service ownership for fund and asset flows", async () => {
   const fiatWithdrawalRoute =
     "/business-flows/fund-movement/fiat-withdrawal/";
