@@ -1,9 +1,9 @@
 ---
 title: Third-Party Integrations Profile
-description: บทบาทและกฎการเชื่อมต่อกับ Partner ภายนอกที่ใช้ใน Business Flow
+description: บทบาทและกฎการเชื่อมต่อกับ Partner ภายนอกและ object storage ที่ใช้ใน Business Flow
 tags: [architecture, integration, external, sdk]
 status: active
-lastUpdated: 2026-04-19
+lastUpdated: 2026-07-27
 documentType: system-context
 ---
 
@@ -19,6 +19,7 @@ documentType: system-context
 | **Payment Gateway** | Fiat Transfer | จัดการการถอนเงินบาท (SCB/KBank) และแจ้งสถานะ |
 | **Thai Bulk** | OTP Service | ส่งรหัส OTP ผ่าน SMS/Email เพื่อยืนยันตัวตน |
 | **Credential Centric** | Identity & KYC | ยืนยันตัวตนและข้อมูลโปรไฟล์ลูกค้า |
+| **Huawei OBS** | Object Storage | เก็บไฟล์ Yield Payment Plan ที่ `product-service` validate และอ้างอิงด้วย object key |
 
 ## 🛠️ Technical Reference
 - ✅ **Webhook Timeout**: ต้องจัดการ Retry เมื่อไม่ได้รับ Response ภายในกำหนด

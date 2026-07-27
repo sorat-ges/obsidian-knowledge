@@ -13,6 +13,8 @@ documentType: system-context
 | `order-service` | Order validation, trading orchestration, withdrawal และ internal transfer |
 | `asset-service` | Portfolio balances และ reports |
 | `asset-consumer` | Ledger application, XD sync และ master-data sync |
+| `onboarding-service` | Customer onboarding, suitability, re-KYC, KYC expiry และ account suspension |
+| `product-service` | Product master และ Yield Payment Setup สำหรับ Offering |
 | `payment-gateway` | Payment requests, bank adapters, inquiry และ callbacks |
 
 รายละเอียด Partner ภายนอกดูที่ [Third-Party Integrations Profile](/system-context/integrations/)

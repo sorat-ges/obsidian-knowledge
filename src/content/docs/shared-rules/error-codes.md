@@ -1,13 +1,13 @@
 ---
 title: Error Code Registry (Diagnostic Guide)
-description: รหัสข้อผิดพลาดของการซื้อขาย พร้อมสาเหตุและแนวทางวินิจฉัย
+description: Registry รหัสข้อผิดพลาดของ Trading และ Yield Payment Setup พร้อมสาเหตุและแนวทางวินิจฉัย
 tags: [logic, error, debug, troubleshooting]
 status: active
-lastUpdated: 2026-04-06
+lastUpdated: 2026-07-27
 documentType: shared-rule
 ---
 
-เอกสารนี้ใช้เป็นแนวทางสำหรับนักพัฒนาในการวินิจฉัยปัญหา (Diagnosis) เมื่อเกิดข้อผิดพลาดจากระบบ Order-Service
+เอกสารนี้ใช้เป็นแนวทางสำหรับนักพัฒนาในการวินิจฉัยปัญหาเมื่อ Business Flow คืน error code ที่ source ยืนยัน
 
 ## 📂 หมวดหมู่ 8xxxx: White Glove Errors (RM/Dealer)
 ใช้สำหรับข้อผิดพลาดที่เกิดขึ้นในการเทรดแบบล็อตใหญ่ (BigLot/Bulk)
@@ -30,12 +30,28 @@ documentType: shared-rule
 | **90004** | `CodeTradingSwapAmountTooLow` | ยอดเทรดต่ำกว่าขั้นต่ำ | เพิ่มจำนวนเงินบาทหรือเหรียญที่ต้องการเทรด |
 | **90006** | `CodeTradingNoAvailableRoute` | ระบบหาเส้นทางเทรดไม่ได้ | ตรวจสอบว่ามี Route ใดบ้างที่เปิดอยู่ หรือ Remarketer ขัดข้องหรือไม่ |
 
+## หมวดหมู่ Yield Payment Setup
+
+Error ต่อไปนี้มาจาก `product-service`:
+
+| Error Code | Constant Name | สาเหตุ | การวินิจฉัย |
+| :--- | :--- | :--- | :--- |
+| **400001** | `YieldPaymentSetupInvalidFileTemplateCode` | Header/type-hint ของ XLSX ไม่ตรง template | ดาวน์โหลด template ปัจจุบันและตรวจ header/date columns |
+| **400004** | `YieldPaymentSetupFileRequiredCode` | Create ไม่มีไฟล์ หรือ edit อ้าง source ที่ไม่มี file record | ตรวจ `uploaded_file`, source setup ID และ file record |
+| **400005** | `YieldPaymentSetupInvalidFileFormatCode` | MIME type ไม่ใช่ XLSX | ส่ง `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
+| **400006** | `YieldPaymentSetupInvalidDataFormatCode` | input, row, date, day-per-year หรือ rounding rule ไม่ผ่าน | ตรวจ required fields, row data และ rounding method/decimal places |
+| **500001** | `yieldPaymentSetupFetchErrorCode` | ดึงรายการ setup ไม่สำเร็จ | ตรวจ query/repository ของ active setup list |
+| **500002** | `projectOfferingOptionsFetchErrorCode` | ดึง project offering options ไม่สำเร็จ | ตรวจ project และ active-setup query |
+| **500003** | `yieldPaymentSetupTemplateErrorCode` | ดึง template URL ไม่สำเร็จ | ตรวจ configuration ของ template URL |
+
+รายละเอียด calculation และ recovery ดู [Yield Payment Setup](/business-flows/offering/yield-payment-setup/)
+
 ## 🛠️ วิธีการวินิจฉัยสำหรับนักพัฒนา
 หากได้รับ Error Code ให้ดำเนินการตามลำดับดังนี้:
 1. **Search Log:** ค้นหา Error Code นี้ในไฟล์ Log เพื่อดู Error Message แบบละเอียด (Detailed Error)
 2. **Trace Logic:** ใช้ `Technical Reference` ในไฟล์กฎธุรกิจที่เกี่ยวข้องเพื่อดูจุดเกิดเหตุ
-3. **Check Config:** ตรวจสอบค่าในฐานข้อมูลที่เกี่ยวข้อง (เช่น `transaction_fee`, `maintenance`)
+3. **Check Config:** ตรวจสอบค่าในฐานข้อมูลหรือ runtime configuration ที่ Flow นั้นอ้างอิง
 
 ## วิธีตรวจสอบ
-รันคำสั่ง `grep -rn "CodeTrading" internal/constants/error.go`
-เพื่อดูรายการ Error Codes ล่าสุดที่ระบบรองรับ และตรวจสอบว่ามีการเพิ่มรหัสใหม่ (เช่น 10xxx) เข้ามาหรือไม่
+- Trading: ตรวจ `order-service/internal/constants/error.go`
+- Yield Payment Setup: ตรวจ `product-service/internal/constants/yield_payment_setup.go` และ `product-service/handler/yield_payment_setup_handler.go`
