@@ -66,7 +66,7 @@ documentType: flow
 
 **Owner service: `asset-consumer`**
 
-Consume logical ledger และปรับ available/total balance ตาม movement เมื่อการ apply สำเร็จ `asset-service` จึงเปิดเผย balance และ report ที่อัปเดตแล้ว
+Consume logical ledger และปรับ available/total balance ตาม movement ใน [Ledger Event Processing](/business-flows/asset-management/ledger-processing/) เมื่อการ apply สำเร็จ `asset-service` จึงเปิดเผย balance และ report ที่อัปเดตแล้ว
 
 ## Hedge exposure
 
@@ -104,4 +104,3 @@ Consume logical ledger และปรับ available/total balance ตาม m
 - [Order State Machine](/shared-rules/order-state-machine/)
 - [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 - [Error Code Registry](/shared-rules/error-codes/)
-

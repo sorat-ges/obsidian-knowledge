@@ -98,7 +98,7 @@ BUY ลด fiat ใน `HOLD_IN_ORDER`, เพิ่ม crypto ใน `AVAILABLE
 
 **Owner service: `asset-consumer`**
 
-Apply logical-ledger batch ภายใน database transaction เดียว: บันทึก audit, สร้าง portfolio หากยังไม่มี, ปรับ balance, คำนวณต้นทุน crypto เมื่อยอดเพิ่ม และ reset average/total cost เมื่อถือครองหมด ดู movement matrix ที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+Apply logical-ledger batch ภายใน database transaction เดียว: บันทึก audit, สร้าง portfolio หากยังไม่มี, ปรับ balance, คำนวณต้นทุน crypto เมื่อยอดเพิ่ม และ reset average/total cost เมื่อถือครองหมด ดู materialization flow ที่ [Ledger Event Processing](/business-flows/asset-management/ledger-processing/) และกฎบัญชีต้นทางที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
 ## Expose updated balance/report
 

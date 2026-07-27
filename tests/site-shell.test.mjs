@@ -335,6 +335,30 @@ test("Pagefind ranks the exact Thai Swap Limit alias first and filters its execu
   );
 });
 
+test("Pagefind filters cross-service ownership for fund and asset flows", async () => {
+  const fiatWithdrawalRoute =
+    "/business-flows/fund-movement/fiat-withdrawal/";
+  const portfolioReportingRoute =
+    "/business-flows/asset-management/portfolio-and-reporting/";
+
+  assert.ok(
+    (
+      await searchUrls(null, {
+        filters: { service: "payment-gateway" },
+      })
+    ).includes(fiatWithdrawalRoute),
+  );
+  for (const service of ["customer-service", "report-service"]) {
+    assert.ok(
+      (
+        await searchUrls(null, {
+          filters: { service },
+        })
+      ).includes(portfolioReportingRoute),
+    );
+  }
+});
+
 test("the Pagefind file fetch adapter accepts string, URL, and Request inputs", async () => {
   const pagefindUrl = pathToFileURL(
     path.join(root, "dist/pagefind/pagefind.js"),
