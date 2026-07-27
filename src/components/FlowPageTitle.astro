@@ -1,0 +1,105 @@
+---
+const { entry } = Astro.locals.starlightRoute;
+const {
+  title,
+  capability,
+  services = [],
+  integrations = [],
+  aliases = [],
+  errorCodes = [],
+  status = "active",
+} = entry.data;
+---
+
+<h1 id="_top">{title}</h1>
+
+<dl class="flow-metadata" aria-label="Document metadata">
+  {
+    capability && (
+      <div class="metadata-group">
+        <dt>Capability</dt>
+        <dd data-pagefind-filter="capability" data-pagefind-meta="capability">
+          {capability}
+        </dd>
+      </div>
+    )
+  }
+  {
+    services.length > 0 && (
+      <div class="metadata-group">
+        <dt>Services</dt>
+        <dd>
+          {services.map((service) => (
+            <span data-pagefind-filter="service" data-pagefind-meta="service">
+              {service}
+            </span>
+          ))}
+        </dd>
+      </div>
+    )
+  }
+  {
+    integrations.length > 0 && (
+      <div class="metadata-group">
+        <dt>Integrations</dt>
+        <dd>
+          {integrations.map((integration) => (
+            <span
+              data-pagefind-filter="integration"
+              data-pagefind-meta="integration"
+            >
+              {integration}
+            </span>
+          ))}
+        </dd>
+      </div>
+    )
+  }
+  {
+    aliases.length > 0 && (
+      <div class="metadata-group search-aliases">
+        <dt>คำค้น</dt>
+        <dd>{aliases.join(", ")}</dd>
+      </div>
+    )
+  }
+  {
+    errorCodes.length > 0 && (
+      <div class="metadata-group search-error-codes">
+        <dt>Error codes</dt>
+        <dd>
+          {errorCodes.map((errorCode) => (
+            <span
+              data-pagefind-filter="errorCode"
+              data-pagefind-meta="errorCode"
+            >
+              {errorCode}
+            </span>
+          ))}
+        </dd>
+      </div>
+    )
+  }
+  <div class="metadata-group">
+    <dt>Status</dt>
+    <dd
+      class={`status status-${status}`}
+      data-pagefind-filter="status"
+      data-pagefind-meta="status"
+    >
+      {status}
+    </dd>
+  </div>
+</dl>
+
+<style>
+  @layer starlight.core {
+    h1 {
+      margin-top: 1rem;
+      font-size: var(--sl-text-h1);
+      line-height: var(--sl-line-height-headings);
+      font-weight: 600;
+      color: var(--sl-color-white);
+    }
+  }
+</style>

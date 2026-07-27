@@ -1,0 +1,72 @@
+:root {
+  --sl-color-accent-low: #0d2f2a;
+  --sl-color-accent: #168b76;
+  --sl-color-accent-high: #b8f1e4;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #d7f7ef;
+  --sl-color-accent: #08705e;
+  --sl-color-accent-high: #073d35;
+}
+
+.flow-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+
+.metadata-group {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.metadata-group dt {
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+}
+
+.metadata-group dd {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.metadata-group dd,
+.metadata-group dd span {
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 999px;
+  color: var(--sl-color-text);
+  font-size: var(--sl-text-xs);
+  padding: 0.2rem 0.65rem;
+}
+
+.metadata-group dd span {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.metadata-group .status-active {
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+  border-color: color-mix(in srgb, #22c55e 55%, transparent);
+}
+
+.metadata-group .status-draft {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 55%, transparent);
+}
+
+.metadata-group .status-deprecated {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  border-color: color-mix(in srgb, #ef4444 55%, transparent);
+}
+
+.search-aliases,
+.search-error-codes {
+  overflow-wrap: anywhere;
+}

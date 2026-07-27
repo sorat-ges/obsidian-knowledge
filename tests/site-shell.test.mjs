@@ -1,0 +1,377 @@
+import assert from "node:assert/strict";
+import {
+  access,
+  mkdir,
+  open,
+  readFile,
+  readdir,
+  rm,
+} from "node:fs/promises";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { after, before, test } from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { parse } from "parse5";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const docsDir = path.join(root, "src/content/docs");
+const fixtureDir = path.join(docsDir, "business-flows/trading");
+const activeFixture = path.join(fixtureDir, "search-contract-fixture.md");
+const draftFixture = path.join(fixtureDir, "draft-contract-fixture.md");
+const deprecatedFixture = path.join(
+  docsDir,
+  "developer-guides/deprecated-contract-fixture.md",
+);
+const conflictFixture = path.join(
+  docsDir,
+  "developer-guides/conflicting-draft-contract-fixture.md",
+);
+const activeRoute = path.join(
+  root,
+  "dist/business-flows/trading/search-contract-fixture/index.html",
+);
+const draftRoute = path.join(
+  root,
+  "dist/business-flows/trading/draft-contract-fixture/index.html",
+);
+const deprecatedRoute = path.join(
+  root,
+  "dist/developer-guides/deprecated-contract-fixture/index.html",
+);
+
+let tradingHtml;
+let contractHtml;
+let pagefind;
+const originalFetch = globalThis.fetch;
+const createdFixtures = new Set();
+
+function runBuild() {
+  return spawnSync("npm", ["run", "docs:build"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+}
+
+async function reserveFixture(file, contents) {
+  const handle = await open(file, "wx");
+  createdFixtures.add(file);
+  try {
+    await handle.writeFile(contents);
+  } finally {
+    await handle.close();
+  }
+}
+
+async function removeFixture(file) {
+  if (!createdFixtures.delete(file)) return;
+  await rm(file);
+}
+
+async function removeAllFixtures() {
+  await Promise.all([...createdFixtures].map(removeFixture));
+}
+
+function elements(node, predicate, matches = []) {
+  if (node.tagName && predicate(node)) matches.push(node);
+  for (const child of node.childNodes ?? []) elements(child, predicate, matches);
+  return matches;
+}
+
+function attribute(node, name) {
+  return node.attrs?.find((item) => item.name === name)?.value;
+}
+
+function textContent(node) {
+  if (node.nodeName === "#text") return node.value;
+  return (node.childNodes ?? []).map(textContent).join("");
+}
+
+function urlForFetchInput(input) {
+  if (typeof input === "string") return new URL(input);
+  if (input instanceof URL) return input;
+  if (input instanceof Request) return new URL(input.url);
+  throw new TypeError("unsupported fetch input");
+}
+
+function metadataValue(document, label) {
+  const groups = elements(
+    document,
+    (node) => attribute(node, "class")?.split(" ").includes("metadata-group"),
+  );
+  const group = groups.find((candidate) => {
+    const term = elements(candidate, (node) => node.tagName === "dt")[0];
+    return term && textContent(term).trim() === label;
+  });
+  assert.ok(group, `missing metadata group: ${label}`);
+  const description = elements(group, (node) => node.tagName === "dd")[0];
+  assert.ok(description, `missing metadata value: ${label}`);
+  return description;
+}
+
+async function searchUrls(query, options) {
+  const response = await pagefind.search(query, options);
+  return Promise.all(
+    response.results.map(async (result) => (await result.data()).raw_url),
+  );
+}
+
+before(async () => {
+  await mkdir(fixtureDir, { recursive: true });
+  try {
+    await reserveFixture(
+      activeFixture,
+      `---
+title: Search Contract Fixture
+description: Fixture exercising searchable metadata
+capability: Search Test
+services: [contract-service]
+integrations: [contract-integration]
+aliases: [unique-english-alias, ค้นหาทดลองเฉพาะ]
+errorCodes: [CONTRACT_ERROR]
+status: active
+lastUpdated: 2026-07-27
+documentType: flow
+---
+
+Search contract fixture body.
+`,
+    );
+    await reserveFixture(
+      draftFixture,
+      `---
+title: Draft Contract Fixture
+description: Draft content must not be published or indexed
+capability: Search Test
+services: [contract-service]
+aliases: [draft-secret-term, คำลับฉบับร่าง]
+status: draft
+lastUpdated: 2026-07-27
+documentType: flow
+---
+
+Draft-only content.
+`,
+    );
+    await reserveFixture(
+      deprecatedFixture,
+      `---
+title: Deprecated Contract Fixture
+description: Deprecated non-flow metadata fixture
+status: deprecated
+lastUpdated: 2026-07-27
+documentType: developer-guide
+---
+
+Deprecated non-flow content.
+`,
+    );
+  } catch (error) {
+    await removeAllFixtures();
+    throw error;
+  }
+
+  const build = runBuild();
+  assert.equal(build.status, 0, `${build.stdout}\n${build.stderr}`);
+
+  [tradingHtml, contractHtml] = await Promise.all([
+    readFile(
+      path.join(root, "dist/business-flows/trading/index.html"),
+      "utf8",
+    ),
+    readFile(activeRoute, "utf8"),
+  ]);
+
+  const pagefindBase = pathToFileURL(path.join(root, "dist/pagefind/")).href;
+  globalThis.fetch = async (input, init) => {
+    const url = urlForFetchInput(input);
+    if (url.protocol === "file:") {
+      return new Response(await readFile(url), { status: 200 });
+    }
+    return originalFetch(input, init);
+  };
+  pagefind = await import(
+    `${pagefindBase}pagefind.js?site-shell=${Date.now()}`
+  );
+  await pagefind.options({ basePath: pagefindBase, language: "th" });
+});
+
+after(async () => {
+  globalThis.fetch = originalFetch;
+  await removeAllFixtures();
+  const build = runBuild();
+  assert.equal(build.status, 0, `${build.stdout}\n${build.stderr}`);
+});
+
+test("renders the Thai document shell and exact Trading metadata", () => {
+  const document = parse(tradingHtml);
+  const html = elements(document, (node) => node.tagName === "html")[0];
+  assert.equal(attribute(html, "lang"), "th");
+
+  const heading = elements(
+    document,
+    (node) => node.tagName === "h1" && attribute(node, "id") === "_top",
+  );
+  assert.equal(heading.length, 1);
+  assert.equal(textContent(heading[0]).trim(), "Trading");
+
+  assert.equal(textContent(metadataValue(document, "Capability")).trim(), "Trading");
+  assert.equal(
+    textContent(metadataValue(document, "Services")).trim(),
+    "order-service",
+  );
+  assert.equal(textContent(metadataValue(document, "Status")).trim(), "active");
+});
+
+test("renders labeled searchable metadata including status without capability", async () => {
+  const contractDocument = parse(contractHtml);
+  assert.equal(
+    textContent(metadataValue(contractDocument, "Capability")).trim(),
+    "Search Test",
+  );
+  assert.equal(
+    textContent(metadataValue(contractDocument, "Services")).trim(),
+    "contract-service",
+  );
+  assert.equal(
+    textContent(metadataValue(contractDocument, "Integrations")).trim(),
+    "contract-integration",
+  );
+  assert.equal(
+    textContent(metadataValue(contractDocument, "Error codes")).trim(),
+    "CONTRACT_ERROR",
+  );
+  assert.equal(
+    textContent(metadataValue(contractDocument, "Status")).trim(),
+    "active",
+  );
+
+  const deprecatedGuide = parse(await readFile(deprecatedRoute, "utf8"));
+  assert.equal(
+    textContent(metadataValue(deprecatedGuide, "Status")).trim(),
+    "deprecated",
+  );
+  assert.equal(
+    elements(deprecatedGuide, (node) => node.tagName === "dt").some(
+      (node) => textContent(node).trim() === "Capability",
+    ),
+    false,
+  );
+});
+
+test("Pagefind searches Thai and English aliases and exposes metadata filters", async () => {
+  assert.ok(
+    (await searchUrls("unique-english-alias")).includes(
+      "/business-flows/trading/search-contract-fixture/",
+    ),
+  );
+  assert.ok(
+    (await searchUrls("ค้นหาทดลองเฉพาะ")).includes(
+      "/business-flows/trading/search-contract-fixture/",
+    ),
+  );
+
+  const filters = await pagefind.filters();
+  assert.ok(filters.capability["Search Test"] >= 1);
+  assert.ok(filters.service["contract-service"] >= 1);
+  assert.ok(filters.integration["contract-integration"] >= 1);
+  assert.ok(filters.errorCode.CONTRACT_ERROR >= 1);
+  assert.ok(filters.status.active >= 1);
+  assert.ok(filters.status.deprecated >= 1);
+
+  assert.deepEqual(
+    await searchUrls(null, {
+      filters: {
+        capability: "Search Test",
+        service: "contract-service",
+        integration: "contract-integration",
+        errorCode: "CONTRACT_ERROR",
+        status: "active",
+      },
+    }),
+    ["/business-flows/trading/search-contract-fixture/"],
+  );
+});
+
+test("the Pagefind file fetch adapter accepts string, URL, and Request inputs", async () => {
+  const pagefindUrl = pathToFileURL(
+    path.join(root, "dist/pagefind/pagefind.js"),
+  );
+  const responses = await Promise.all([
+    globalThis.fetch(pagefindUrl.href),
+    globalThis.fetch(pagefindUrl),
+    globalThis.fetch(new Request(pagefindUrl)),
+  ]);
+  assert.deepEqual(
+    responses.map((response) => response.status),
+    [200, 200, 200],
+  );
+});
+
+test("draft status omits the route and Pagefind entry", async () => {
+  await assert.rejects(access(draftRoute), { code: "ENOENT" });
+  assert.equal(
+    (await searchUrls("draft-secret-term")).includes(
+      "/business-flows/trading/draft-contract-fixture/",
+    ),
+    false,
+  );
+  assert.equal(
+    (await searchUrls("คำลับฉบับร่าง")).includes(
+      "/business-flows/trading/draft-contract-fixture/",
+    ),
+    false,
+  );
+});
+
+test("rejects explicit Starlight draft metadata that conflicts with status", async () => {
+  await reserveFixture(
+    conflictFixture,
+    `---
+title: Conflicting Draft Contract Fixture
+description: Conflicting draft metadata must fail validation
+status: active
+draft: true
+lastUpdated: 2026-07-27
+documentType: developer-guide
+---
+
+Conflicting draft metadata.
+`,
+  );
+
+  try {
+    const build = runBuild();
+    assert.notEqual(build.status, 0, "conflicting draft metadata built successfully");
+    assert.match(
+      `${build.stdout}\n${build.stderr}`,
+      /draft must match status/,
+    );
+  } finally {
+    await removeFixture(conflictFixture);
+  }
+});
+
+test("the PageTitle override retains Starlight h1 styling", async () => {
+  const assetNames = await readdir(path.join(root, "dist/_astro"));
+  const stylesheets = await Promise.all(
+    assetNames
+      .filter((name) => name.endsWith(".css"))
+      .map((name) => readFile(path.join(root, "dist/_astro", name), "utf8")),
+  );
+  const css = stylesheets.join("\n").replaceAll(/\s+/g, "");
+  const h1Rules = [...css.matchAll(/h1:where\([^)]*\)\{([^}]*)\}/g)].map(
+    (match) => match[1],
+  );
+  assert.ok(
+    h1Rules.some(
+      (rule) =>
+        rule.includes("margin-top:1rem") &&
+        rule.includes("font-size:var(--sl-text-h1)") &&
+        rule.includes("line-height:var(--sl-line-height-headings)") &&
+        rule.includes("font-weight:600") &&
+        rule.includes("color:var(--sl-color-white)"),
+    ),
+    "missing Starlight PageTitle h1 declarations",
+  );
+});
