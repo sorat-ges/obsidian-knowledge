@@ -1,3 +1,5 @@
 site/
 .docs-cache/
-
+node_modules/
+.astro/
+dist/
