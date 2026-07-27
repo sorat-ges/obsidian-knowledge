@@ -491,8 +491,7 @@ test("accepts existing Markdown and asset targets", async () => {
     fixture.writeDoc(
       "developer-guides/example.md",
       `${commonMetadata}
-[Relative](../shared-rules/glossary.md)
-[Root](/shared-rules/glossary.md)
+[Canonical route](/shared-rules/glossary/)
 ![Asset](/assets/logo.png)
 [Web](https://example.com)
 [Mail](mailto:docs@example.com)
@@ -509,6 +508,124 @@ test("accepts existing Markdown and asset targets", async () => {
   const diagnostics = await validateDocs(fixture);
 
   assert.deepEqual(diagnostics, []);
+});
+
+test("rejects published local Markdown hrefs even when targets exist", async () => {
+  const fixture = await createFixture();
+  await Promise.all([
+    fixture.writeDoc(
+      "developer-guides/example.md",
+      `${commonMetadata}
+[Relative](../shared-rules/glossary.md?view=full#terms)
+[Root](/shared-rules/security.MDX#otp)
+`,
+    ),
+    fixture.writeDoc(
+      "shared-rules/glossary.md",
+      commonMetadata.replace("title: Example", "title: Glossary"),
+    ),
+    fixture.writeDoc(
+      "shared-rules/security.MDX",
+      commonMetadata.replace("title: Example", "title: Security"),
+    ),
+  ]);
+
+  const diagnostics = await validateDocs(fixture);
+
+  assert.deepEqual(diagnostics, [
+    {
+      file: "developer-guides/example.md",
+      message:
+        "published local Markdown link must use a canonical extensionless route: ../shared-rules/glossary.md?view=full#terms",
+    },
+    {
+      file: "developer-guides/example.md",
+      message:
+        "published local Markdown link must use a canonical extensionless route: /shared-rules/security.MDX#otp",
+    },
+  ]);
+});
+
+test("accepts canonical extensionless routes for existing documents", async () => {
+  const fixture = await createFixture();
+  await Promise.all([
+    fixture.writeDoc(
+      "developer-guides/example.md",
+      `${commonMetadata}
+[Shared rule](/shared-rules/security/)
+[Index route](/business-flows/trading/)
+`,
+    ),
+    fixture.writeDoc(
+      "shared-rules/security.md",
+      commonMetadata.replace("title: Example", "title: Security"),
+    ),
+    fixture.writeDoc(
+      "business-flows/trading/index.md",
+      `---
+title: Trading
+description: Trading documentation
+status: active
+lastUpdated: 2026-07-27
+capability: Trading
+services: [order-service]
+aliases: [trading]
+---
+`,
+    ),
+  ]);
+
+  const diagnostics = await validateDocs(fixture);
+
+  assert.deepEqual(diagnostics, []);
+});
+
+test("rejects canonical routes for draft documents omitted from the site", async () => {
+  const fixture = await createFixture();
+  await Promise.all([
+    fixture.writeDoc(
+      "developer-guides/example.md",
+      `${commonMetadata}
+[Draft route](/shared-rules/draft-rule/)
+`,
+    ),
+    fixture.writeDoc(
+      "shared-rules/draft-rule.md",
+      commonMetadata
+        .replace("title: Example", "title: Draft rule")
+        .replace("status: active", "status: draft"),
+    ),
+  ]);
+
+  const diagnostics = await validateDocs(fixture);
+
+  assert.deepEqual(diagnostics, [
+    {
+      file: "developer-guides/example.md",
+      message:
+        "local link target does not exist: /shared-rules/draft-rule/",
+    },
+  ]);
+});
+
+test("rejects canonical extensionless routes without a document", async () => {
+  const fixture = await createFixture();
+  await fixture.writeDoc(
+    "developer-guides/example.md",
+    `${commonMetadata}
+[Missing route](/shared-rules/missing/)
+`,
+  );
+
+  const diagnostics = await validateDocs(fixture);
+
+  assert.deepEqual(diagnostics, [
+    {
+      file: "developer-guides/example.md",
+      message:
+        "local link target does not exist: /shared-rules/missing/",
+    },
+  ]);
 });
 
 test("rejects invalid YAML without cascading metadata errors", async () => {

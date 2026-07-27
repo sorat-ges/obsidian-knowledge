@@ -115,17 +115,20 @@ function localPathForTarget({ target, sourceFile, docsDir, publicDir }) {
   if (decodedTarget.startsWith("/assets/")) {
     return {
       allowedRoot: publicDir,
+      decodedTarget,
       localPath: path.join(publicDir, decodedTarget.slice(1)),
     };
   }
   if (decodedTarget.startsWith("/")) {
     return {
       allowedRoot: docsDir,
+      decodedTarget,
       localPath: path.join(docsDir, decodedTarget.slice(1)),
     };
   }
   return {
     allowedRoot: docsDir,
+    decodedTarget,
     localPath: path.resolve(path.dirname(sourceFile), decodedTarget),
   };
 }
@@ -146,6 +149,7 @@ async function diagnoseTarget({
   relativeFile,
   docsDir,
   publicDir,
+  knownSlugs,
 }) {
   if (/^file:/i.test(target)) {
     return {
@@ -157,7 +161,7 @@ async function diagnoseTarget({
     return null;
   }
 
-  const { allowedRoot, localPath } = localPathForTarget({
+  const { allowedRoot, decodedTarget, localPath } = localPathForTarget({
     target,
     sourceFile,
     docsDir,
@@ -168,6 +172,17 @@ async function diagnoseTarget({
       file: relativeFile,
       message: `local link target escapes allowed root: ${target}`,
     };
+  }
+
+  const isCanonicalDocsRoute =
+    decodedTarget.startsWith("/") &&
+    !decodedTarget.startsWith("/assets/") &&
+    decodedTarget.endsWith("/");
+  if (
+    isCanonicalDocsRoute &&
+    knownSlugs.has(decodedTarget.replace(/^\/|\/$/g, ""))
+  ) {
+    return null;
   }
 
   try {
@@ -186,6 +201,15 @@ async function diagnoseTarget({
       return {
         file: relativeFile,
         message: `local link target escapes allowed root: ${target}`,
+      };
+    }
+    if (
+      path.resolve(allowedRoot) === path.resolve(docsDir) &&
+      /\.(md|mdx)$/i.test(decodedTarget)
+    ) {
+      return {
+        file: relativeFile,
+        message: `published local Markdown link must use a canonical extensionless route: ${target}`,
       };
     }
     return null;
@@ -307,6 +331,7 @@ export async function validateDocs({ docsDir, publicDir }) {
       relativeFile,
       slug: slugForRelativePath(relativeFile),
       source: body,
+      status: metadata.status,
       title: isNonEmptyString(metadata.title)
         ? metadata.title.trim().toLowerCase()
         : null,
@@ -329,6 +354,12 @@ export async function validateDocs({ docsDir, publicDir }) {
       }
     }
   }
+
+  const publishedSlugs = new Set(
+    documents
+      .filter((document) => document.status !== "draft")
+      .map((document) => document.slug),
+  );
 
   const documentsByTitle = new Map();
   for (const document of documents) {
@@ -358,6 +389,7 @@ export async function validateDocs({ docsDir, publicDir }) {
         relativeFile: document.relativeFile,
         docsDir,
         publicDir,
+        knownSlugs: publishedSlugs,
       });
       if (diagnostic) {
         diagnostics.push(diagnostic);
