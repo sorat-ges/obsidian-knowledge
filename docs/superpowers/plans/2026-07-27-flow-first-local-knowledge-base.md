@@ -662,7 +662,7 @@ Required metadata:
 title: Swap Limit Order
 description: Flow คำสั่ง Swap Limit ตั้งแต่สร้าง order, Remarketer webhook, ledger และ portfolio balance
 capability: Trading
-services: [order-service, asset-service, asset-consumer]
+services: [order-service, order-consumer, asset-service, asset-consumer]
 integrations: [remarketer]
 aliases: [swap limit, limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต]
 status: active
@@ -673,16 +673,22 @@ documentType: flow
 Required sequence ownership:
 
 ```text
-Create and validate order       → order-service
-Reserve source balance          → order-service
-Submit to Remarketer            → order-service
-Process Remarketer webhook      → order-service
-Write logical ledger            → order-service
-Apply ledger to portfolio       → asset-consumer
-Expose updated balance/report   → asset-service
+Create and validate order       → owner: order-service
+Reserve source balance          → owner: order-service; executing service: order-consumer
+Submit to Remarketer            → owner: order-service; executing service: order-consumer
+Process Remarketer webhook      → owner: order-service
+Write logical ledger            → owner: order-service
+Apply ledger to portfolio       → owner: asset-consumer
+Expose updated balance/report   → owner: asset-service
 ```
 
 Include cancellation/webhook race behavior only when it describes current confirmed behavior. Do not copy uncommitted implementation-plan content from `03-Implementation/Active/swap-cancel-webhook-race-handling.md`.
+
+The inclusion of `order-consumer` in searchable service metadata and the
+owner/executor split above are evidence-based corrections from the confirmed
+end-to-end source. `order-service` remains the business owner while
+`order-consumer` executes the asynchronous reserve and Remarketer submission
+steps.
 
 - [ ] **Step 4: Migrate Big Lot, Routing, and Hedging**
 

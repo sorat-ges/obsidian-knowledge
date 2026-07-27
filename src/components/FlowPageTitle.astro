@@ -11,7 +11,7 @@ const {
 } = entry.data;
 ---
 
-<h1 id="_top">{title}</h1>
+<h1 id="_top" data-pagefind-weight="10">{title}</h1>
 
 <dl class="flow-metadata" aria-label="Document metadata">
   {
@@ -59,7 +59,9 @@ const {
     aliases.length > 0 && (
       <div class="metadata-group search-aliases">
         <dt>คำค้น</dt>
-        <dd>{aliases.join(", ")}</dd>
+        <dd data-pagefind-weight="10" data-pagefind-meta="alias">
+          {aliases.join(", ")}
+        </dd>
       </div>
     )
   }

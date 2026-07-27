@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { pagefindRanking } from "./src/pagefind-ranking.mjs";
 
 export default defineConfig({
   site: "http://localhost:4321",
@@ -13,7 +14,9 @@ export default defineConfig({
           lang: "th",
         },
       },
-      pagefind: true,
+      pagefind: {
+        ranking: pagefindRanking,
+      },
       customCss: ["./src/styles/custom.css"],
       components: {
         PageTitle: "./src/components/FlowPageTitle.astro",

@@ -13,6 +13,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parse } from "parse5";
+import { pagefindRanking } from "../src/pagefind-ranking.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const docsDir = path.join(root, "src/content/docs");
@@ -42,6 +43,7 @@ const deprecatedRoute = path.join(
 
 let tradingHtml;
 let contractHtml;
+let swapLimitHtml;
 let pagefind;
 const originalFetch = globalThis.fetch;
 const createdFixtures = new Set();
@@ -110,7 +112,10 @@ function metadataValue(document, label) {
 }
 
 async function searchUrls(query, options) {
-  const response = await pagefind.search(query, options);
+  const response = await pagefind.search(query, {
+    ranking: pagefindRanking,
+    ...options,
+  });
   return Promise.all(
     response.results.map(async (result) => (await result.data()).raw_url),
   );
@@ -174,12 +179,19 @@ Deprecated non-flow content.
   const build = runBuild();
   assert.equal(build.status, 0, `${build.stdout}\n${build.stderr}`);
 
-  [tradingHtml, contractHtml] = await Promise.all([
+  [tradingHtml, contractHtml, swapLimitHtml] = await Promise.all([
     readFile(
       path.join(root, "dist/business-flows/trading/index.html"),
       "utf8",
     ),
     readFile(activeRoute, "utf8"),
+    readFile(
+      path.join(
+        root,
+        "dist/business-flows/trading/swap-limit-order/index.html",
+      ),
+      "utf8",
+    ),
   ]);
 
   const pagefindBase = pathToFileURL(path.join(root, "dist/pagefind/")).href;
@@ -290,6 +302,36 @@ test("Pagefind searches Thai and English aliases and exposes metadata filters", 
       },
     }),
     ["/business-flows/trading/search-contract-fixture/"],
+  );
+});
+
+test("Pagefind ranks the exact Thai Swap Limit alias first and filters its executor", async () => {
+  const swapLimitRoute = "/business-flows/trading/swap-limit-order/";
+  assert.equal((await searchUrls("คำสั่งลิมิต"))[0], swapLimitRoute);
+
+  const filters = await pagefind.filters();
+  assert.ok(filters.service["order-consumer"] >= 1);
+  assert.ok(
+    (
+      await searchUrls(null, {
+        filters: { service: "order-consumer" },
+      })
+    ).includes(swapLimitRoute),
+  );
+
+  const document = parse(swapLimitHtml);
+  const heading = elements(
+    document,
+    (node) => node.tagName === "h1" && attribute(node, "id") === "_top",
+  )[0];
+  assert.equal(attribute(heading, "data-pagefind-weight"), "10");
+  assert.equal(
+    attribute(metadataValue(document, "คำค้น"), "data-pagefind-weight"),
+    "10",
+  );
+  assert.equal(
+    attribute(metadataValue(document, "คำค้น"), "data-pagefind-meta"),
+    "alias",
   );
 });
 

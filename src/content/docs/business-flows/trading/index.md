@@ -1,6 +1,6 @@
 ---
 title: Trading
-description: จุดเริ่มต้นสำหรับ Flow การซื้อขายและการจัดการความเสี่ยง
+description: จุดเริ่มต้นสำหรับ Flow การซื้อขาย การเลือก route และการจัดการความเสี่ยง
 capability: Trading
 services: [order-service]
 aliases: [trading, trade, ซื้อขาย]
@@ -9,4 +9,17 @@ lastUpdated: 2026-07-27
 documentType: flow
 ---
 
-พื้นที่นี้จะรวบรวม Swap Market, Swap Limit, Big Lot, Routing และ Hedging เป็น Flow แบบ end-to-end ในการย้ายเอกสารหมวด Trading
+เลือก Flow ตามสิ่งที่กำลังพัฒนาหรือวินิจฉัย:
+
+- [Swap Market Order](/business-flows/trading/swap-market-order/) — เปิดเมื่อไล่การซื้อขายทันที ตั้งแต่ตรวจคำสั่ง เลือก route, execute, ledger, portfolio จนถึง hedge
+- [Swap Limit Order](/business-flows/trading/swap-limit-order/) — เปิดเมื่อไล่คำสั่งตั้งราคา การล็อกยอด Remarketer webhook, partial fill, refund และ portfolio
+- [Big Lot](/business-flows/trading/big-lot/) — เปิดเมื่อทำ White Glove/Bulk ซึ่งบังคับ dealer route และมีกฎ bypass กับ precision เฉพาะ
+- [Routing](/business-flows/trading/routing/) — เปิดเมื่อหาสาเหตุว่าทำไม route หนึ่งถูกเลือก การมองเห็นของ Customer/Dealer หรือ error `90006`
+- [Hedging](/business-flows/trading/hedging/) — เปิดเมื่อไล่ FX exposure หลังเทรด USD, threshold และคำสั่ง hedge กับธนาคาร
+
+## กฎกลางของ Trading
+
+- [Trading Fees and Campaigns](/shared-rules/trading-fees-and-campaigns/)
+- [Order State Machine](/shared-rules/order-state-machine/)
+- [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+- [Error Code Registry](/shared-rules/error-codes/)
