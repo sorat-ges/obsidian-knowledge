@@ -765,10 +765,36 @@ func (s *orderTradeService) finalizePartialFillCancelOrReject(
 		return errors.Wrap(err, "failed to get order trade exchange from repo")
 	}
 
-	// ต้องสร้าง helper ใหม่ที่ refund remaining hold-in-order โดยใช้ remaining quantity จาก aggregate หรือ transaction ล่าสุด
-	ledgerCreated, err := s.refundRemainingHoldInOrderForPartialCancel(tx, *orderTrade, orderTradeTransactions)
-	if err != nil {
-		return errors.Wrap(err, "failed to refund remaining hold-in-order")
+	// สามารถเรียกใช้ฟังก์ชันที่มีอยู่แล้วแทนการเขียนคำนวณคืนเงินขึ้นมาใหม่ เช่น:
+	// - s.stampRefundedLogicalLedgerTransactionSwapSell (สำหรับ Sell Order)
+	// - s.stampRefundedLogicalLedgerTransactionSwapBuy (สำหรับ Buy Order)
+	// ซึ่งมีการดึงประวัติมาคำนวณร่วมกับ domain.SwapRefundCalculated ไว้อยู่แล้ว เพื่อป้องกัน Code Duplicate
+	var ledgerCreated []domain.LogicalLedgerTransaction
+	var refundErr error
+	batchID := utils.NewUUIDV4()
+	timeNow := utils.GetTimeNow()
+	userUpdate := entities.UpdateStandard{
+		UpdatedAt:     timeNow,
+		UpdatedBy:     constants.System,
+		UpdatedByName: constants.System,
+	}
+
+	if orderTrade.IsBuySide() {
+		product, getProductErr := s.productService.GetProductBySymbol(orderTrade.ProductPairSymbol())
+		if getProductErr != nil {
+			return errors.Wrap(getProductErr, "failed to get product for refund")
+		}
+		ledgerCreated, refundErr = s.stampRefundedLogicalLedgerTransactionSwapBuy(tx, batchID, orderTrade, product, userUpdate)
+	} else {
+		product, getProductErr := s.productService.GetProductBySymbol(orderTrade.ProductSymbol())
+		if getProductErr != nil {
+			return errors.Wrap(getProductErr, "failed to get product for refund")
+		}
+		ledgerCreated, refundErr = s.stampRefundedLogicalLedgerTransactionSwapSell(tx, batchID, orderTrade, product, userUpdate)
+	}
+
+	if refundErr != nil {
+		return errors.Wrap(refundErr, "failed to refund remaining hold-in-order")
 	}
 
 	if len(ledgerCreated) > 0 {
@@ -826,6 +852,7 @@ func (s *orderTradeService) updateOrderTradeToFilledAfterCustomerCancel(
 **หมายเหตุสำคัญ**
 
 - อย่าเรียก `handleOnCompleteOrderTrade` ตรง ๆ ถ้า webhook เป็น `cancelled/rejected` และไม่มี new fill transaction เพราะ helper เดิมถูกออกแบบสำหรับ complete execution
+- เพื่อป้องกัน Code Duplication และความเสี่ยงในการคำนวณผิดพลาด ให้เรียกใช้ฟังก์ชันคืนเงินที่มีอยู่แล้วใน `webhook_service.go` เช่น `stampRefundedLogicalLedgerTransactionSwapSell` และ `stampRefundedLogicalLedgerTransactionSwapBuy` ซึ่งใช้โครงสร้าง `domain.SwapRefundCalculated` ครบถ้วนแล้ว
 - ควรแยก helper สำหรับ refund remaining โดยเฉพาะ เพื่อไม่เผลอ settle execution ซ้ำ
 
 ### Task 1.6: เพิ่ม idempotency guard ก่อน create transaction/ledger
