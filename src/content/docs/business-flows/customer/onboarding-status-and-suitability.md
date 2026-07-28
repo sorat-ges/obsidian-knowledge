@@ -6,7 +6,7 @@ services: [onboarding-service]
 aliases: [onboarding status, suitability v2, traditional suitability, digital suitability, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, suitability test]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-07-28
 documentType: flow
 ---
 
@@ -111,6 +111,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 
 - Backend claim เป็นแหล่ง `identification_id`; request ไม่เลือก customer เอง
 - Step completion ต้องมี required sub-status ครบ ไม่ใช่ดูเฉพาะ current status
+- เมื่อเจ้าหน้าที่ request retake ระบบสร้าง completed history สำหรับ personal/address/work/background/suitability/bank ของ flow ที่เลือก แล้วตั้ง current step กลับไป `identity-verification/front-card-scan`
+- Application type `re-kyc` ใช้ `retake-re-kyc` ตอนเริ่ม retake; application type อื่นใช้ `retake`
 - Default bank account ทำให้ status response ไม่แสดง bank-account step
 - Multiple-answer suitability ใช้ helper เลือกคะแนนสูงสุดแบบ unique ก่อนรวมคะแนน
 - Digital score อาจต่างจาก Traditional score เพราะ digital-experience adjustment
@@ -149,6 +151,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 ## Related shared rules
 
 - [Customer Onboarding and KYC](/business-flows/customer/)
+- [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/)
 - [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 - [Permissions and Access Control](/shared-rules/permissions/)
 - [Error Code Registry](/shared-rules/error-codes/)

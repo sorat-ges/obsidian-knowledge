@@ -1,17 +1,18 @@
 ---
 title: Customer Onboarding and KYC
-description: จุดเริ่มต้นสำหรับ Flow onboarding, suitability, re-KYC, KYC expiry และ account suspension
+description: จุดเริ่มต้นสำหรับ Flow onboarding, suitability, KYC review retake, re-KYC, KYC expiry และ account suspension
 capability: Customer
 services: [onboarding-service]
-aliases: [customer onboarding, suitability, re-KYC, KYC expiry, เปิดบัญชี, แบบประเมินความเสี่ยง, ทบทวน KYC]
+aliases: [customer onboarding, suitability, KYC retake, retake-re-kyc, re-KYC, KYC expiry, เปิดบัญชี, ถ่ายบัตรใหม่, แบบประเมินความเสี่ยง, ทบทวน KYC]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-07-28
 documentType: flow
 ---
 
 Flow หลัก:
 
 - [Onboarding Status and Suitability](/business-flows/customer/onboarding-status-and-suitability/) — ติดตามขั้น onboarding, คำนวณ suitability สำหรับ Traditional/Digital และยืนยันเพื่อเดิน registration ต่อ
+- [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/) — เจ้าหน้าที่ส่ง application กลับให้ลูกค้าถ่ายบัตรใหม่, เทียบข้อมูล DOPA และส่งกลับเข้า review
 - [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) — คำนวณวันหมดอายุจากบัตรประชาชน, CDD และ suitability ก่อนระงับลูกค้าและบัญชีที่ครบเงื่อนไข
 
 ## Participating services

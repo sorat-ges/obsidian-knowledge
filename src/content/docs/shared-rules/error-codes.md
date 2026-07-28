@@ -1,9 +1,9 @@
 ---
 title: Error Code Registry (Diagnostic Guide)
-description: Registry รหัสข้อผิดพลาดของ Trading และ Yield Payment Setup พร้อมสาเหตุและแนวทางวินิจฉัย
+description: Registry รหัสข้อผิดพลาดของ Trading, KYC retake และ Yield Payment Setup พร้อมสาเหตุและแนวทางวินิจฉัย
 tags: [logic, error, debug, troubleshooting]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-07-28
 documentType: shared-rule
 ---
 
@@ -46,6 +46,20 @@ Error ต่อไปนี้มาจาก `product-service`:
 
 รายละเอียด calculation และ recovery ดู [Yield Payment Setup](/business-flows/offering/yield-payment-setup/)
 
+## หมวดหมู่ KYC Review Retake
+
+Code ต่อไปนี้มาจาก `onboarding-service`:
+
+| Error Code | Constant Name | ความหมายใน Flow | Recovery |
+| :--- | :--- | :--- | :--- |
+| **1000** | `INVALID_APPLICATION_STATUS` | `current_status` จาก client ไม่ตรงกับ application ปัจจุบัน | Refresh application แล้วประเมิน action ใหม่ก่อน retry |
+| **4001** | `INVALID_REQUEST` | Request body ของ request-retake bind ไม่ผ่าน | แก้ payload โดยเฉพาะ `current_status` |
+| **200** | `DOPA_SUCCESS` | DOPA ผ่านและข้อมูลที่ใช้ตัดสิน match ตรง | Application กลับเข้า KYC review |
+| **2009** | `DOPA_DATA_CHANGE` | DOPA ผ่านแต่ profile หรือ address ไม่ตรงข้อมูลเดิม | ให้ลูกค้าตรวจ personal information ที่อัปเดตจากผล verify |
+| **6600** | `ERROR_RE_APP_MAN` | DOPA error/expired branch ถูก map เป็น `ID Card Expired` | ตรวจ DOPA response และเริ่ม verification ใหม่ตาม UI ที่รองรับ |
+
+รายละเอียด state และ comparison rule ดู [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/)
+
 ## 🛠️ วิธีการวินิจฉัยสำหรับนักพัฒนา
 หากได้รับ Error Code ให้ดำเนินการตามลำดับดังนี้:
 1. **Search Log:** ค้นหา Error Code นี้ในไฟล์ Log เพื่อดู Error Message แบบละเอียด (Detailed Error)
@@ -54,4 +68,5 @@ Error ต่อไปนี้มาจาก `product-service`:
 
 ## วิธีตรวจสอบ
 - Trading: ตรวจ `order-service/internal/constants/error.go`
+- KYC retake: ตรวจ `onboarding-service/internal/constants/enum/enum_code.go`, `handler/webportal/kyc-handler.go` และ `pkg/ekyc/dopasvc/dopa-service.go`
 - Yield Payment Setup: ตรวจ `product-service/internal/constants/yield_payment_setup.go` และ `product-service/handler/yield_payment_setup_handler.go`
