@@ -391,7 +391,7 @@ test("renders weighted segmented Thai aliases for search without changing visibl
   assert.doesNotMatch(textContent(variants[0]), /swap limit|limit order/);
   assert.equal(
     textContent(metadataValue(document, "คำค้น")).trim(),
-    "swap limit, limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต",
+    "swap limit, limit order, open order, cancel limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต",
   );
 });
 
