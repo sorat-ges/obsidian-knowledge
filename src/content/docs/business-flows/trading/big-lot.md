@@ -1,70 +1,245 @@
 ---
 title: Big Lot
-description: Flow การซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove และ Dealer route
+description: Flow ซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove ตั้งแต่เลือก order book, คำนวณ fee, สร้าง order, hold balance, ส่ง Remarketer และ settle ledger
 capability: Trading
-services: [order-service]
-aliases: [big lot, biglot, bulk order, white glove, ซื้อขายล็อตใหญ่]
-errorCodes: ["80002", "80005"]
+services: [order-service, order-consumer]
+aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_LOT, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต]
+integrations: [Remarketer, kafka]
+errorCodes: ["80002", "80006"]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-07-28
 documentType: flow
 ---
 
 ## Purpose and scope
 
-Big Lot รองรับการซื้อขายสินทรัพย์ดิจิทัลขนาดใหญ่ผ่าน White Glove โดย Dealer ดำเนินการแทนลูกค้า เพื่อลดผลกระทบต่อราคาตลาด
+Big Lot เป็น White Glove swap ที่เจ้าหน้าที่ RM หรือ Dealer ดำเนินการแทนลูกค้า โดยเลือก quantity ที่ตรงกับ Big Lot order book, คำนวณค่าธรรมเนียมด้วย `volume_size = bulk`, สร้าง order ใน `order-service` แล้วให้ `order-consumer` hold balance และส่งคำสั่งไป Remarketer แบบ asynchronous ก่อน `order-service` รับ webhook เพื่อบันทึกผลและ settle ledger
 
 ![Big Lot flow](/assets/FlowBiglot.png)
 
-## Trigger and input
+## Trigger and preconditions
 
 **Owner service: `order-service`**
 
-คำสั่งต้องมาจาก channel `WEARE_WEB_BIG_LOT`, ระบุ volume size เป็น `bulk` และใช้ flow ของ Big Lot
+- Endpoint White Glove ใช้ employee authentication และ API-key permission แยกตาม action
+- การสร้าง order ต้องมี permission `white_glove:trading:rm_execute` หรือ `white_glove:trading:dealer_execute`
+- Customer ต้องไม่ถูก digital-asset suspension
+- Side ต้องเป็น `buy` หรือ `sell`
+- Customer ต้องมี investor class ที่ถูกต้อง, คู่สินทรัพย์ต้อง swap ได้, เอกสารที่เกี่ยวข้องต้องไม่หมดอายุ และ product ทั้งสองฝั่งต้อง tradable/on-shelf สำหรับ channel `WEARE_WEB_BIG_LOT`
+- Request ที่มี `volume_size = bulk` ถูกจัดเป็น Big Lot และ Backend ตั้ง channel เป็น `WEARE_WEB_BIG_LOT`
+- Big Lot product list เลือกเฉพาะ Digital Asset ที่อยู่ใน sale channel นี้, ผ่าน investor-class filter และมี trade pair กับ THB
 
-## Validate Big Lot eligibility
+## Participating services
 
-**Owner service: `order-service`**
+| Service/Integration | Role |
+| :--- | :--- |
+| `order-service` | Business owner; expose product/order-book/calculate/create APIs, validate eligibility, persist order, publish event, process Remarketer webhook และ settle ledger |
+| `order-consumer` | Executing service ของ asynchronous create; recheck balance, move asset to `HOLD_IN_ORDER`, place order to Remarketer และเปลี่ยน order เป็น `processing` หรือ `rejected` |
+| Remarketer | ให้ Big Lot order book, รับคำสั่ง trade และส่ง callback สถานะ/ผลการ match |
+| kafka | ส่ง `CreateOrderSwap` จาก `order-service` ไป `order-consumer` และส่ง logical-ledger movement ไป downstream |
 
-- บังคับ route เป็น `dealer`
-- ข้าม minimum amount check
-- ข้าม maintenance check
-- ห้ามปัดเศษ order quantity
+`order-consumer` เป็น executor ของ async step ไม่ใช่ Business owner
 
-กฎ bypass เหล่านี้ใช้เฉพาะ Big Lot ไม่ควรนำไปใช้กับ Swap ปกติ
+## End-to-end sequence
 
-## Calculate trade result and fee
-
-**Owner service: `order-service`**
-
-1. `MatchedAmount = Amount * Price`
-2. `FeeAmount = MatchedAmount * (FeeRate / 100)` แล้วปัดลง 2 ตำแหน่ง
-3. BUY: `TotalAmount = MatchedAmount + FeeAmount`
-4. SELL: `TotalAmount = MatchedAmount - FeeAmount`
-
-รายละเอียดการเลือก Fee อยู่ที่ [Trading Fees and Campaigns](/shared-rules/trading-fees-and-campaigns/)
-
-## Execute through Dealer route
+### 1. Load eligible products
 
 **Owner service: `order-service`**
 
-ส่งคำสั่งผ่าน route `dealer` เท่านั้น โดยคง quantity ที่ไม่ปัดเศษไว้ตลอดการประมวลผล เอกสารต้นทางไม่ได้ระบุ service อื่นใน execution path จึงถือ `order-service` เป็น owner ของ flow ที่ยืนยันได้
+**Executing service: `order-service`**
 
-## Error behavior
+`GET /api/v1/white-glove/:identification_id/products/big-lot`:
+
+1. โหลด investor class ของ customer
+2. หา sale products ของ `WEARE_WEB_BIG_LOT`
+3. filter product on shelf ด้วย asset group Digital Asset, `is_tradable`, order type `swap` และ investor class
+4. หา trade pair กับ active THB product
+5. คืน product พร้อม available unit balance ที่ปัดลงตาม decimal configuration ของสินทรัพย์
+
+ถ้าไม่มี sale channel ระบบคืนรายการว่าง ไม่สร้าง fallback จาก channel อื่น
+
+### 2. Load Big Lot order book
 
 **Owner service: `order-service`**
 
-- `80002`: สินทรัพย์ไม่เพียงพอ
-- `80005`: จำนวนต่ำกว่าขั้นต่ำ เอกสารต้นทางระบุรหัสนี้ไว้พร้อมกับกฎที่บอกว่า Big Lot ข้าม minimum check ซึ่งยังไม่สอดคล้องกัน หากพบรหัสนี้ใน Big Lot ให้ตรวจ execution path และยืนยันกับ code/configuration ก่อนสรุปสาเหตุ
+**Executing service: `order-service`**
+
+`GET /api/v1/white-glove/orderbook/biglot` เรียก Remarketer `/api/v1/orderbook/biglot` ด้วย quote currency `THB`, เติม product name/icon/decimal แล้วรวม bids และ asks จากทุกสินทรัพย์ โดยเรียงรายการล่าสุดก่อน
+
+Backend ไม่ filter order book ตาม customer; product eligibility ถูกตรวจแยกใน product-list/create path
+
+### 3. Client selects an exact order-book quantity
+
+**Owner service: `order-service`**
+
+**Executing service: `web-portal`**
+
+Committed frontend path ปัจจุบันรับเฉพาะ quantity ที่เท่ากับ order-book item:
+
+- BUY: เลือก ask ที่ quantity ตรงและราคาต่ำสุด
+- SELL: เลือก bid ที่ quantity ตรงและราคาสูงสุด
+- ตรวจ THB balance สำหรับ BUY และ crypto balance สำหรับ SELL
+- ถ้าไม่มี exact match จะแสดง `No Exact Match Available` และไม่เปิด preview
+
+เงื่อนไขนี้เป็น client validation; Backend create path ไม่ทำ exact-match validation ซ้ำสำหรับ `bulk`
+
+### 4. Calculate fee and preview
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+`POST /api/v1/white-glove/big-lot/swap/calculate` รับ `customer_account_id`, side, amount, price และ symbol จากนั้น:
+
+1. โหลด product จาก symbol
+2. เลือก fee ด้วย transaction type `swap`, route `dealer`, product, customer account และ `volume_size = bulk`
+3. `MatchedAmount = Amount × Price`
+4. `FeeAmount = floor(MatchedAmount × FeeRate / 100, 2 ตำแหน่ง)`
+5. BUY: `FiatAmount = MatchedAmount + FeeAmount`
+6. SELL: `FiatAmount = MatchedAmount - FeeAmount`
+7. Response คืน route เป็น `dealer`
+
+Display fiat amount ใช้การปัดขึ้น 2 ตำแหน่งแยกจาก raw `FiatAmount`
+
+### 5. Submit Big Lot order
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+Frontend ส่งผล preview ต่อไปยัง `POST /api/v1/white-glove/:identification_id/order-trade/swap` พร้อม:
+
+- symbols, side, price และ source amount
+- estimated received quantity
+- `fee_rate` และ `fee_amount`
+- `route = dealer`
+- `volume_size = bulk`
+
+Backend ตรวจ permission, suspension, side และ business eligibility แล้ว:
+
+1. ข้าม maintenance validation สำหรับ `bulk`
+2. ข้าม minimum-amount rejection
+3. ข้าม Remarketer route/orderbook/liquidity pre-validation
+4. ตรวจ available balance อีกครั้ง
+5. สร้าง `order_trade`, action flow และ `order_trade_info` ใน transaction
+6. เปลี่ยน order `draft` → `open`
+7. เก็บ `OrderQuantity = FromUnit` โดยไม่ปัดตาม product decimal
+8. publish Kafka event `CreateOrderSwap` โดยใช้ customer account code เป็น key
+
+Create endpoint ไม่เรียก calculate endpoint ซ้ำและ persist price, fee, estimate และ route จาก request จึงต้องถือค่าจาก client เป็น contract input ที่ Backend production path ปัจจุบันยังไม่ recompute
+
+### 6. Hold balance and place order asynchronously
+
+**Owner service: `order-service`**
+
+**Executing service: `order-consumer`**
+
+เมื่อ `order-consumer` รับ `CreateOrderSwap`:
+
+1. โหลด order และ recheck available balance
+2. ย้ายสินทรัพย์ต้นทางจาก `AVAILABLE` ไป `HOLD_IN_ORDER`
+3. publish logical-ledger transaction
+4. ส่ง trade ไป Remarketer พร้อม side, placed quantity, route, callback URL, price, order type, `volume_size` และ client type
+5. เมื่อ Remarketer รับคำสั่งสำเร็จ เปลี่ยน order `open` → `processing` และเก็บ Remarketer order ID
+
+BUY placed quantity หัก fee ตาม order data; dealer-tier account อาจหัก exchange fee เพิ่มเมื่อ route/config เข้าเงื่อนไข
+
+### 7. Process Remarketer callback and settle
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+Remarketer เรียก `POST /api/v1/order-trade/webhook`:
+
+- `filling`: เปลี่ยน action/status ไปช่วงกำลัง match
+- partial fill: บันทึก transaction/exchange, settle เฉพาะส่วนที่ match และคง remaining order
+- `filled`: บันทึก transaction/exchange, คำนวณ aggregate fee/quantity, สร้าง executed/refund ledger, publish logical movements และเปลี่ยนผ่าน `sync-ledger` ไป `filled`
+- `rejected`: เปลี่ยน order เป็น rejected และคืน hold balance ตาม path ที่เกี่ยวข้อง
+
+Webhook เป็นจุดยืนยันผล trade จริง; preview/create response ไม่ใช่ final trade outcome
+
+## Business rules
+
+- `volume_size = bulk` เป็นตัวกำหนด Big Lot channel และ bypass rules
+- Big Lot ยังบังคับ investor class, swap pair, product-on-shelf และ document-expiry validation
+- Valid bulk path ข้าม minimum check จึงไม่ควรคืน `80005`
+- Valid bulk path ข้าม `checkRoute` จึงไม่ควรคืน `80003` หรือ `80004` จาก pre-create route validation
+- Calculate ใช้ route `dealer` เพื่อเลือก fee และ response ก็คืน `dealer`
+- Create API ไม่ force route เอง; route ถูกส่งจาก client แล้ว persist ลง order
+- Dealer permission และ RM permission ต่างสร้าง White Glove order ได้; `IsDealerTrading` เป็นจริงเฉพาะผู้มี dealer-execute permission
+- Big Lot order quantity ไม่ถูกปัดตอน persist
+- Backend create ไม่ทำ exact order-book match หรือ recompute fee/price; exact match และการส่งค่าจาก calculate เป็น client-orchestrated behavior
+- การ publish Kafka เกิดหลัง database transaction จึงไม่ใช่ atomic operation เดียวกัน
+
+## State transitions
+
+**Owner service: `order-service`**
+
+| State | Owner/executor | Trigger |
+| :--- | :--- | :--- |
+| `draft` | `order-service` | สร้าง order row |
+| `open` | `order-service` | transaction สร้าง order สำเร็จ |
+| `processing` | Owner: `order-service`; executor: `order-consumer` | hold balance และ Remarketer รับคำสั่ง |
+| `filling` | `order-service` | Remarketer callback เริ่ม/ทยอย match |
+| `sync-ledger` | `order-service` | เตรียม executed/refund ledger |
+| `filled` | `order-service` | ledger processing ของ final fill สำเร็จ |
+| `rejected` | `order-consumer` หรือ `order-service` ตาม failure point | balance ไม่พอ, Remarketer placement ล้มเหลว หรือ callback reject |
+
+Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` และ cancellation outcomes ของ shared Swap lifecycle
+
+## Error and recovery behavior
+
+- Authentication/permission ไม่ผ่าน: HTTP 401
+- Request/body/side/ID ไม่ถูกต้อง: HTTP 400
+- `80006`: investor class ไม่มีหรือไม่ถูกต้อง
+- Pair, product-on-shelf หรือ document expiry ไม่ผ่าน: HTTP 400 พร้อม service message; Big Lot handler ไม่มี business code แยกสำหรับทุกกรณี
+- `80002`: synchronous balance check ใน create พบ available asset ไม่พอ
+- Consumer recheck พบ balance ไม่พอ: order ถูกเปลี่ยนเป็น `rejected` ด้วย reason `insufficient asset`; create API อาจตอบสำเร็จไปแล้วเพราะเป็น async step
+- Hold สำเร็จแต่ Remarketer placement ล้มเหลว: consumer reject order และย้าย hold กลับ available
+- Kafka publish ล้มหลัง order transaction: create API คืน error แต่ order อาจคงอยู่ที่ `open`; ต้องตรวจ order row และ event retry/monitoring ก่อน retry จาก client
+- Calculate หา product/fee ไม่ได้: HTTP 500
+- Order-book/Remarketer read ล้ม: HTTP 500
+- `80003`, `80004`, `80005` มี mapping ใน White Glove handler แต่ valid `bulk` path return ก่อน route/minimum validation จึงไม่ใช่ expected Big Lot errors
 
 ## Final outcomes
 
-**Owner service: `order-service`**
+- Successful create คืน order UUID ขณะที่ execution ยังเป็น asynchronous
+- `order-consumer` ล็อก source balance และส่งคำสั่งไป Remarketer
+- Final fill ทำให้ order เป็น `filled`, บันทึก trade/exchange detail และ settle executed/refunded ledger
+- Failure ก่อน Remarketer acceptance จบที่ `rejected` และคืน hold balance เมื่อ hold เกิดขึ้นแล้ว
+- Order detail แสดง size `big-lot` เมื่อ persisted `volume_size = bulk`
 
-ผลลัพธ์ประกอบด้วย Matched Amount, Fee Amount และ Total Amount ตาม side โดยคำสั่งใช้ Dealer route และ quantity เดิมที่ไม่ปัดเศษ
+## Related shared rules
+
+- [Order State Machine](/shared-rules/order-state-machine/)
+- [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+- [Trading Fees and Campaigns](/shared-rules/trading-fees-and-campaigns/)
+- [Permissions and Access Control](/shared-rules/permissions/)
+- [Error Code Registry](/shared-rules/error-codes/)
+- [Third-Party Integrations Profile](/system-context/integrations/)
 
 ## Code references
 
-- `handler/white_glove_handler.go`
-- `pkg/order_trade/service.go`
-- Volume size flag `bulk`
+`order-service`:
+
+- `routes/route.go`: White Glove routes และ API-key permissions
+- `handler/white_glove_handler.go`: product/order-book/calculate/create handlers และ error mapping
+- `handler/order_trade_dto.go`: create payload mapping และ Big Lot display size
+- `pkg/crypto_product/service.go`: product eligibility และ balance response
+- `pkg/order_trade/orderbook.go`: Remarketer Big Lot order-book transformation
+- `pkg/order_trade/service.go`: `CanSwap` bulk bypass และ `BigLotSwapCalculate`
+- `pkg/order_trade/swap_service.go`: order persistence, quantity rule และ Kafka publication
+- `pkg/order_trade/webhook_service.go`: callback, transaction, ledger และ final state
+- `pkg/produce/service.go`: `CreateOrderSwap` Kafka event
+
+`order-consumer`:
+
+- `pkg/digital-asset-order-request/service.go`: consume/dispatch `CreateOrderSwap`
+- `pkg/digital-asset-order-request/swap.go`: balance recheck, hold ledger, Remarketer placement, processing/reject
+
+`web-portal` supporting reference:
+
+- `src/app/features/white-glove/hooks/big-lot/use-big-lot-form.ts`
+- `src/app/features/white-glove/services/big-lot/orderbook/big-lot.ts`
+- `src/app/features/white-glove/components/big-lot/preview-biglot-order-modal.tsx`

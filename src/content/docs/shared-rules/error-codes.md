@@ -19,6 +19,9 @@ documentType: shared-rule
 | **80003** | `CodeWhiteGloveSwapInsufficientOrderBook` | ราคาใน Order Book ไม่พอ | ตรวจสอบการเชื่อมต่อกับ Remarketer หรือปริมาณที่มีใน Book |
 | **80004** | `CodeWhiteGloveSwapInsufficientLiquidity` | เกินขีดจำกัดสภาพคล่อง | ตรวจสอบ `DigitalAssetLiquidityMaxConfig` ของบริษัท |
 | **80005** | `CodeWhiteGloveSwapAmountTooLow` | ยอดสั่งซื้อต่ำกว่าขั้นต่ำ | ตรวจสอบ Config ขั้นต่ำ (มักจะเป็น 50 THB หรือเทียบเท่า) |
+| **80006** | `CodeWhiteGloveSwapInvalidInvestorClass` | ไม่พบ investor class ที่ใช้ filter product eligibility | ตรวจ customer identification และ investor-class sync |
+
+สำหรับ [Big Lot](/business-flows/trading/big-lot/) ที่ส่ง `volume_size = bulk`, production path ข้าม minimum และ route/orderbook/liquidity pre-validation ดังนั้น `80003`, `80004` และ `80005` ไม่ใช่ expected error ของ valid bulk request แม้ handler จะมี mapping code ร่วมกับ White Glove swap
 
 ## 📂 หมวดหมู่ 9xxxx: Trading Errors (Customer Portal)
 ใช้สำหรับข้อผิดพลาดที่เกิดขึ้นในการเทรดปกติผ่านหน้าเว็บหรือแอป

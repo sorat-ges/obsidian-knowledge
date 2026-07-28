@@ -2,7 +2,7 @@
 title: Order State Machine
 description: สถานะ การเปลี่ยนสถานะ และข้อจำกัดของ Swap, Withdrawal และ Fund Order
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-07-28
 documentType: shared-rule
 ---
 
@@ -29,6 +29,7 @@ Terminal states คือ `filled`, `cancelled` และ `rejected`
 
 - [Swap Market Order](/business-flows/trading/swap-market-order/)
 - [Swap Limit Order](/business-flows/trading/swap-limit-order/)
+- [Big Lot](/business-flows/trading/big-lot/)
 
 ## Withdrawal
 
