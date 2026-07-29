@@ -21,6 +21,7 @@ documentType: shared-rule
 
 - `AVAILABLE`: ยอดที่ใช้เทรดหรือถอนได้
 - `HOLD_IN_ORDER`: ยอดที่ล็อกไว้สำหรับ Order
+- `PENDING_DEPOSIT`: ยอดฝากที่ยืนยันบน chain แล้วแต่ยังไม่ spendable จนกว่าจะ completed
 - `PENDING_WITHDRAWAL`: ยอดระหว่างถอน
 - `ORDER_FEE` และ `WITHDRAWAL_FEE`: ค่าธรรมเนียมตามประเภทธุรกรรม
 
@@ -47,6 +48,14 @@ documentType: shared-rule
 1. ลด `AVAILABLE` และเพิ่ม `PENDING_WITHDRAWAL`
 2. บันทึกรายได้เข้า `xd_fee` และต้นทุนเข้า `external_fee`
 3. เมื่อธนาคารยืนยัน ให้ลด `PENDING_WITHDRAWAL`
+
+สำหรับ crypto withdrawal ที่ Fireblocks ล้มเหลวแบบ final หรือสร้าง transaction ไม่สำเร็จหลัง hold ให้ทำ refund/unlock เป็นคู่ `PENDING_WITHDRAWAL / DECREASE` และ `AVAILABLE / INCREASE` ด้วย `TransactionId` เดียวกัน ส่วน failure ที่ retry ได้ยังคงยอดไว้ใน `PENDING_WITHDRAWAL` จนกว่าจะ retry หรือเข้าสู่ final failure
+
+## Crypto deposit money flow
+
+1. เมื่อ Fireblocks ส่ง `Confirming` ให้เพิ่ม `PENDING_DEPOSIT`
+2. เมื่อ `Completed` ให้ลด `PENDING_DEPOSIT` และเพิ่ม `AVAILABLE` ด้วย `TransactionId` เดียวกัน
+3. เมื่อ deposit ถูก reject หลังสร้าง pending แล้ว ให้ลด `PENDING_DEPOSIT` และบันทึก external available ledger ตาม refund path
 
 ## Flow ที่ใช้กฎนี้
 
