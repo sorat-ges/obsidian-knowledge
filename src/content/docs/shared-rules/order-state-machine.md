@@ -2,7 +2,7 @@
 title: Order State Machine
 description: สถานะ การเปลี่ยนสถานะ และข้อจำกัดของ Swap, Withdrawal และ Fund Order
 status: active
-lastUpdated: 2026-07-28
+lastUpdated: 2026-08-01
 documentType: shared-rule
 ---
 
@@ -31,19 +31,42 @@ Terminal states คือ `filled`, `cancelled` และ `rejected`
 - [Swap Limit Order](/business-flows/trading/swap-limit-order/)
 - [Big Lot](/business-flows/trading/big-lot/)
 
+## Crypto Deposit
+
+Success path เมื่อไม่บังคับ sender review:
+
+`created` → `confirming` → `sync-ledger` → `completed`
+
+เมื่อ `FEATURE_TOGGLE_DEPOSIT_CRYPTO_SENDER_REVIEW` เปิด:
+
+`created` → `confirming` → `to-review` → `sync-ledger` → `completed`
+
+| Status | ความหมาย | Customer view |
+| :--- | :--- | :--- |
+| `confirming` | Fireblocks กำลังยืนยันและยอดอยู่ `PENDING_DEPOSIT` | `processing` |
+| `to-review` | Fireblocks completed แล้ว แต่รอ sender information | `waiting-confirm` |
+| `sync-ledger` | กำลังย้าย `PENDING_DEPOSIT` ไป `AVAILABLE` | `processing` |
+| `completed` | Ledger สำเร็จและยอดพร้อมใช้ | `completed` |
+
 ## Withdrawal
 
-Success path:
+Crypto withdrawal success path:
 
-`created` → `order-request` → `order-confirm` → `order-processing` → `order-verifying` → `sync-ledger` → `completed`
+`created` → `order-request` → `order-confirm` → `order-processing` → `sync-ledger` → `completed`
+
+`order-verifying` ไม่ใช่ success step ปกติ แต่เป็น exception state เมื่อ Fireblocks failure ยัง retry ได้:
+
+`order-processing` → `order-verifying` → `order-processing`
 
 Terminal states คือ `completed`, `cancelled` และ `rejected`
 
 | Status | ความหมาย | Customer view |
 | :--- | :--- | :--- |
-| `order-request` | สร้างคำขอและรอการยืนยัน เช่น OTP/Email | `email pending` |
+| `order-request` | สร้างคำขอแล้ว; White Glove รอ customer ยืนยันอีเมล ส่วน direct channel รอ consumer process | `email pending` |
 | `order-confirm` | ยืนยันตัวตนสำเร็จและรอดำเนินการ | `processing` |
 | `order-processing` | ส่งข้อมูลให้ Bank หรือ Fireblocks | `processing` |
+| `order-verifying` | Fireblocks failure ที่ต้องให้ operator ตรวจ/retry | `order-verifying` |
+| `sync-ledger` | Fireblocks completed และกำลัง settle ledger | `processing` |
 | `completed` | เงินหรือสินทรัพย์ถึงปลายทางแล้ว | `completed` |
 
 ## Fund Order

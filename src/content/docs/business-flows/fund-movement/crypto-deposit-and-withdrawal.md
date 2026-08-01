@@ -1,117 +1,168 @@
 ---
 title: Crypto Deposit and Withdrawal
-description: End-to-end flow ของการฝากและถอนคริปโต ตั้งแต่ Fireblocks webhook หรือคำขอจาก client จน ledger และ portfolio ถูกอัปเดต
+description: End-to-end flow ของการฝากและถอนคริปโต รวม sender review, White Glove email confirmation, Fireblocks callback, ledger, retry และ refund
 capability: Fund Movement
 services: [order-service, order-consumer, asset-consumer, asset-service]
-integrations: [Fireblocks, blockchain, Kafka]
-aliases: [crypto deposit, crypto withdrawal, Fireblocks webhook, withdrawal refund, withdrawal unlock, ฝากคริปโต, ถอนคริปโต, คืนยอดถอนคริปโต, ปลดล็อกยอดถอน]
+integrations: [Fireblocks, blockchain, Kafka, SendGrid, CoinMarketCap, Microsoft Teams]
+aliases: [crypto deposit, crypto withdrawal, Fireblocks webhook, deposit sender information, deposit to-review, waiting-confirm, withdrawal email confirmation, withdrawal refund, withdrawal unlock, ฝากคริปโต, ยืนยันข้อมูลผู้ฝาก, รอตรวจสอบผู้ฝาก, ถอนคริปโต, ยืนยันถอนทางอีเมล, คืนยอดถอนคริปโต, ปลดล็อกยอดถอน]
+errorCodes: [PENDING_ORDER_EXISTS, INVALID_ADDRESS]
 status: active
-lastUpdated: 2026-07-29
+lastUpdated: 2026-08-01
 documentType: flow
 ---
 
 ## Purpose and scope
 
-เอกสารนี้ครอบคลุม flow ฝากและถอน digital asset ที่ source ยืนยันได้ รวมการ hold, state transition, Fireblocks callback, retry และ refund/unlock ของ customer logical ledger จน `asset-consumer` apply รายการและ `asset-service` เปิดเผยยอดใหม่
+เอกสารนี้ครอบคลุม flow ฝากและถอน digital asset ตั้งแต่ client หรือ Fireblocks trigger จน order, logical/physical ledger และ portfolio ถูกอัปเดต โดยแยก branch ที่มี business behavior ต่างกันชัดเจน:
+
+- Deposit แบบ auto-complete กับแบบบังคับให้ยืนยัน sender information ผ่าน `FEATURE_TOGGLE_DEPOSIT_CRYPTO_SENDER_REVIEW`
+- Withdrawal จาก XSpring App/Trading Web ที่ส่งต่อไป Fireblocks หลังสร้าง order กับ White Glove ที่ hold ยอดและรอ customer ยืนยันทางอีเมลก่อน
 
 ## Trigger and preconditions
 
-- Deposit เริ่มเมื่อ `order-service` รับ Fireblocks webhook ที่ผ่านการตรวจ signature และมี transaction data, supported asset และ customer wallet ที่ resolve ได้
-- Deposit ที่ `Depositable = false`, internal-wallet transaction หรือ product ที่ถูก delist อาจถูก skip ตาม guard ใน backend
-- Withdrawal เริ่มจาก client ส่งคำขอผ่าน order API (รวม mobile และ Web Portal/White Glove) พร้อม product, network, destination address/memo, amount และข้อมูลผู้รับเมื่อจำเป็น
-- ก่อนสร้าง withdrawal ต้องผ่าน validation ของ `order-service`/`order-consumer` เช่น customer account, product/network config, balance และ withdrawal limit
-- Withdrawal callback ต้องอ้าง `externalTxId` ที่ map กลับไปยัง order ปัจจุบันได้
+### Deposit
+
+- `order-service` รับ Fireblocks webhook ที่ผ่าน signature verification และมี supported asset กับ customer wallet ที่ resolve จาก vault, destination address, asset และ tag/memo ได้
+- `Confirming` จะสร้าง order เฉพาะ event `TRANSACTION_CREATED`; event แบบอื่นถูก skip เพื่อไม่สร้างซ้ำ
+- Deposit ที่ต่ำกว่า minimum, `Depositable = false` หรือเป็น internal-wallet transaction จะไม่เข้า customer deposit flow ตาม guard ของ backend
+- Minimum ใช้ config ระดับ product + network ก่อน แล้ว fallback เป็น product-only; ค่าที่ใช้ validate และแสดงผลถูก round down ตาม `decimal_digit` ของ product
+
+### Withdrawal
+
+- Client ต้องส่ง product, network, destination address/memo, gross amount และ sender/recipient classification เมื่อ feature ที่เกี่ยวข้องเปิดใช้งาน
+- `order-service` ตรวจ customer/account suspension, maintenance, product shelf/withdrawable/delist, address, OTP ตาม channel, fee, balance และ daily limit ก่อนสร้าง order
+- White Glove ไม่อนุญาตให้สร้าง order ซ้อนของ product/customer เดียวกัน และตรวจว่า destination อยู่ใน address book; ใช้ `PENDING_ORDER_EXISTS` หรือ `INVALID_ADDRESS` เมื่อ validation เหล่านี้ไม่ผ่าน
+- Config/read path สำหรับลูกค้า KYC level 1 หรือต่ำกว่าอาจแสดง withdrawal hold 24 ชั่วโมงนับจาก fiat deposit แรก แต่ business validation ตอน execute ยังคงอยู่ที่ backend/consumer
 
 ## Participating services
 
 | Service / integration | Responsibility |
 | :--- | :--- |
-| Fireblocks / blockchain | สร้างและรายงานสถานะธุรกรรม on-chain ผ่าน webhook |
-| `order-service` | Business owner ของ crypto order, request validation/creation, callback, state, refund และ logical ledger |
-| `order-consumer` | Executor ของ asynchronous withdrawal request: validate ซ้ำ, hold balance และเรียก Fireblocks |
-| `asset-consumer` | Executor ของ ledger event: apply logical ledger เข้า portfolio |
+| Fireblocks / blockchain | รับคำสั่ง transfer และส่งสถานะ on-chain ผ่าน webhook |
+| `order-service` | Business owner ของ crypto order, synchronous validation, state/callback, sender or email confirmation, retry, settlement และ refund |
+| `order-consumer` | Executor ของ asynchronous withdrawal: revalidate, hold/unlock, email-request orchestration และเรียก Fireblocks |
+| `asset-consumer` | Executor ของ logical-ledger event และ apply การเปลี่ยนแปลงเข้า portfolio |
 | `asset-service` | Owner ของ balance/portfolio read model หลัง ledger ถูก apply |
-| Web Portal / mobile app | Supporting trigger, payload, client validation, cancel/retry action และ status ที่ผู้ใช้เห็น |
+| XSpring App | Direct withdrawal trigger และ deposit sender-confirmation UI/API client |
+| Web Portal / White Glove | RM withdrawal + email-confirmation UI และ deposit sender-confirmation UI/API client |
+| Trading Web | Direct withdrawal trigger; backend มี deposit-confirmation contract สำหรับ channel นี้ |
+| SendGrid | ส่ง White Glove withdrawal confirmation email และ completion email |
+| CoinMarketCap | Best-effort price fallback เมื่อถอนสินทรัพย์ delisted และไม่มี mark-to-market |
+| Microsoft Teams | Operational adaptive card สำหรับ withdrawal ที่ต้อง retry หรือถูก reject |
 
 ## End-to-end sequence
 
-### Deposit
+### Deposit: Fireblocks `CONFIRMING`
 
-Owner และ executor ของ callback คือ `order-service`.
+Business owner และ callback executor คือ `order-service`.
 
-1. รับและ authenticate Fireblocks webhook แล้ว route ตาม `Confirming`, `Completed`, `Cancelling`, `Cancelled`, `Blocked`, `Failed` หรือ `Rejected`
-2. Resolve supported asset และ customer wallet จาก vault, destination address, asset และ tag/memo; external wallet ที่หาไม่พบอาจสร้าง rejected deposit order ส่วน internal/delisted path ถูก skip
-3. เมื่อ `Confirming` และเป็น event ที่ต้องสร้าง order ให้ตรวจ minimum deposit, สร้าง `order_crypto` และ action flow `created → confirming`; เพิ่ม customer `PENDING_DEPOSIT`
-4. เมื่อ `Completed` ให้เปลี่ยน `confirming → sync-ledger`, ทำ logical ledger คู่ `PENDING_DEPOSIT decrease` + `AVAILABLE increase` และ physical external ledger ใน transaction เดียว จากนั้นเปลี่ยนเป็น `completed`
-5. ส่ง logical ledger event ไป `asset-consumer` (executor) เพื่อ apply portfolio; `asset-service` เป็นจุดอ่าน balance/report
-6. webhook completed ซ้ำหลัง order เป็น `completed` ถูก skip เพื่อไม่สร้าง double entry
+1. รับ webhook, resolve supported asset/customer wallet และผ่าน internal-wallet, delist และ minimum-deposit guards
+2. สำหรับ `CONFIRMING` + `TRANSACTION_CREATED` สร้าง `order_deposit_crypto` และ action flow `created → confirming`
+3. ใน confirming ledger batch ลด external `AVAILABLE` และเพิ่ม customer `PENDING_DEPOSIT` ด้วย `TransactionId` เดียวกัน
+4. Publish logical-ledger event ให้ `asset-consumer`; ณ จุดนี้ยอดยังไม่ spendable
 
-### Withdrawal request and Fireblocks execution
+### Deposit: Fireblocks `COMPLETED`
+
+1. ถ้า `FEATURE_TOGGLE_DEPOSIT_CRYPTO_SENDER_REVIEW` ปิด: `order-service` เดิน `confirming → sync-ledger → completed`, ลด `PENDING_DEPOSIT`, เพิ่ม `AVAILABLE`, สร้าง physical ledger แล้ว publish logical-ledger event
+2. ถ้า feature toggle เปิด: backend เดินเพียง `confirming → to-review`, บันทึก `fireblocks_completed` audit และส่ง notification; ยังไม่ย้ายยอดจาก `PENDING_DEPOSIT` ไป `AVAILABLE`
+3. `to-review` ถูก map เป็น customer status `waiting-confirm`; endpoint `GET /api/v1/order-crypto/deposit/pending` ตรวจว่าลูกค้ามี order ในสถานะนี้หรือไม่ และ XSpring App ใช้ผลนี้แสดง pending banner
+4. XSpring App, Trading endpoint หรือ White Glove ส่ง `country_code` และ `customer_type_code` ผ่าน confirmation endpoint ของ channel:
+   - `POST /api/v1/order-crypto/deposit/{order_id}/confirmation`
+   - `POST /api/v1/trading/order-crypto/deposit/{order_request_id}/confirmation`
+   - `POST /api/v1/white-glove/order-crypto/deposit/{order_deposit_id}/confirmation`
+5. `order-service` normalize/validate code กับ SEC country/customer-type master, lock order row, ตรวจ ownership สำหรับ customer-facing endpoints และยอมรับเฉพาะสถานะ `to-review`
+6. ใน database transaction เดียวกัน backend บันทึก `sender_info`, เดิน `to-review → sync-ledger → completed`, ลด `PENDING_DEPOSIT`, เพิ่ม `AVAILABLE`, สร้าง physical ledger และ audit `submit_sender_information`/allotment
+7. หลัง commit จึง publish logical-ledger event, ส่ง completion email และ notification; `asset-consumer` เป็น executor ที่ apply portfolio
+8. `COMPLETED` webhook ซ้ำหลัง order จบถูก skip; confirmation ซ้ำหรือ order ที่ไม่ใช่ `to-review` ตอบ `409`
+
+### Withdrawal: create order และแยกตาม channel
 
 Business owner คือ `order-service`; asynchronous executor คือ `order-consumer`.
 
-1. Client เรียก config/network/address-book และส่ง request; `order-service` คำนวณ fee, net quantity, recipient data และสร้าง order `created → order-request` พร้อม publish request event
-2. `order-consumer` consume event และ validate ซ้ำ; validation ไม่ผ่านจะเปลี่ยนเป็น `rejected` และแจ้งเตือน โดยยังไม่ hold balance
-3. เมื่อผ่าน ให้สร้าง hold ใน transaction เดียว: customer `AVAILABLE decrease` + `PENDING_WITHDRAWAL increase`; publish logical ledger แล้วเปลี่ยน `order-confirm → processing`
-4. `order-consumer` เรียก Fireblocks จาก XD vault ไปยัง destination address ด้วย net quantity; callback ต่อจากนี้ถูกประมวลผลโดย `order-service`
-5. Fireblocks `Completed`: `processing → order-verifying → sync-ledger → completed`, สร้าง settlement ledger/fee ตาม order และ publish สถานะไป downstream ที่เกี่ยวข้อง
+1. XSpring App/Trading Web เรียก `POST /api/v1/order-crypto/withdraw/confirmation`; handler ตรวจ claims, request, maintenance, withdrawable/delist/shelf และ OTP ก่อนเรียก service
+2. White Glove เรียก `POST /api/v1/white-glove/order-crypto/withdraw/create`; backend ตรวจ pending order, address book, maintenance และ product eligibility
+3. `order-service` validate balance/daily limit/fee, resolve recipient information, คำนวณ `net_quantity = quantity - fee`, สร้าง order `created → order-request` แล้ว publish event ตาม sale channel
 
-### Withdrawal failure, retry and cancellation
+#### XSpring App / Trading Web
 
-1. Fireblocks creation error ที่เป็น `SOURCE_BALANCE_ERROR` เปลี่ยน order เป็น `order-verifying` พร้อม retry action และยังไม่คืนยอด; ผู้ปฏิบัติงานต้องใช้ retry endpoint เพื่อส่ง transaction ใหม่
-2. Creation error อื่นเปลี่ยนเป็น `rejected` และ refund/unlock ด้วย `PENDING_WITHDRAWAL decrease` + `AVAILABLE increase` ใน batch/transaction เดียว
-3. Fireblocks callback ที่ `InsufficientFunds`, `InsufficientFundsForFee` หรือ `Timeout` ใช้ retry path: `order-verifying` + retry action, ไม่ refund จนกว่าจะเลือก retry หรือมี final failure path
-4. Callback failure อื่น (`Rejected`, `Failed`, `Blocked`, `Cancelled`) ใช้ refund path: เปลี่ยนเป็น `rejected`, สร้าง ledger คู่เพื่อลด `PENDING_WITHDRAWAL` และเพิ่ม `AVAILABLE`, publish logical ledger และแจ้งเตือน
-5. Cancel โดย customer/system ทำได้เฉพาะ order ที่ยังอยู่ `order-request`; เปลี่ยนเป็น `cancelled` และส่ง cancel event โดย backend path นี้ไม่อนุญาตเมื่อเริ่ม processing แล้ว
-6. Worker `AutoCancelExpiredWithdrawCryptoOrders` เรียก cancel path สำหรับ order request ที่ค้างเกิน 24 ชั่วโมง
+1. Event `create_withdraw_crypto` ทำให้ `order-consumer` revalidate balance, daily limit และข้อมูลอ้างอิง
+2. ถ้า validation ล้มเหลวก่อน hold ให้เปลี่ยน `order-request → rejected` โดยไม่สร้าง unlock ledger
+3. ถ้าผ่าน ให้สร้าง hold: customer `AVAILABLE / DECREASE` + `PENDING_WITHDRAWAL / INCREASE`, publish logical-ledger event แล้วเดิน `order-request → order-confirm → order-processing`
+4. `order-consumer` เรียก Fireblocks จาก XD vault ไป one-time destination address ด้วย `net_quantity` และใช้ order request ID เป็น `externalTxId`
+
+#### White Glove / RM
+
+1. Event `create_withdraw_crypto_by_rm` ทำให้ `order-consumer` revalidate แล้ว hold `AVAILABLE → PENDING_WITHDRAWAL` ขณะที่ order ยังเป็น `order-request`
+2. Consumer เรียก `order-service` ให้สร้าง confirmation token อายุถึง 24 ชั่วโมงหลัง order date และส่งอีเมลผ่าน SendGrid
+3. ลูกค้ากดยืนยันจากอีเมล; `order-service` revalidate maintenance, delist, pending-out balance, product shelf/withdrawable และสถานะ `order-request` ก่อน publish `approve_withdraw_crypto_by_customer`
+4. `order-consumer` revalidate maintenance, `order-request`, pending-out balance และ daily limit อีกครั้ง แล้วเดิน `order-confirm → order-processing` และเรียก Fireblocks
+5. ถ้า validation หลัง hold ล้มเหลว ให้เปลี่ยนเป็น `rejected` และสร้าง refund/unlock ledger
+6. RM หรือ system ยกเลิกได้เฉพาะ `order-request`; `AutoCancelExpiredWithdrawCryptoOrders` ยกเลิกรายการเกิน 24 ชั่วโมง จากนั้น cancel consumer ตรวจ `cancelled`/pending balance และคืน `PENDING_WITHDRAWAL → AVAILABLE`
+
+### Withdrawal: Fireblocks callback, retry และ settlement
+
+1. `order-service` normalize `externalTxId`; retry transaction รูปแบบ `<order-request-id>.<timestamp>` ถูก map กลับไปยัง order เดิม
+2. `COMPLETED` เดิน `order-processing → sync-ledger → completed` โดยไม่ผ่าน `order-verifying`
+3. Settlement ลด customer `PENDING_WITHDRAWAL` ตาม gross quantity, เพิ่ม external `AVAILABLE` ตาม net quantity, บันทึก XD withdrawal fee และ network-fee logical/physical ledger แล้ว publish ให้ `asset-consumer`
+4. สำหรับ delisted asset ที่ไม่มี mark-to-market จะลอง CoinMarketCap USD price + USD/THB FX แบบ best effort; ถ้ายังหา THB amount ไม่ได้ order ยัง completed แต่ skip XD producer
+5. Callback `REJECTED`/`FAILED`/`BLOCKED`/`CANCELLED` ที่มี substatus `INSUFFICIENT_FUNDS`, `INSUFFICIENT_FUNDS_FOR_FEE` หรือ `TIMEOUT` เดิน `order-processing → order-verifying` และคงยอดไว้ใน `PENDING_WITHDRAWAL`
+6. Operator retry ทำได้เฉพาะ `order-verifying`; backend เดินกลับ `order-processing`, ใช้ external ID ใหม่ที่ต่อ timestamp แล้วเรียก Fireblocks อีกครั้ง
+7. Fireblocks creation error code `SOURCE_BALANCE_ERROR` ใช้ retry branch เดียวกัน; creation error อื่นหรือ callback failure ที่ไม่ retryable เปลี่ยนเป็น `rejected` และ refund `PENDING_WITHDRAWAL / DECREASE` + `AVAILABLE / INCREASE`
 
 ## Business rules
 
-- Backend เป็น source of truth สำหรับ validation, state และ ledger; frontend มีหน้าที่แค่ trigger/payload/status presentation
-- Deposit ที่ confirming ใช้ `PENDING_DEPOSIT`; ยอดที่ spendable เพิ่มเมื่อ completed เท่านั้น
-- Withdrawal hold ต้องเกิดก่อนส่ง transaction ไป Fireblocks เพื่อกัน available balance ถูกใช้ซ้ำ
-- Refund/unlock ไม่ใช่การเดา status จาก UI แต่เป็น ledger คู่ที่ decrease `PENDING_WITHDRAWAL` และ increase `AVAILABLE`
-- Retryable Fireblocks substatus ไม่ refund ทันที เพราะ order ยังเปิดให้ retry
-- การสร้าง logical ledger และการเปลี่ยน state ที่ source ระบุให้ทำใน database transaction; การ publish event หลังจากนั้นต้องตรวจ error แยกต่างหาก
-- Internal wallet และ delisted-product guards อาจหยุดการสร้าง customer-facing ledger/XD event ตาม path ที่ source ระบุ
+- Backend/consumer เป็น source of truth สำหรับ state, validation และ ledger; frontend ใช้ยืนยัน trigger, payload และ user-visible status เท่านั้น
+- Fireblocks `COMPLETED` ไม่ได้แปลว่า deposit spendable เสมอ: เมื่อ sender-review toggle เปิด ต้องได้รับ sender confirmation ก่อน
+- Deposit sender confirmation รับเฉพาะ master code จริง; blank, country `99`, customer type `00` หรือ code ที่ไม่พบถูก reject
+- Customer/Trading confirmation ตรวจว่า order เป็นของ authenticated customer; White Glove ใช้ employee/service authorization และ service call ไม่บังคับ customer ownership parameter
+- Direct withdrawal hold เกิดก่อนเรียก Fireblocks; White Glove hold เกิดก่อนส่ง confirmation email
+- `order-verifying` เป็น exception/retry state ไม่ใช่ขั้นตอนปกติของ withdrawal success path
+- Retryable Fireblocks failure ไม่ refund ทันที; final failure เท่านั้นที่ปลด `PENDING_WITHDRAWAL`
+- Database transaction กับ Kafka publish ไม่ใช่ distributed transaction เดียวกัน จึงต้อง monitor/retry เมื่อ order/ledger rows commit แล้วแต่ event publish ล้มเหลว
 
 ## State transitions
 
 **Owner service: `order-service`**
 
-**Executing service for async request: `order-consumer`**
+**Executing service for async withdrawal: `order-consumer`**
 
 ```text
-Deposit:
+Deposit — sender review disabled:
 created → confirming → sync-ledger → completed
-confirming → rejected                 (Fireblocks failure/refund)
 
-Withdrawal:
-created → order-request → order-confirm → processing
-processing → order-verifying → sync-ledger → completed
-order-request → cancelled              (customer/system cancel or >24h expiry)
-order-request/processing → rejected    (validation or non-retryable failure)
-processing → order-verifying           (retryable Fireblocks failure)
-order-verifying → processing           (explicit retry)
+Deposit — sender review enabled:
+created → confirming → to-review → sync-ledger → completed
+confirming/to-review → rejected                 (Fireblocks final failure)
+
+Withdrawal — normal success:
+created → order-request → order-confirm → order-processing → sync-ledger → completed
+
+Withdrawal — exception paths:
+order-request → rejected                        (validation before hold)
+order-request → cancelled                       (White Glove/customer/system cancel or >24h expiry)
+order-processing → order-verifying              (retryable Fireblocks failure)
+order-verifying → order-processing              (explicit retry)
+order-processing → rejected                     (non-retryable failure + refund)
 ```
 
 ## Error and recovery behavior
 
-- Invalid webhook authentication, missing order mapping หรือ malformed external transaction ID ทำให้ callback ไม่สามารถดำเนินต่อ; ไม่ควรสร้าง ledger จาก callback ที่ resolve ไม่ได้
-- Deposit wallet not found สำหรับ external transaction อาจถูกบันทึกเป็น rejected order; internal/delisted transaction ถูก skip ตาม guard
-- Deposit Fireblocks failure เปลี่ยน `confirming → rejected` และ refund `PENDING_DEPOSIT` ไป external available ledger
-- Withdrawal validation failure เกิดก่อน hold จึง reject โดยไม่ต้อง unlock
-- Withdrawal retryable failure คงยอดไว้ใน `PENDING_WITHDRAWAL`; retry สำเร็จจึงเดินต่อ หรือ final failure จึง refund
-- Withdrawal non-retryable failure และ Fireblocks refund path คืนยอดด้วย ledger คู่ พร้อม notification/adaptive card; error message/substatus ถูกเก็บเป็น reason แต่เอกสารนี้ไม่ map เป็น public error code ที่ source ไม่ได้กำหนด
-- หาก publish Kafka/logical-ledger event ล้มเหลว ให้ถือเป็น operational failure ที่ต้องตรวจซ้ำจาก service/consumer; ไม่สรุปว่า portfolio สำเร็จจาก order status เพียงอย่างเดียว
+- Invalid webhook signature, missing order mapping หรือ malformed `externalTxId` หยุด callback และต้องไม่สร้าง ledger จากข้อมูลที่ resolve ไม่ได้
+- Deposit ต่ำกว่า minimum, internal-wallet หรือ delisted/deposit-disabled path ถูก skip; external wallet ที่ resolve ไม่ได้อาจสร้าง rejected deposit ตาม backend path
+- Deposit confirmation ใช้ `400` สำหรับ payload/master code ไม่ถูกต้อง, `403` สำหรับ customer ownership mismatch, `404` เมื่อไม่พบ order และ `409` สำหรับ duplicate/stale status
+- XSpring App refresh detail หลัง sender confirmation; เมื่อได้ `409` จะแสดง duplicate-request recovery แล้ว refresh สถานะ
+- White Glove withdrawal ที่ยัง `order-request` สามารถ resend confirmation email ภายใต้ cooldown, cancel หรือถูก auto-cancel เมื่อหมดอายุ
+- Withdrawal validation หลัง White Glove hold, cancellation และ final Fireblocks failure ต้องมี unlock ledger; portfolio จะเปลี่ยนเมื่อ `asset-consumer` consume event สำเร็จ
+- หาก completion ledger ถูกสร้างแล้วแต่ Kafka publish ล้มเหลว ห้ามสรุปว่า portfolio สำเร็จจาก order status เพียงอย่างเดียว
 
 ## Final outcomes
 
-- Deposit completed: customer pending deposit ถูกย้ายเป็น available และ portfolio ถูก apply หลัง `asset-consumer` ประมวลผล
-- Deposit rejected/skipped: ไม่มี available balance เพิ่ม; rejected external deposit มี refund ledger ตาม path
-- Withdrawal completed: transaction on-chain สำเร็จ, settlement ledger ถูกสร้าง และ order เป็น `completed`
-- Withdrawal rejected/cancelled: order จบตาม path; กรณีที่มี hold แล้วจะมีการคืน `PENDING_WITHDRAWAL → AVAILABLE` ตาม refund path
-- Withdrawal retryable: order ยังไม่ final และยอดยังถูก holdจนกว่าจะ retry หรือเข้าสู่ final failure
+- Deposit `to-review`: chain สำเร็จแล้ว แต่ยอดยังอยู่ `PENDING_DEPOSIT` และ UI แสดง `waiting-confirm`
+- Deposit completed: sender review ไม่ถูกบังคับหรือยืนยัน sender แล้ว; `PENDING_DEPOSIT` ถูกย้ายเป็น `AVAILABLE`
+- Withdrawal `email pending`: White Glove hold ยอดแล้วและกำลังรอลูกค้ายืนยันอีเมล
+- Withdrawal completed: on-chain transfer สำเร็จ, settlement/fee ledger ถูกสร้าง และ order เป็น `completed`
+- Withdrawal rejected/cancelled หลัง hold: order เป็น terminal state และมี unlock `PENDING_WITHDRAWAL → AVAILABLE`
+- Withdrawal retryable: order เป็น `order-verifying` และยอดยังถูก hold จนกว่า retry หรือ final failure
 
 ## Related shared rules and flows
 
@@ -123,10 +174,15 @@ order-verifying → processing           (explicit retry)
 
 ## Code references
 
-- `order-service/pkg/crypto/service.go` — `HandleDepositCryptoWebhook`, `HandleWithdrawCryptoWebhook`, retry/refund/cancel handlers, deposit and withdrawal ledger builders
-- `order-consumer/pkg/digital-asset-order-request/withdraw.go` — async validation, hold ledger และ Fireblocks transaction creation
-- `order-service/internal/constants/enum/order_crypto_enum.go` — order/action/status enums
-- `web-portal/src/app/features/white-glove/services/withdraw-crypto.ts` — White Glove withdrawal request/cancel/status client
-- `xspring-mobile-app/lib/domains/digital_portal/withdraw/service.dart` — mobile withdrawal API trigger
-- `xspring-mobile-app/lib/domains/digital_portal/withdraw/withdraw_crypto/screen.dart` — user-visible cancellation boundary
-- Tables: `order_crypto`, `order_action_flow`, `ledger_transactions`, `product_digital_asset_extension`
+- `order-service/pkg/crypto/service.go` — deposit webhook/toggle, withdrawal callback, settlement, retry/refund และ cancellation
+- `order-service/pkg/crypto/service_confirm_deposit.go` — sender validation และ `to-review → sync-ledger → completed`
+- `order-service/handler/order_crypto.go` — customer deposit confirmation, pending check และ direct withdrawal endpoint
+- `order-service/handler/white_glove_withdraw_crypto_handler.go` — White Glove create/email/cancel flow
+- `order-service/internal/constants/enum/order_crypto_enum.go` — internal/customer statuses และ Fireblocks retry substatuses
+- `order-consumer/pkg/digital-asset-order-request/service.go` — event routing แยก direct กับ RM/customer approval
+- `order-consumer/pkg/digital-asset-order-request/withdraw.go` — hold, revalidation, Fireblocks execution, cancel และ refund
+- `asset-consumer/pkg/customer-logical-entry/service.go` — apply logical-ledger event เข้า portfolio
+- `xspring-mobile-app/lib/domains/digital_portal/order_history/order_detail/controller.dart` — mobile sender confirmation และ `409` recovery
+- `web-portal/src/app/features/white-glove/components/deposit/crypto/order-detail/index.tsx` — White Glove sender-confirmation UI
+- `web-portal/src/app/features/white-glove/services/withdraw-crypto.ts` — White Glove withdrawal create/email/cancel client
+- Tables: `order_deposit_crypto`, `order_withdraw_crypto`, `order_action_flow`, `ledger_transactions`, `product_digital_asset_extension`
