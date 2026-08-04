@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service]
-aliases: [KYC retake, request retake, retake-re-kyc, DOPA reverification, retake ID card, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข]
+aliases: [KYC retake, request retake, retake-re-kyc, DOPA reverification, retake ID card, watchlist report, KYC watchlist, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, รายงาน watchlist KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "4001", "6600"]
 status: active
-lastUpdated: 2026-07-28
+lastUpdated: 2026-08-04
 documentType: flow
 ---
 
@@ -105,6 +105,14 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - เมื่อ profile เปลี่ยน service อัปเดตชื่อใน Keycloak และบันทึก `name_change` ใน application change-request log สำหรับ AdvanceAI
 - Face-recognition image/reference และ ratio ถูก refresh จากผล retake
 
+### 6. Read stored watchlist information for KYC review
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+เมื่อ KYC approval อ่านข้อมูลจาก stored customer capture, `onboarding-service` จะสร้าง `watchlist_report` ได้เมื่อมี stored report อย่างน้อยหนึ่งกลุ่มจาก personal, background หรือ vulnerable-investor หากบางกลุ่มไม่มี row ระบบคืนกลุ่มนั้นเป็น object ว่างและ map เฉพาะกลุ่มที่มีข้อมูล จึงไม่ทำให้การอ่าน capture ล้มเหลวเพราะ report ไม่ครบทุกกลุ่ม ขั้นตอนนี้เป็น read/display path และไม่เปลี่ยน application หรือ registration state
+
 ## Business rules
 
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
@@ -114,6 +122,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - การมี profile/address change ไม่ใช่ DOPA failure; เป็นผล `2009` ที่พา Flow ไปให้ลูกค้าตรวจข้อมูล
 - `onboarding-service` เป็นทั้ง owner และ executor; DOPA/AppMan/AdvanceAI เป็น integration ไม่ใช่ Business owner
 - ค่า re-KYC expiry ที่คำนวณจาก card, CDD หรือ suitability ถูก normalize เป็น UTC midnight ของวันถัดจาก expiry ตาม business timezone
+- Stored watchlist report ใน KYC approval ไม่จำเป็นต้องมีครบทั้ง personal, background และ vulnerable-investor; missing group ถูกแสดงเป็น object ว่าง
 
 ## State transitions
 
@@ -123,6 +132,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 | DOPA success; profile/address match | `to-retake` → `to-review` | → `completed-draft/application-completed-draft` |
 | DOPA success; data changed | คงอยู่ใน retake path จนลูกค้าตรวจข้อมูลต่อ | → `personal-information/personal` |
 | DOPA error/expired condition | ไม่มี completion transition ใน path นี้ | ไม่เดิน profile-comparison transition |
+| KYC approval reads stored capture | ไม่เปลี่ยน application | คืน `watchlist_report` เท่าที่มี stored report |
 
 ขั้น request ของ re-KYC เขียน flow type `retake-re-kyc` แต่ DOPA completion ปัจจุบันสร้าง status/history ด้วย `retake` และ success helper ตั้ง flow เป็น `onboarding`; ต้องยืนยัน intended state chain กับเจ้าของ `onboarding-service` ก่อนอธิบายผลของ re-KYC retake หลัง DOPA เป็นข้อเท็จจริงเพิ่มเติม
 
@@ -142,6 +152,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - ข้อมูลตรงทั้งหมดจะกลับเข้า KYC review
 - ข้อมูลเปลี่ยนจะถูก persist จากผล verify และพาลูกค้าไปตรวจ personal information
 - Backend แยก `DOPA_SUCCESS` (`200`) ออกจาก `DOPA_DATA_CHANGE` (`2009`)
+- KYC approval response แสดง stored watchlist report แบบ partial ได้โดยไม่ต้องมีครบทุกกลุ่ม
 
 ## Related shared rules
 
@@ -165,3 +176,5 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - `pkg/ekyc/dopasvc/dopa-service.go`: comparison, profile/address update และ state outcome
 - `pkg/ekyc/ekyc-verification/service.go`: AdvanceAI profile/address comparison
 - `pkg/customer/kyc_approver/helper.go`: re-KYC expiry timestamp normalization
+- `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
+- `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response

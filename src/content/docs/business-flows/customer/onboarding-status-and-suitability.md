@@ -3,16 +3,16 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service]
-aliases: [onboarding status, suitability v2, traditional suitability, digital suitability, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, suitability test]
+aliases: [onboarding status, suitability v2, traditional suitability, digital suitability, watchlist refresh, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, suitability test, รีเฟรช watchlist]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-07-28
+lastUpdated: 2026-08-04
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี และยืนยันผลเพื่อขยับ registration status
+อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status
 
 Source รอบนี้ยืนยัน Backend เท่านั้น เพราะ frontend repositories ที่เกี่ยวข้องถูกข้ามเนื่องจากมี uncommitted changes จึงไม่ระบุหน้าจอ, client validation หรือ user-visible mapping ที่ยังตรวจไม่ได้
 
@@ -104,6 +104,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 1. อ่าน suitability answer ของบัญชีที่เปิด
 2. อัปเดต `NoInvestmentKnowledge` และ `VulnerableFlag` ใน customer background
 3. refresh watchlist report; failure ถูก log แต่ไม่หยุด Flow
+   - สำหรับ flow ที่ไม่ใช่ retake ระบบใช้ stored DOPA result เป็น filter เฉพาะเมื่อ `DopaFlag = "Passed"`; ค่า `Error`, `nil` หรือ status อื่นจะไม่ถูก filter และจะปล่อยให้ watchlist calculation ใช้ allowed types ของ registration status
+   - เมื่อ `flowType.IsRetake()` เป็นจริง ระบบไม่ใช้ stored watchlist flags เป็น filter ใน path นี้
 4. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
 5. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
 
@@ -119,6 +121,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Persistence เลือก Traditional ก่อนเมื่อ `IsXAMOpen`; Digital ใช้เมื่อ XAM ไม่เปิดและ `IsXDOpen` เป็นจริง
 - v2 confirm ใช้ current CDD score และไม่เรียก CDD score recalculation ใน production path นี้
 - Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
+- ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
 
 ## State transitions
 
@@ -166,4 +169,6 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `internal/constants/enum/xpg-customer-registartion-status.go`: required sub-status mapping
 - `handler/suitability-handler.go`: v2 submit/confirm handlers
 - `pkg/suitability/suitability-service.go`: score, persistence และ confirmation behavior
+- `pkg/kyc/watchlist.go`: stored DOPA flag filtering และ watchlist refresh orchestration
+- `pkg/kyc/helper.go`: `filterPassedWatchlistTypes`
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
