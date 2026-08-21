@@ -2,20 +2,20 @@
 title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
-services: [onboarding-service]
-aliases: [KYC retake, request retake, retake-re-kyc, DOPA reverification, retake ID card, watchlist report, KYC watchlist, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, รายงาน watchlist KYC]
+services: [onboarding-service, web-portal]
+aliases: [KYC retake, request retake, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, watchlist report, KYC watchlist, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "4001", "6600"]
 status: active
-lastUpdated: 2026-08-04
+lastUpdated: 2026-08-11
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน
+อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน รวมถึง read model ที่ KYC approval ใช้ดู capture, suitability และ default investment bank account
 
-Frontend `web-portal` ถูกข้ามการ pull เพราะมี uncommitted changes ในรอบนี้ จึงใช้ Backend เป็น source of truth และไม่ยืนยันข้อความ UI หรือ client behavior เวอร์ชันล่าสุด
+`web-portal` เป็น supporting client/BFF: route request-retake v2 ส่ง `current_status` ต่อไปยัง `onboarding-service` และ route bank-account proxy ส่ง GET ต่อไปยัง investment-bank-account endpoint โดยไม่มี business-rule override ใน client ส่วน `trading-web` และ `xspring-mobile-app` ยังตรวจ behavior ล่าสุดไม่ได้เพราะมี uncommitted changes; ใช้ Backend เป็น source of truth สำหรับ state, validation และผลลัพธ์
 
 ## Trigger and preconditions
 
@@ -33,6 +33,7 @@ Frontend `web-portal` ถูกข้ามการ pull เพราะมี 
 | Service/Integration | Role |
 | :--- | :--- |
 | `onboarding-service` | Business owner และ executor; validate state, เปลี่ยน application/registration, เทียบและอัปเดต KYC data |
+| `web-portal` | Supporting trigger/BFF; ส่ง `current_status` ใน request-retake และ proxy read request ไปยัง Backend โดยไม่เป็น owner ของ state หรือ validation |
 | DOPA | ยืนยันข้อมูลบัตรประชาชน; `onboarding-service` ตีความผลและตัดสิน state ถัดไป |
 | AppMan | แหล่งผล front-card สำหรับช่องทาง `APPMAN` |
 | AdvanceAI | แหล่ง OCR/liveness และภาพสำหรับช่องทาง `ADVANCE_AI` |
@@ -65,6 +66,8 @@ Handler ตรวจ claim, bind `current_status` และยืนยันว
 5. soft-delete history เดิมของ application/flow เดียวกัน
 6. สร้าง history ที่ถือว่าผ่านแล้วสำหรับ personal, address, work, background, suitability และ bank-account เพื่อให้ retake กลับไปทำ identity step
 7. ส่ง email ตาม face-recognition channel และ account-opening intent
+
+`web-portal` v2 ใช้ `POST /api/kyc-approval/{applicationId}/request-retake` แล้วส่ง body `{ current_status }` ไปยัง `/web/api/v2/kyc/{applicationId}/request-retake`; Backend ยังเป็นผู้ตรวจ state และตัดสินผลลัพธ์
 
 ### 3. Customer repeats identity verification
 
@@ -111,7 +114,24 @@ Address match ต้องตรงทั้ง province, district, sub-district
 
 **Executing service: `onboarding-service`**
 
-เมื่อ KYC approval อ่านข้อมูลจาก stored customer capture, `onboarding-service` จะสร้าง `watchlist_report` ได้เมื่อมี stored report อย่างน้อยหนึ่งกลุ่มจาก personal, background หรือ vulnerable-investor หากบางกลุ่มไม่มี row ระบบคืนกลุ่มนั้นเป็น object ว่างและ map เฉพาะกลุ่มที่มีข้อมูล จึงไม่ทำให้การอ่าน capture ล้มเหลวเพราะ report ไม่ครบทุกกลุ่ม ขั้นตอนนี้เป็น read/display path และไม่เปลี่ยน application หรือ registration state
+เมื่อ KYC approval อ่านข้อมูลจาก stored customer capture, `onboarding-service` เลือก capture ตามสถานะของ application: ใช้ `NewCaptureId` เป็นค่าเริ่มต้น, ใช้ `SubmitCaptureId` เมื่อ application เป็น `rejected`, ใช้ `OldCaptureId` เมื่อเป็น `cancelled-by-system` และ fallback เป็น `OldCaptureId` หากไม่มี capture id อื่น จาก capture ระบบจะสร้าง `watchlist_report` ได้เมื่อมี stored report อย่างน้อยหนึ่งกลุ่มจาก personal, background หรือ vulnerable-investor หากบางกลุ่มไม่มี row ระบบคืนกลุ่มนั้นเป็น object ว่างและ map เฉพาะกลุ่มที่มีข้อมูล จึงไม่ทำให้การอ่าน capture ล้มเหลวเพราะ report ไม่ครบทุกกลุ่ม ขั้นตอนนี้เป็น read/display path และไม่เปลี่ยน application หรือ registration state
+
+### 7. Read suitability and default investment bank account
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+KYC approval อ่าน suitability ตาม account-opening intent โดยใช้ v2 Traditional/Digital ก่อน และ fallback ไป V1 เมื่อข้อมูล v2 ของบริษัทนั้นไม่พบ; answer path อ่าน legacy answer ก่อน แล้วใช้ question/answer จาก v2 เมื่อ legacy payload ไม่มีหรือว่าง รายละเอียด selection และ fallback อยู่ใน [Onboarding Status and Suitability](/business-flows/customer/onboarding-status-and-suitability/)
+
+สำหรับ `GET /web/api/v2/customer/{identification_id}/investment-bank-account`:
+
+- อ่าน investment-bank-account details และ customer accounts เพื่อผูก account กับ company
+- คืนเฉพาะรายการที่ `Default = true` และมี customer account ที่ map ได้
+- จัด XAM เป็น `Fund` และ XD เป็น `Digital`; รวม RED/SUB ต่อ customer account และคืน account code จาก XPG/investment account code
+- ถ้า Fund ไม่มี SUB ระบบเติม object ว่างให้ ส่วนรายการที่ไม่ใช่ default หรือ map company ไม่ได้จะไม่ถูกส่งออก
+
+`web-portal` route `/api/customer/{userId}/bank-account` เป็น proxy ของ endpoint นี้และไม่เปลี่ยน payload/ผลลัพธ์
 
 ## Business rules
 
@@ -123,6 +143,8 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - `onboarding-service` เป็นทั้ง owner และ executor; DOPA/AppMan/AdvanceAI เป็น integration ไม่ใช่ Business owner
 - ค่า re-KYC expiry ที่คำนวณจาก card, CDD หรือ suitability ถูก normalize เป็น UTC midnight ของวันถัดจาก expiry ตาม business timezone
 - Stored watchlist report ใน KYC approval ไม่จำเป็นต้องมีครบทั้ง personal, background และ vulnerable-investor; missing group ถูกแสดงเป็น object ว่าง
+- Application ที่เป็น `cancelled-by-system` ใช้ `OldCaptureId` เป็น source ของ customer detail เมื่อ KYC approval อ่าน completed-flow data
+- Investment bank account read model แสดงเฉพาะ default account และแบ่งผลตาม XAM/XD company; business owner และ executor ยังคงเป็น `onboarding-service`
 
 ## State transitions
 
@@ -133,6 +155,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 | DOPA success; data changed | คงอยู่ใน retake path จนลูกค้าตรวจข้อมูลต่อ | → `personal-information/personal` |
 | DOPA error/expired condition | ไม่มี completion transition ใน path นี้ | ไม่เดิน profile-comparison transition |
 | KYC approval reads stored capture | ไม่เปลี่ยน application | คืน `watchlist_report` เท่าที่มี stored report |
+| KYC approval reads suitability/bank account | ไม่เปลี่ยน application | คืน v2/V1 suitability และ default investment bank account ที่ map ได้ |
 
 ขั้น request ของ re-KYC เขียน flow type `retake-re-kyc` แต่ DOPA completion ปัจจุบันสร้าง status/history ด้วย `retake` และ success helper ตั้ง flow เป็น `onboarding`; ต้องยืนยัน intended state chain กับเจ้าของ `onboarding-service` ก่อนอธิบายผลของ re-KYC retake หลัง DOPA เป็นข้อเท็จจริงเพิ่มเติม
 
@@ -145,6 +168,8 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - DOPA error/expired branch: code `6600`; source ไม่ยืนยัน automated retry ใน path นี้
 - Repository, profile, address, Keycloak หรือ state update ล้มเหลว: request ล้มด้วย service error; transaction ครอบเฉพาะบางช่วง จึงห้ามสรุปว่า external/profile updates rollback พร้อมกันทั้งหมด
 - การเขียน registration status/history หลัง DOPA completion log error แล้ว Flow ยังคืนผลได้ในบาง path; ต้องตรวจ log เมื่อ response สำเร็จแต่ progress ไม่เปลี่ยน
+- Investment bank details service error คืน HTTP 500; แต่ถ้า customer-account lookup error ใน current implementation service คืน output ว่างพร้อม `nil` error ทำให้ handler ตอบ HTTP 200 ได้
+- ถ้า suitability dependency ของ KYC approval อ่านไม่ได้ service คืน risk status แบบ `incomplete`; ไม่ควรตีความเป็นการเปลี่ยน application state
 
 ## Final outcomes
 
@@ -153,6 +178,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - ข้อมูลเปลี่ยนจะถูก persist จากผล verify และพาลูกค้าไปตรวจ personal information
 - Backend แยก `DOPA_SUCCESS` (`200`) ออกจาก `DOPA_DATA_CHANGE` (`2009`)
 - KYC approval response แสดง stored watchlist report แบบ partial ได้โดยไม่ต้องมีครบทุกกลุ่ม
+- KYC approval รองรับการอ่าน detail จาก `OldCaptureId` ของ `cancelled-by-system` และแสดงเฉพาะ default investment bank account ที่ผูก company ได้
 
 ## Related shared rules
 
@@ -178,3 +204,8 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - `pkg/customer/kyc_approver/helper.go`: re-KYC expiry timestamp normalization
 - `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
 - `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response
+- `onboarding-service/pkg/customer/kyc_approver/customer-service.go`: capture selection และ default investment-bank account output
+- `onboarding-service/pkg/customer/kyc_approver/service.go`: suitability V1 fallback และ risk/answer mapping
+- `onboarding-service/handler/webportal/kyc-customer-handler.go`: investment-bank-account endpoint
+- `web-portal/src/app/features/kyc-approval/services/kyc-approval-detail.ts`: request-retake payload
+- `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: bank-account proxy

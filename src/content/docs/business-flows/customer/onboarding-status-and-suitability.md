@@ -1,18 +1,18 @@
 ---
 title: Onboarding Status and Suitability
-description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital และยืนยันผลเพื่อเดิน registration ต่อ
+description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รองรับข้อมูล V1/V2 และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service]
-aliases: [onboarding status, suitability v2, traditional suitability, digital suitability, watchlist refresh, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, suitability test, รีเฟรช watchlist]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-08-04
+lastUpdated: 2026-08-11
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status
+อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึง read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่
 
 Source รอบนี้ยืนยัน Backend เท่านั้น เพราะ frontend repositories ที่เกี่ยวข้องถูกข้ามเนื่องจากมี uncommitted changes จึงไม่ระบุหน้าจอ, client validation หรือ user-visible mapping ที่ยังตรวจไม่ได้
 
@@ -51,6 +51,8 @@ Source รอบนี้ยืนยัน Backend เท่านั้น เ
 4. `bank-account`
 
 ถ้า change-request log ระบุว่าลูกค้ามี default bank account อยู่แล้ว ระบบตัด `bank-account` ออกจากผลลัพธ์
+
+การเขียน registration status ใน migrated, offline และ open-initial-account paths ใช้ `UpsertTx` ภายใน transaction: ถ้ามี record ของ `identification_id` อยู่แล้วจะ update status, sub-status, flow type, application และ soft-delete flag; ถ้าไม่พบจึง insert record ใหม่
 
 ### 2. Derive completion by flow type
 
@@ -109,6 +111,21 @@ Response คืน ID ของ suitability record, description จาก risk-l
 4. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
 5. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
 
+### 5. Read suitability for KYC approval
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+เมื่อ KYC approval ต้องแสดง suitability ระบบเลือกข้อมูลตาม account-opening intent จาก change-request log:
+
+- มีข้อมูล v2 ของบริษัทที่ต้องแสดง: ใช้ `customer_suitability_traditional` สำหรับ XAM และ `customer_suitability_digital` สำหรับ XD
+- ไม่พบข้อมูล v2 หรือได้ `gorm.ErrRecordNotFound`: สร้าง output ของบริษัทนั้นจาก suitability V1 และกำหนด channel เป็น `XSPRING_APP`
+- หากมีทั้ง Traditional และ Digital ในการอ่าน suitability รวม ระบบเลือก record ที่มี `evaluation_date` ล่าสุด; หากไม่มีทั้งสองฝั่งจึง fallback ไป V1
+- หาก aggregate risk ที่อ่านได้ยังไม่มี risk level ของฝั่งใด แต่มี record ของฝั่งนั้น ระบบเติม risk level และ description จาก record กับ master risk mapping ก่อนส่ง response
+
+การอ่านคำตอบก็มี compatibility path: KYC service อ่าน answer จาก legacy table ก่อน และเมื่อไม่พบหรือ payload ว่างจึงใช้คำถาม/คำตอบจากตาราง v2; ถ้าคำตอบ v2 ทั้ง Traditional และ Digital เป็น `nil`, suitability service ใช้ answer จาก V1 เป็นทั้งสองชุดเพื่อ map กับ master question การอ่านทั้งหมดเป็น read path และไม่เปลี่ยน registration state
+
 ## Business rules
 
 - Backend claim เป็นแหล่ง `identification_id`; request ไม่เลือก customer เอง
@@ -122,6 +139,9 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - v2 confirm ใช้ current CDD score และไม่เรียก CDD score recalculation ใน production path นี้
 - Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
+- Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
+- KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่หรือเป็น record-not-found
+- ในการ map answer จาก v2 หากมี Traditional answers จะเลือกชุดนั้นก่อน Digital answers; หากทั้งสองชุดว่างจะคืน answer ว่างโดยไม่แต่งข้อมูลเพิ่ม
 
 ## State transitions
 
@@ -133,6 +153,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | Confirm suitability | `suitability-test` → next registration sub-status พร้อม history |
 | Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
 | Read onboarding status | ไม่แก้ state; derive `draft`/`completed` จาก history |
+| KYC approval reads suitability/answers | ไม่แก้ state; ใช้ v2 หรือ fallback V1 เพื่อสร้าง read model |
 
 ## Error and recovery behavior
 
@@ -143,6 +164,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - confirm service error ถูก map เป็น HTTP 404 ใน handler ปัจจุบัน
 - onboarding-status อ่าน dependency ไม่สำเร็จ: HTTP 500
 - watchlist refresh error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
+- KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
 ## Final outcomes
 
@@ -150,6 +172,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Suitability score/risk level ถูกบันทึกในตาราง Traditional หรือ Digital ตาม account-opening intent
 - หลัง confirm, customer background vulnerability ถูกอัปเดตและ registration เดินพ้น suitability step
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
+- KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ได้
 
 ## Related shared rules
 
@@ -172,3 +195,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `pkg/kyc/watchlist.go`: stored DOPA flag filtering และ watchlist refresh orchestration
 - `pkg/kyc/helper.go`: `filterPassedWatchlistTypes`
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
+- `onboarding-service/pkg/customer/customer-suitability/service.go`: v1 fallback, latest evaluation selection และ question/answer mapping
+- `onboarding-service/pkg/customer/kyc_approver/service.go`: company-specific suitability read model และ risk fallback
+- `onboarding-service/pkg/kyc/kyc-service.go`: legacy answer/risk-result fallback ไปยัง v2 suitability
+- `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: registration status write path ที่เรียก `UpsertTx`

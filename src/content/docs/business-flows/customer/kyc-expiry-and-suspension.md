@@ -3,16 +3,16 @@ title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability ก่อน suspend ลูกค้าและบัญชีพร้อม reason code
 capability: Customer
 services: [onboarding-service]
-aliases: [KYC expiry, re-KYC, suspended by system, CDD expiry, suitability expiry, KYC หมดอายุ, ระงับบัญชี, ทบทวน KYC]
+aliases: [KYC expiry, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, CDD expiry, suitability expiry, KYC หมดอายุ, ระงับบัญชี, ทบทวน KYC, คืนข้อมูล capture]
 errorCodes: [SUP-004, SUP-005, SUP-006, SUP-007]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-11
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย background Flow ที่ `onboarding-service` ใช้กำหนด `kyc_expiry_date` และ `re_kyc_type` สำหรับลูกค้า active/suspended แล้วระงับ identification และทุก account เมื่อครบเงื่อนไข พร้อมสร้าง suspended-by-system application และยกเลิก application บางประเภทที่ยังทำไม่เสร็จ
+อธิบาย background Flow ที่ `onboarding-service` ใช้กำหนด `kyc_expiry_date` และ `re_kyc_type` สำหรับลูกค้า active/suspended แล้วระงับ identification และทุก account เมื่อครบเงื่อนไข พร้อมสร้าง suspended-by-system application และยกเลิก application บางประเภทที่ยังทำไม่เสร็จ รวมถึงการ auto-cancel re-KYC และ restore ข้อมูลจาก customer capture
 
 ## Trigger and preconditions
 
@@ -114,7 +114,15 @@ Reason mapping:
 
 หลัง transaction ระบบส่ง suspended application เข้า application handling path ด้วย status `to-review` และ system identity หาก call นี้ล้มเหลว record ถูกนับเป็น error แต่ suspension transaction ที่ commit แล้วไม่ได้ rollback จาก source path นี้
 
-ถ้ามี in-progress re-KYC application ที่ควรถูกยกเลิก ระบบเปลี่ยนเป็น `cancelled-by-system` และ restore captured customer data ใน transaction แยก
+ถ้ามี in-progress re-KYC application ที่ควรถูกยกเลิก ระบบเปลี่ยนเป็น `cancelled-by-system` และ restore captured customer data ใน transaction แยก:
+
+1. เปลี่ยน application/action-flow เป็น `cancelled-by-system`/`cancel`
+2. ลบข้อมูล customer ปัจจุบันที่อยู่ในขอบเขตการ restore แล้ว soft-delete registration history เฉพาะ `application_id` ของ re-KYC
+3. insert snapshot จาก capture กลับเข้า identification, profile, background KYC/CDD/suitability, customer account/bank/investment-bank และ watchlist report พร้อม history ที่ capture มี
+4. ถ้า application เดิมเป็น `to-review`, ลบ enhance documents และ DMS objects ของ application แล้วส่ง customer capture V2 ด้วย status `EndFlow`
+5. หลัง transaction commit แล้วเรียก `CalculateKycExpiryDate` ใหม่ เพื่อคำนวณ expiry จากข้อมูลที่ restore แล้ว
+
+ถ้า auto-cancel transaction ล้มเหลว ระบบ log error และหยุดการประมวลผล suspended-KYC ต่อสำหรับ customer รายนี้; batch worker ยังทำงานกับ customer รายอื่นตามรอบเดิม
 
 ## Business rules
 
@@ -126,6 +134,9 @@ Reason mapping:
 - Expiry record เดิมถูก guard ไม่ให้คำนวณวันใหม่ทั่วไป
 - Reason description อ่านจาก master reason; code มาจาก re-KYC type mapping
 - `bank-account-setting` และ `new-bank-account-request` ถูกข้ามใน cancel helper; cancellation แบบเฉพาะทางรองรับ upgrade investor class และ withdrawal-level upgrade
+- Auto-cancel re-KYC ลบ/restore ข้อมูลใน transaction เดียวกับการยกเลิก application แต่คำนวณ KYC expiry ใหม่หลัง transaction เพื่อให้ query เห็นข้อมูลที่ restore แล้ว
+- การ soft-delete registration history ของ re-KYC ระบุ `application_id`; ไม่ลบ history ของ flow อื่นของ customer ใน path นี้
+- Customer capture ที่ restore ได้รวม watchlist personal/background/vulnerable-investor reports และ histories รวมถึง suitability Traditional/Digital และ histories เมื่อ field เหล่านั้นมีใน capture
 
 ## State transitions
 
@@ -140,6 +151,7 @@ Reason mapping:
 | Suspended application | created → `to-review` |
 | Eligible unfinished application | current status → cancellation path ตาม application type |
 | Existing re-KYC application | current status → `cancelled-by-system` เมื่อ auto-cancel condition เป็นจริง |
+| Restored customer data | customer tables → snapshot จาก capture หลัง cancellation transaction commit |
 
 ## Error and recovery behavior
 
@@ -149,6 +161,7 @@ Reason mapping:
 - phase suspension ประมวลผลแบบ worker pool และ recover panic ราย customer เพื่อไม่ให้ทั้ง batch หยุด
 - database suspension transaction ล้ม: ไม่ commit state บางส่วน
 - application handling หลัง transaction ล้ม: รายงาน error แต่ source ไม่มี compensating rollback/retry ที่ยืนยัน
+- auto-cancel re-KYC ล้ม: ไม่เดินต่อไปสร้าง suspended-by-system application ให้ customer รายเดียวกันใน invocation นั้น และ source ไม่ยืนยัน retry อัตโนมัติของ auto-cancel
 - job เขียน audit, batch log และ failure email; source ไม่ยืนยัน manual replay command
 
 ## Final outcomes
@@ -157,6 +170,7 @@ Reason mapping:
 - ลูกค้าที่ถึง suspension rule มี identification และ account เป็น suspended พร้อม reason
 - ระบบสร้าง suspended-by-system application ใน `to-review`
 - unfinished applications ที่เข้า target ถูกยกเลิกตาม helper ของแต่ละ type
+- re-KYC ที่ถูก auto-cancel จะคืนข้อมูลจาก capture, ปิด capture flow และคำนวณ expiry ใหม่หลัง restore
 - Batch result ระบุจำนวน fetched, skipped, success และ error เพื่อใช้ติดตาม recovery
 
 ## Related shared rules
@@ -174,6 +188,9 @@ Reason mapping:
 - `pkg/customer/re-kyc/service.go`: job orchestration และ expiry calculation
 - `pkg/customer/kyc-expiry/service.go`: CDD/suitability expiry periods
 - `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application และ cancellation processing
+- `onboarding-service/pkg/customer/customer-process/process-delete.go`: scoped registration-history deletion และ restore entry point
+- `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: capture restore mapping รวม account, suitability และ watchlist report
+- `onboarding-service/pkg/customer/application/service.go`: `OldCaptureId` ที่ผูกกับ application ใหม่
 - `pkg/customer/re-kyc/helper.go`: suspension/cancellation eligibility
 - `internal/constants/enum/rekyc_type.go`
 - `internal/constants/enum/xd-customer-account-reason.go`
