@@ -2,7 +2,7 @@
 title: Order State Machine
 description: สถานะ การเปลี่ยนสถานะ และข้อจำกัดของ Swap, Withdrawal และ Fund Order
 status: active
-lastUpdated: 2026-08-01
+lastUpdated: 2026-08-21
 documentType: shared-rule
 ---
 
@@ -82,6 +82,14 @@ Success path:
 | `order-confirm` → `order-processing` | AM/SA อนุมัติ |
 | `order-processing` → `waiting-allot` | ตรวจสอบการชำระเงินเรียบร้อย |
 | `waiting-allot` → `completed` | จัดสรรสินทรัพย์สำเร็จ |
+
+Mutual Fund Switching ใช้ specialized success mapping ที่ข้าม `order-processing`:
+
+`created` → `order-request` → `order-confirm` → `waiting-allot` → `completed`
+
+สำหรับ switch, `order-confirm → waiting-allot` เกิดหลัง `FundConnext.SwitchOrder` ตอบโดยไม่มี `ErrorCode`; `order-confirm → failed` เกิดเมื่อ response มี `ErrorCode` หรือ approval call ล้มเหลว และ customer cancellation ใช้ `waiting-allot → cancelled` เมื่อ switch-specific predicate ผ่าน การเปลี่ยน `waiting-allot → completed` ถูกยืนยันจาก enum mapping แต่ executor, callback และ ledger/portfolio effect ยังไม่ยืนยันจาก repositories ใน scope
+
+ดูรายละเอียดที่ [Mutual Fund Switching](/business-flows/trading/mutual-fund-switching/) และ [Mutual Fund Sell Order Cancellation](/business-flows/trading/mutual-fund-sell-cancellation/)
 
 ## ข้อจำกัดร่วม
 

@@ -5,7 +5,7 @@ capability: Trading
 services: [order-service]
 aliases: [trading, trade, ซื้อขาย]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-21
 documentType: flow
 ---
 
@@ -16,6 +16,8 @@ documentType: flow
 - [Big Lot](/business-flows/trading/big-lot/) — เปิดเมื่อทำ White Glove/Bulk ซึ่งบังคับ dealer route และมีกฎ bypass กับ precision เฉพาะ
 - [Routing](/business-flows/trading/routing/) — เปิดเมื่อหาสาเหตุว่าทำไม route หนึ่งถูกเลือก การมองเห็นของ Customer/Dealer หรือ error `90006`
 - [Hedging](/business-flows/trading/hedging/) — เปิดเมื่อไล่ FX exposure หลังเทรด USD, threshold และคำสั่ง hedge กับธนาคาร
+- [Mutual Fund Switching](/business-flows/trading/mutual-fund-switching/) — เปิดเมื่อไล่คู่กองทุน, holiday/cutoff, FundConnext switch, allotment และ switch cancellation
+- [Mutual Fund Sell Order Cancellation](/business-flows/trading/mutual-fund-sell-cancellation/) — เปิดเมื่อไล่ cutoff/effective date ของการยกเลิกคำสั่งขายกองทุนรวมและการยกเลิก FundConnext
 
 ## กฎกลางของ Trading
 

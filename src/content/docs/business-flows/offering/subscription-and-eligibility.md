@@ -1,12 +1,12 @@
 ---
 title: Subscription and Eligibility
-description: Flow จองซื้อ Offering หรือ ICO ที่รวม eligibility, validation และสถานะ allocation, rejection, refund กับ completion
+description: Flow จองซื้อ Offering หรือ ICO ที่รวม eligibility, validation, status lifecycle และการแก้ไข/ยกเลิกคำสั่งจาก web portal
 capability: Offering
-services: [order-service]
-aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
-errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail]
+services: [order-service, web-portal]
+aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, ICO order edit, ICO order cancellation, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
+errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "400", "404", "500"]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-21
 documentType: flow
 ---
 
@@ -14,7 +14,7 @@ documentType: flow
 
 อธิบาย Order Offering หรือ ICO Subscription โดยรวมเงื่อนไขก่อนตรวจ, การคำนวณยอด, eligibility จากข้อกำหนดรายผลิตภัณฑ์/โครงการ, payment validation และความหมายของ subscription statuses ที่ source ยืนยัน
 
-Source ยืนยัน business logic ใน `order-service` แต่ไม่ได้ยืนยัน endpoint, actor ที่เปลี่ยนทุกสถานะ, persistence sequence หรือ integration ระหว่างบริการ จึงไม่ระบุ ownership นอกเหนือจากที่ยืนยันได้
+Source ยืนยัน business logic และ placement endpoint ใน `order-service`; `web-portal` เป็น supporting source สำหรับ permission, route และ user-visible edit/cancel action เท่านั้น ไม่ override backend validation หรือ state transition
 
 ## Trigger and preconditions
 
@@ -33,6 +33,7 @@ Source ยืนยัน business logic ใน `order-service` แต่ไม�
 | Service | Responsibility |
 | :--- | :--- |
 | `order-service` | คำนวณยอด, validate รายผลิตภัณฑ์/โครงการ/payment และดูแล Subscription Order lifecycle ตาม source |
+| `web-portal` | เปิด edit/cancel action ตาม permission, status, channel และ payment method แล้วส่ง request ไปยัง backend BFF |
 
 ช่องทาง ATS, Bank Transfer, Bill Payment/QR และ CHEQUE ถูกยืนยันว่าเป็น payment methods ที่รองรับ แต่ source ไม่ได้ระบุ service/integration owner หรือ execution sequence ของแต่ละช่องทาง
 
@@ -116,6 +117,53 @@ Source ระบุชื่อและความหมายเหล่า�
 
 Source ไม่ได้ระบุ timing, integration หรือ failure behavior ของการสร้างเอกสาร
 
+### 8. Edit an ICO placement from web portal
+
+**Owner service: `order-service`**
+**Executing service: `web-portal` สำหรับ client trigger และ `order-service` สำหรับ validation/persistence**
+
+`web-portal` ใช้ permission `subscription_order:detail:edit` และ `subscription_order:detail:cancel` เป็น client-side gate เท่านั้น แล้วส่ง edit request ผ่าน BFF ไปยัง:
+
+- `PATCH /api/order-offering/placement/{orderRequestId}` ใน `web-portal`
+- `PATCH /api/v1/order-offering/placement/web/{order_request_id}` ใน `order-service`
+
+Current backend behavior:
+
+1. `action` ต้องเป็น `update` หรือ `submit`
+2. payment method ปัจจุบันต้องอยู่ใน editable set: `BANK_TRANSFER`, `BILL_PAYMENT` หรือ `CHEQUE`; `BILL_PAYMENT_CHEQUE` เป็น read-only สำหรับ edit
+3. การเปลี่ยน metadata (`sa_code`, `order_date`, `payment_method`) ต้องเป็น status `order-request` หรือ `order-confirm`, channel `WEARE_WEB` และ payment method เดิม/ใหม่ต้องอยู่ใน editable set
+4. `sa_code` ใหม่ต้องอยู่ใน project referral list ประเภท selling agent; ระบบ resolve และบันทึก `sa_name` ที่สัมพันธ์กัน
+5. document-only update ไม่เปลี่ยน status และไม่เข้า metadata status/channel guard เมื่อ metadata ไม่ได้เปลี่ยน แต่การย้ายไฟล์เกิดก่อน database transaction เพราะ DMS ไม่ transactional
+6. `update` คง status เดิม; `submit` บังคับ `order-request → order-confirm`, สร้าง action `confirmed` และส่ง `AutoNotiOfferingOrder7`
+
+Frontend รอบนี้เปลี่ยนให้ Save ทำงานเมื่อมี change และไม่มีไฟล์กำลัง upload โดยไม่บังคับ payment-slip total match ในขั้น Save; ขั้น Submit ยังตรวจ payment amount, payment-slip total และ subscription form object key ก่อนส่ง
+
+### 9. Cancel an ICO placement from web portal
+
+**Owner service: `order-service`**
+**Executing service: `web-portal` สำหรับ client trigger และ `order-service` สำหรับ cancellation transaction**
+
+UI แสดง cancel action เมื่อมี `subscription_order:detail:cancel`, order status เป็น `order-request` และ channel เป็น `WEB`; สำหรับ `APP + BANK_TRANSFER` UI แสดงปุ่ม disabled เพื่อสะท้อนว่าการยกเลิกไม่ได้เปิดจากช่องทางนั้น ส่วน backend employee cancellation บังคับ channel `WEARE_WEB` จริง
+
+Flow คือ:
+
+1. UI เปิด cancel modal และส่ง reason ที่ trim แล้ว
+2. BFF `POST /api/order-offering/placement/{orderRequestId}/cancel` ส่งต่อไป `POST /api/v1/order-offering/placement/web/{order_request_id}/cancel`
+3. handler บังคับ reason ไม่ว่างและไม่เกิน 250 ตัวอักษร, order request ต้องมีอยู่, status ต้องเป็น `order-request` และ channel ต้องเป็น `WEARE_WEB`
+4. ใน transaction ระบบเปลี่ยน `order-request → cancelled`, สร้าง action `cancelled` และเปลี่ยน payment `PayToSA` เป็น `cancelled`
+5. Backend audit detail ใช้ cancellation reason ของ `WEARE_WEB`; frontend แสดง success หรือ error ตาม response
+
+Validation errors ถูกส่งกลับเป็น HTTP `400`, missing order เป็น `404` และ unexpected service/database failure เป็น `500`; client permission หรือปุ่ม disabled ไม่ใช่ backend authorization substitute
+
+### 10. Cancel pending ICO orders during suspension
+
+**Owner service: ยังไม่ยืนยัน owner ของ suspension trigger จาก source ที่เปลี่ยนในรอบนี้**
+**Executing service: `order-service` (`CustomerSuspendService` และ `orderOfferingService`)**
+
+เมื่อ `CustomerSuspendService.CancelOrdersOnSuspend` พบ digital-asset suspension ระบบค้นหา ICO order ที่ status `order-request` และ payment method ในชุด `BANK_TRANSFER`, `BILL_PAYMENT_CHEQUE`, `BILL_PAYMENT`, `QR` และ `CHEQUE` แล้วเรียก `CancelOrderOfferingBySystem` ต่อรายการ
+
+การเปลี่ยนแปลงรอบนี้คือเพิ่ม `CHEQUE` ใน query payment methods ทำให้ pending ICO order ที่จ่ายด้วย `CHEQUE` เข้า auto-cancel path ได้ด้วย ในแต่ละรายการระบบเปลี่ยน order เป็น `cancelled`, สร้าง action flow, เปลี่ยน payment เป็น `cancelled`, บันทึก audit detail `customer_account_status: suspended` และส่ง `AutoNotiOfferingOrder2` หลัง cancel สำเร็จ
+
 ## Business rules
 
 - Unit order ต้องแปลงเป็น amount ด้วย offering price ก่อนตรวจ
@@ -141,6 +189,16 @@ Source ยืนยันชุด status แต่ไม่ได้ยืน�
 
 การจัดกลุ่มนี้ไม่ใช่ transition edge และไม่ยืนยัน ordering ระหว่าง `allocation`, `allotted` กับ `completed` หรือระหว่าง refund-related statuses ต้องตรวจ enum usage และ state handler ก่อนแก้ lifecycle
 
+สำหรับ placement edit/cancel ที่ source ยืนยันเพิ่มเติม:
+
+| Current status | Trigger | Next status |
+| :--- | :--- | :--- |
+| `order-request` | web `update` หรือ document update | `order-request` (คงเดิม) |
+| `order-request` | web `submit` | `order-confirm` |
+| `order-request` | employee cancel หรือ system cancel on suspension | `cancelled` |
+
+Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน cancellation transaction
+
 ## Error and recovery behavior
 
 **Owner service: `order-service`**
@@ -150,6 +208,9 @@ Source ยืนยันชุด status แต่ไม่ได้ยืน�
 - Total เป็นศูนย์: validation fail แต่ source ไม่ได้ยืนยัน error code
 - `cancelled` และ `rejected` เป็นผลลัพธ์ทางเลือกของ lifecycle
 - Refund-related status บอกว่าออเดอร์เข้ากลุ่มคืนเงิน แต่ source ไม่ยืนยัน workflow, ledger, bank action หรือ retry จึงห้ามอนุมาน recovery sequence
+- Edit metadata ผิด status/channel/payment method หรือ `sa_code` ไม่อยู่ใน project referral list: backend คืน client error และไม่ควรตีความ client permission เป็นหลักฐานว่า update ผ่าน
+- Cancel reason ว่างหรือยาวเกิน 250 ตัวอักษร, order ไม่ใช่ `order-request` หรือ channel ไม่ใช่ `WEARE_WEB`: backend ปฏิเสธ cancellation
+- Auto-cancel ระหว่าง suspension ถ้าค้น order หรือ cancel รายการใดล้มเหลว `CustomerSuspendService` เก็บ failure และส่ง error notification ตาม collector; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จไปแล้วก่อนหน้า
 
 ## Final outcomes
 
@@ -159,8 +220,10 @@ Source ยืนยันชุด status แต่ไม่ได้ยืน�
 - `rejected`: ระบบหรือเจ้าหน้าที่ปฏิเสธและอยู่ในกลุ่ม refund status
 - `refunded` หรือ refund-related state อื่น: อยู่ในกระบวนการคืนเงินตาม enum; รายละเอียด execution ไม่ได้อยู่ใน source
 - Validation fail: request ไม่ผ่านไปยัง lifecycle ขั้นถัดไปตาม business validation นี้
+- Web placement `submit`: status เป็น `order-confirm` และมี action `confirmed`
+- Web/system cancellation: status และ payment ที่เกี่ยวข้องเป็น `cancelled`
 
-## Related shared rules and flows
+## Related shared rules
 
 - [Offering](/business-flows/offering/)
 - [Order State Machine](/shared-rules/order-state-machine/)
@@ -171,6 +234,12 @@ Source ยืนยันชุด status แต่ไม่ได้ยืน�
 `order-service`:
 
 - `pkg/order_offering/service.go`: `ValidateOrderDetail`, `calculateOrderAmount`, `validateSingleOrder`, `validateTotalAmount`
+- `order-service/handler/order_offering_placement.go`: web edit/cancel handlers และ HTTP error mapping
+- `order-service/pkg/orderofferingplacement/new_service.go`: edit transaction, metadata validation และ submit transition
+- `order-service/pkg/order_offering/service_cancel.go`: employee/system cancel, payment selection และ cancellation transaction
+- `order-service/pkg/customer/suspend_service.go`: suspension cancellation orchestration
+- `web-portal/src/app/(order-flow)/ico-order-placement/order-edit-policy.ts`: client edit/cancel policy
+- `web-portal/src/app/(order-flow)/ico-order-placement/[customerAccountId]/[orderRequestId]/edit/components/ico-order-placement-edit-form.tsx`: permission, save/submit/cancel UI behavior
 - `internal/domain/ico_project.go`
 - `internal/domain/project_ico_extension.go`
 - `internal/constants/enum/order_offering_enum.go`
