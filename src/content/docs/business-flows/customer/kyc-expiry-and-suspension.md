@@ -6,7 +6,7 @@ services: [onboarding-service]
 aliases: [KYC expiry, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, CDD expiry, suitability expiry, KYC หมดอายุ, ระงับบัญชี, ทบทวน KYC, คืนข้อมูล capture]
 errorCodes: [SUP-004, SUP-005, SUP-006, SUP-007]
 status: active
-lastUpdated: 2026-08-11
+lastUpdated: 2026-08-22
 documentType: flow
 ---
 
@@ -92,7 +92,7 @@ Phase suspension อ่าน customer KYC candidates, ตรวจ expiry เ�
 ใน database transaction เดียว ระบบ:
 
 1. สร้าง `suspended-by-system` application/action flow
-2. update customer accounts เป็น suspended พร้อม reason code/description
+2. update customer accounts เป็น suspended พร้อม reason code/description และเขียน `status_date` ของ account ในการ update เดียวกัน
 3. update customer identification เป็น `suspended`
 4. เปลี่ยน application เป็น `to-review`
 5. auto-cancel unfinished application บางประเภทตาม target list
@@ -126,6 +126,7 @@ Reason mapping:
 
 ## Business rules
 
+- เมื่อ account ถูก suspend จาก re-KYC expiry path ระบบบันทึก `status_date` ของ account พร้อมการเปลี่ยน status เป็น `suspended`; ค่าเวลาขึ้นกับ update timestamp ของ path ที่เรียกใช้
 - KYC expiry ใช้ candidate ที่เร็วที่สุด ไม่ใช่เลือกตามลำดับ ID/CDD/suitability
 - CDD risk level 3 หมดอายุใน 1 ปี; risk level อื่นใน 2 ปี
 - Suitability Traditional/Digital หมดอายุ 2 ปีหลัง evaluation date
@@ -146,7 +147,7 @@ Reason mapping:
 | :--- | :--- |
 | Customer background KYC | no expiry → earliest calculated expiry + re-KYC type |
 | Existing KYC type | `suitability-expired` → `cdd-expired` เมื่อ CDD หมดอายุ; any non-force/non-ID type → `id-card-expired` เมื่อบัตรหมด |
-| Customer account | current status → `suspended` พร้อม `SUP-004`/`005`/`006`/`007` |
+| Customer account | current status → `suspended` พร้อม `SUP-004`/`005`/`006`/`007` และ `status_date` ของการเปลี่ยนสถานะ |
 | Customer identification | current status → `suspended` |
 | Suspended application | created → `to-review` |
 | Eligible unfinished application | current status → cancellation path ตาม application type |
@@ -194,3 +195,4 @@ Reason mapping:
 - `pkg/customer/re-kyc/helper.go`: suspension/cancellation eligibility
 - `internal/constants/enum/rekyc_type.go`
 - `internal/constants/enum/xd-customer-account-reason.go`
+- `pkg/customer/customer-account/customer-account-repo/customer-account-repository.go`: account status/reason update และ `status_date`

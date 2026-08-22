@@ -3,19 +3,19 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal]
-aliases: [KYC retake, request retake, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, watchlist report, KYC watchlist, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
+aliases: [KYC retake, request retake, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
-errorCodes: ["1000", "200", "2009", "4001", "6600"]
+errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-08-11
+lastUpdated: 2026-08-22
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน รวมถึง read model ที่ KYC approval ใช้ดู capture, suitability และ default investment bank account
+อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน รวมถึง read model ที่ KYC approval ใช้ดู capture, suitability, default investment bank account และ forgery verification
 
-`web-portal` เป็น supporting client/BFF: route request-retake v2 ส่ง `current_status` ต่อไปยัง `onboarding-service` และ route bank-account proxy ส่ง GET ต่อไปยัง investment-bank-account endpoint โดยไม่มี business-rule override ใน client ส่วน `trading-web` และ `xspring-mobile-app` ยังตรวจ behavior ล่าสุดไม่ได้เพราะมี uncommitted changes; ใช้ Backend เป็น source of truth สำหรับ state, validation และผลลัพธ์
+`web-portal` เป็น supporting client/BFF: route request-retake v2 ส่ง `current_status` ต่อไปยัง `onboarding-service`, route bank-account proxy ส่ง GET ต่อไปยัง investment-bank-account endpoint และ KYC approval ใช้ client trigger/status mapping สำหรับ forgery โดยไม่มี business-rule override ใน client ใช้ Backend เป็น source of truth สำหรับ state, validation และผลลัพธ์
 
 ## Trigger and preconditions
 
@@ -133,8 +133,27 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 
 `web-portal` route `/api/customer/{userId}/bank-account` เป็น proxy ของ endpoint นี้และไม่เปลี่ยน payload/ผลลัพธ์
 
+CDD date ที่ส่งใน current/previous KYC information ถูก truncate เป็นวันที่เวลา 00:00 ใน business timezone ก่อน map เป็น `cdd_date`; read model จึงสื่อเฉพาะวัน ไม่ใช่เวลาที่คำนวณ
+
+### 8. Verify forgery and expose KYC decision
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service` สำหรับ automatic verification และ persistence; `web-portal` สำหรับ manual-review trigger และการแสดงผล**
+
+เมื่อ DOPA completion สำเร็จ handler จะเปิด asynchronous forgery path เมื่อ `TriggerFeatureForgeryVerification()` เป็นจริง โดย `onboarding-service` ใช้ system actor เรียก AdvanceAI `POST /api/v1/ocr/forgery` แล้วบันทึก `forgery_flag` เป็น `pass`, `reject` หรือ `error`, พร้อม reason เมื่อ provider ส่ง detail และ audit log ของ request/result ผลลัพธ์นี้ไม่เปลี่ยน DOPA response ที่ส่งกลับไปแล้ว
+
+ถ้า KYC approval เห็น `forgery_flag = reject` และผู้ใช้มี permission `KYC_DETAIL_REVIEW`, `web-portal` เปิด manual verify action และส่ง `PATCH /web/api/v1/kyc/forgery/manual` ผ่าน BFF โดย backend บังคับ `customer_identification_id` และ `memo`, บันทึกผลเป็น `pass` พร้อม reviewer, เวลา และ memo และไม่ update `forgery_reason` จากค่า nil ของ manual request การ refresh verification ใช้ `POST /web/api/v1/kyc/forgery/{identification_id}/refresh` และทำงานด้วย system actor
+
+KYC approval map reason code ที่รู้จักเป็นคำอธิบาย และ join เป็นรูปแบบ `code - description`; reason code ที่ไม่มี mapping จะถูกส่งต่อเป็น code เดิม
+
+`web-portal` แสดง forgery result/reason/date/by/memo ใน KYC detail, แสดง warning เมื่อ result เป็น `reject`, และ disable submit/enhance/reject/approve เมื่อ result เป็น `error`; client mapping เหล่านี้เป็น user-visible behavior เท่านั้น ไม่ใช่ backend authorization หรือ state owner
+
 ## Business rules
 
+- CDD date ใน KYC approval เป็น date-only ที่ normalize ตาม business timezone
+- Automatic forgery verification ทำงานหลัง DOPA completion แบบ asynchronous เมื่อ feature flag เปิด และเก็บผล `pass`/`reject`/`error` ใน background KYC
+- Manual forgery verification เป็น backend write path ของ `onboarding-service`; manual `pass` เก็บ memo และ reviewer แต่ไม่เขียน `forgery_reason`
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
 - Initial retake transaction เก็บ completed history ของ step ที่ไม่ต้องทำซ้ำ แล้วพาลูกค้ากลับไปเริ่มที่ front-card scan
@@ -150,6 +169,8 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 
 | Trigger | Application | Registration |
 | :--- | :--- | :--- |
+| DOPA completion และ forgery feature เปิด | ไม่เปลี่ยน DOPA/application state | background KYC → `forgery_flag` `pass`/`reject`/`error` แบบ asynchronous |
+| KYC reviewer manual verifies rejected forgery | ไม่เปลี่ยน application | background KYC `reject` → `pass` พร้อม reviewer/memo |
 | Employee requests retake | `to-review` → `to-retake` | → `identity-verification/front-card-scan` |
 | DOPA success; profile/address match | `to-retake` → `to-review` | → `completed-draft/application-completed-draft` |
 | DOPA success; data changed | คงอยู่ใน retake path จนลูกค้าตรวจข้อมูลต่อ | → `personal-information/personal` |
@@ -161,6 +182,9 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 
 ## Error and recovery behavior
 
+- Automatic forgery เป็น asynchronous side path; error ถูก log และไม่เปลี่ยน DOPA response ที่สำเร็จแล้ว ส่วน client จะแสดง `error` และปิด main KYC actions เมื่อ read model ได้ผลดังกล่าว
+- Manual forgery request ที่ claim ไม่ถูกต้องคืน HTTP 401, body ไม่ผ่าน validation คืน HTTP 400 และ service failure คืน HTTP 500
+- `web-portal` แสดง memo เป็น optional และส่ง `null` เมื่อช่องว่าง แต่ backend DTO ติด `validate:required`; การทำงานจริงของ empty memo ต้องยืนยันกับเจ้าของ contract และไม่ถือว่า client behavior override backend validation
 - Claim ไม่ถูกชนิด: HTTP 401
 - Request body ไม่ถูกต้อง: HTTP 400, code `4001` (`INVALID_REQUEST`)
 - `current_status` ไม่ตรงกับ application ปัจจุบัน: HTTP 200, code `1000` (`INVALID_APPLICATION_STATUS`); client ต้อง refresh state ก่อน retry
@@ -173,6 +197,7 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 
 ## Final outcomes
 
+- KYC approval แสดง forgery outcome และ manual reviewer data; `reject` ต้องผ่าน manual verification ก่อน client จะแสดงผลสำเร็จ และ `error` ปิด main approval actions ใน `web-portal`
 - เจ้าหน้าที่ส่ง application กลับให้ลูกค้าทำ identity verification ใหม่ได้โดยไม่บังคับทำ personal/suitability/bank step ที่ seed เป็น completed
 - ข้อมูลตรงทั้งหมดจะกลับเข้า KYC review
 - ข้อมูลเปลี่ยนจะถูก persist จากผล verify และพาลูกค้าไปตรวจ personal information
@@ -209,3 +234,13 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 - `onboarding-service/handler/webportal/kyc-customer-handler.go`: investment-bank-account endpoint
 - `web-portal/src/app/features/kyc-approval/services/kyc-approval-detail.ts`: request-retake payload
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: bank-account proxy
+- `pkg/customer/kyc_approver/helper.go`: CDD date truncation และ forgery result/reason mapping
+- `handler/webportal/kyc-handler.go`: manual forgery verify และ forgery refresh handlers
+- `handler/ekyc-handler.go`: asynchronous forgery trigger หลัง DOPA completion
+- `pkg/ekyc/ekyc-verification/service.go`: AdvanceAI forgery call, audit และ background-KYC persistence
+
+`web-portal`:
+
+- `src/app/api/kyc-approval/forgery/route.ts`: manual forgery BFF
+- `src/app/features/kyc-approval/services/forgery-verification.ts`: manual forgery client request
+- `src/app/features/kyc-approval/components/personal-information-section/forgery-verification/index.tsx`: permission, memo และ user-visible forgery state

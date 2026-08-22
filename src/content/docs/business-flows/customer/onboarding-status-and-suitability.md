@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รองรับข้อมูล V1/V2 และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-08-11
+lastUpdated: 2026-08-22
 documentType: flow
 ---
 
@@ -120,7 +120,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 เมื่อ KYC approval ต้องแสดง suitability ระบบเลือกข้อมูลตาม account-opening intent จาก change-request log:
 
 - มีข้อมูล v2 ของบริษัทที่ต้องแสดง: ใช้ `customer_suitability_traditional` สำหรับ XAM และ `customer_suitability_digital` สำหรับ XD
-- ไม่พบข้อมูล v2 หรือได้ `gorm.ErrRecordNotFound`: สร้าง output ของบริษัทนั้นจาก suitability V1 และกำหนด channel เป็น `XSPRING_APP`
+- ไม่พบข้อมูล v2 หรือได้ `gorm.ErrRecordNotFound`: ใช้ suitability V1 ได้ต่อเมื่อ V1 มี `SuitabilityVersionID` ที่ไม่เป็น nil แล้วสร้าง output ของบริษัทนั้นพร้อม channel เป็น `XSPRING_APP`
+- ถ้า V1 row มีอยู่แต่ `SuitabilityVersionID` เป็น nil ระบบคืน error `V1 suitability not found ...` และไม่สร้าง suitability read model จากข้อมูลนั้น
 - หากมีทั้ง Traditional และ Digital ในการอ่าน suitability รวม ระบบเลือก record ที่มี `evaluation_date` ล่าสุด; หากไม่มีทั้งสองฝั่งจึง fallback ไป V1
 - หาก aggregate risk ที่อ่านได้ยังไม่มี risk level ของฝั่งใด แต่มี record ของฝั่งนั้น ระบบเติม risk level และ description จาก record กับ master risk mapping ก่อนส่ง response
 
@@ -140,7 +141,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
-- KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่หรือเป็น record-not-found
+- KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่/เป็น record-not-found และ V1 มี `SuitabilityVersionID` ที่ใช้ได้
 - ในการ map answer จาก v2 หากมี Traditional answers จะเลือกชุดนั้นก่อน Digital answers; หากทั้งสองชุดว่างจะคืน answer ว่างโดยไม่แต่งข้อมูลเพิ่ม
 
 ## State transitions
@@ -157,6 +158,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 
 ## Error and recovery behavior
 
+- ใน `GET /web/api/v2/kyc/{application_id}/current` และ route ที่ระบุ step, error จาก KYC approval service ถูก handler map เป็น HTTP 404; กรณี V1 ไม่มี `SuitabilityVersionID` จึงไม่ถูกส่งเป็น partial suitability output
 - Claim ไม่ถูกชนิด: HTTP 401
 - `identification_id` ใน claim parse ไม่ได้: onboarding-status คืน HTTP 400
 - Binding/validation ของ suitability ไม่ผ่าน: HTTP 400 และไม่ persist ผล
@@ -172,7 +174,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Suitability score/risk level ถูกบันทึกในตาราง Traditional หรือ Digital ตาม account-opening intent
 - หลัง confirm, customer background vulnerability ถูกอัปเดตและ registration เดินพ้น suitability step
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
-- KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ได้
+- KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ที่มี version id ได้
 
 ## Related shared rules
 

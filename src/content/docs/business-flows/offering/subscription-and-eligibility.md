@@ -3,10 +3,10 @@ title: Subscription and Eligibility
 description: Flow จองซื้อ Offering หรือ ICO ที่รวม eligibility, validation, status lifecycle และการแก้ไข/ยกเลิกคำสั่งจาก web portal
 capability: Offering
 services: [order-service, web-portal]
-aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, ICO order edit, ICO order cancellation, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
-errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "400", "404", "500"]
+aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, ICO order edit, ICO order cancellation, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
+errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "204", "400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-08-21
+lastUpdated: 2026-08-22
 documentType: flow
 ---
 
@@ -117,7 +117,22 @@ Source ระบุชื่อและความหมายเหล่า�
 
 Source ไม่ได้ระบุ timing, integration หรือ failure behavior ของการสร้างเอกสาร
 
-### 8. Edit an ICO placement from web portal
+### 8. Download ICO sales report
+
+**Owner service: `order-service`**
+
+**Executing service: `web-portal` สำหรับ project filter/download trigger และ `order-service` สำหรับ authorization, query และ file generation**
+
+หน้า Sales Report ใน `web-portal` ขอ project list ด้วย status filter `allocation,allocated,live,close` แล้วให้ผู้ใช้ดาวน์โหลด report ของ project ที่เลือกผ่าน BFF:
+
+- project list: `GET /api/order-offering/projects?status=allocation,allocated,live,close` → `order-service` `GET /api/v1/order-offering/project`
+- report download: `GET /api/report/sales-report/{projectId}` → `order-service` `GET /api/v1/report/sales-report/{project_id}`
+
+`order-service` ตรวจ employee access และ project UUID, อ่าน allotted rows แล้วสร้างไฟล์ Excel เมื่อมีข้อมูล หากไม่มี project หรือ allotted rows response ยังเป็น HTTP 200 แต่มี code `204` เพื่อบอกว่าไม่มีข้อมูลให้สร้าง report สำเร็จ file response เป็น binary download และไม่เปลี่ยน order/project state
+
+คำอธิบายความหมายของ lifecycle status `allocation`, `allocated`, `live` และ `close` ยังต้องยืนยันกับเจ้าของ project lifecycle; ในรอบนี้ `product-service` มี uncommitted changes จึงถูกข้ามตาม safety rule และเอกสารยืนยันได้เฉพาะ status filter ที่ `web-portal` ส่งและการที่ `order-service` รับไป query ต่อ
+
+### 9. Edit an ICO placement from web portal
 
 **Owner service: `order-service`**
 **Executing service: `web-portal` สำหรับ client trigger และ `order-service` สำหรับ validation/persistence**
@@ -138,7 +153,7 @@ Current backend behavior:
 
 Frontend รอบนี้เปลี่ยนให้ Save ทำงานเมื่อมี change และไม่มีไฟล์กำลัง upload โดยไม่บังคับ payment-slip total match ในขั้น Save; ขั้น Submit ยังตรวจ payment amount, payment-slip total และ subscription form object key ก่อนส่ง
 
-### 9. Cancel an ICO placement from web portal
+### 10. Cancel an ICO placement from web portal
 
 **Owner service: `order-service`**
 **Executing service: `web-portal` สำหรับ client trigger และ `order-service` สำหรับ cancellation transaction**
@@ -155,7 +170,7 @@ Flow คือ:
 
 Validation errors ถูกส่งกลับเป็น HTTP `400`, missing order เป็น `404` และ unexpected service/database failure เป็น `500`; client permission หรือปุ่ม disabled ไม่ใช่ backend authorization substitute
 
-### 10. Cancel pending ICO orders during suspension
+### 11. Cancel pending ICO orders during suspension
 
 **Owner service: ยังไม่ยืนยัน owner ของ suspension trigger จาก source ที่เปลี่ยนในรอบนี้**
 **Executing service: `order-service` (`CustomerSuspendService` และ `orderOfferingService`)**
@@ -166,6 +181,7 @@ Validation errors ถูกส่งกลับเป็น HTTP `400`, missing
 
 ## Business rules
 
+- Sales Report project selector ส่ง status filter `allocation,allocated,live,close`; filter นี้เป็น read/query behavior และไม่ใช่หลักฐานของ lifecycle transition
 - Unit order ต้องแปลงเป็น amount ด้วย offering price ก่อนตรวจ
 - Product minimum/maximum/step ใช้กับแต่ละรายการ
 - Project maximum ใช้กับผลรวมใน request และแยกตามประเภทนักลงทุน
@@ -175,6 +191,8 @@ Validation errors ถูกส่งกลับเป็น HTTP `400`, missing
 - สถานะที่เข้าข่าย refund ได้แก่ `rejected`, `prepare-reject`, `refunded`, `prepare-refund` และ `allotted-refunding`
 
 ## State transitions
+
+Sales Report เป็น read path: การเลือก project และการสร้างไฟล์ไม่เปลี่ยน status ของ project หรือ order
 
 **Owner service: `order-service`**
 
@@ -201,6 +219,8 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 
 ## Error and recovery behavior
 
+- Sales Report: invalid project UUID คืน HTTP 400, ไม่มี project/allotted data คืน HTTP 200 พร้อม code `204`, และ query/template/internal failure คืน HTTP 500; frontend แสดงข้อความ no-data เมื่อยังไม่มีข้อมูลหลัง allocation
+
 **Owner service: `order-service`**
 
 - ต่ำกว่า minimum หรือเกิน maximum: validation fail; source อ้างอิง `CodeTradingSwapAmountTooLow` สำหรับ amount limits
@@ -213,6 +233,8 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - Auto-cancel ระหว่าง suspension ถ้าค้น order หรือ cancel รายการใดล้มเหลว `CustomerSuspendService` เก็บ failure และส่ง error notification ตาม collector; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จไปแล้วก่อนหน้า
 
 ## Final outcomes
+
+- Sales Report: ผู้ใช้ที่มี access ได้ไฟล์ Excel เมื่อมี allotted rows; เมื่อไม่มีข้อมูล frontend แสดง `Sales Report will be available after allocation completed.`
 
 - `completed`: source อธิบายว่ากระบวนการเสร็จสมบูรณ์ แต่ไม่ได้ยืนยัน edge จาก `allocation` หรือ `allotted`
 - `allotted`: จัดสรรแล้ว และอยู่ในเงื่อนไขออก Confirmation Note
@@ -246,3 +268,11 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - `internal/constants/enum/payment_enum.go`
 - `internal/constants/error.go`
 - `pkg/report`
+- `handler/order_offering.go`: project status query และ sales-report HTTP handlers
+- `pkg/order_offering/service.go`: project filtering และ sales-report generation
+
+`web-portal`:
+
+- `src/app/features/sales-report/services/sales-report-service.ts`: status filter และ download trigger
+- `src/app/api/order-offering/projects/route.ts`: project-list BFF
+- `src/app/api/report/sales-report/[projectId]/route.ts`: sales-report BFF, binary response และ no-data mapping
