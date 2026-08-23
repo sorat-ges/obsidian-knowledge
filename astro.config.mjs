@@ -38,6 +38,10 @@ export default defineConfig({
           label: "Developer Guides",
           items: [{ autogenerate: { directory: "developer-guides" } }],
         },
+        {
+          label: "Learning Sessions",
+          items: [{ autogenerate: { directory: "learning-sessions" } }],
+        },
       ],
     }),
   ],

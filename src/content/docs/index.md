@@ -30,6 +30,7 @@ documentType: developer-guide
 
 - [Shared Rules](/shared-rules/glossary/) — คำศัพท์ Error Code สิทธิ์ Security, Fee, State และ Ledger
 - [System Context](/system-context/service-map/) — แผนที่ Service, Integration และ Infrastructure
+- [System Design Fundamentals Learning Sessions](/learning-sessions/system-design-fundamentals-learning-sessions/) — session เรียนรู้ Invariant, Concurrency, Idempotency, Kafka และ Outbox
 - [Reading Business Flows](/developer-guides/reading-business-flows/) — วิธีอ่าน Owner และลำดับของ Flow
 - [Maintaining Documentation](/developer-guides/maintaining-docs/) — วิธีเพิ่มและตรวจเอกสาร
 - [Logging and Code Quality](/developer-guides/logging-and-quality/) — มาตรฐาน log และ quality checks

@@ -14,6 +14,8 @@ aliases:
 
 เอกสารนี้เป็น Design Guide สำหรับ Software Engineer ระดับ Senior ที่กำลังพัฒนาไปสู่ Staff Engineer เนื้อหามุ่งอธิบายวิธีคิดและ Trade-off ของระบบที่เกี่ยวข้องกับเงิน โดยใช้ตัวอย่างจาก Go, GORM, PostgreSQL, Kafka, REST API, Microservices และ Transactional Outbox
 
+ถ้าต้องการอ่านแบบแบ่งเป็นช่วงสั้น ๆ ให้ใช้ [System Design Fundamentals Learning Sessions](/learning-sessions/system-design-fundamentals-learning-sessions/) ซึ่งจัดเนื้อหานี้เป็น 6 session พร้อมแบบฝึกคิดและ checklist สำหรับทบทวนในอนาคต
+
 > **ขอบเขตและสมมติฐาน**
 >
 > - ตัวอย่างใช้ PostgreSQL เป็น Source of Truth ของ Order, Balance, Ledger และ Outbox ภายในขอบเขตเดียวกันเท่าที่ทำได้
