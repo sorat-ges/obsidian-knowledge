@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal]
-aliases: [KYC retake, request retake, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
+aliases: [KYC retake, request retake, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-08-22
+lastUpdated: 2026-08-25
 documentType: flow
 ---
 
@@ -59,13 +59,16 @@ Backend คืน `is_show_button_retake` เป็น nullable boolean: `nil` �
 
 Handler ตรวจ claim, bind `current_status` และยืนยันว่า application ปัจจุบันยังตรงกับค่าที่ client เห็น จากนั้น transaction:
 
-1. ปิด action-flow ช่วง review ด้วย action `retake`
-2. เปลี่ยน application จาก `to-review` เป็น `to-retake`
-3. ตั้ง registration ที่ `identity-verification/front-card-scan`
-4. ใช้ flow `retake-re-kyc` เมื่อ application type เป็น `re-kyc`; application type อื่นใช้ `retake`
-5. soft-delete history เดิมของ application/flow เดียวกัน
-6. สร้าง history ที่ถือว่าผ่านแล้วสำหรับ personal, address, work, background, suitability และ bank-account เพื่อให้ retake กลับไปทำ identity step
-7. ส่ง email ตาม face-recognition channel และ account-opening intent
+1. ลบ `customer_laser_code` และแถว `customer_image_verification` ของ identification เดียวกัน
+2. ปิด action-flow ช่วง review ด้วย action `retake`
+3. เปลี่ยน application จาก `to-review` เป็น `to-retake`
+4. ตั้ง registration ที่ `identity-verification/front-card-scan`
+5. ใช้ flow `retake-re-kyc` เมื่อ application type เป็น `re-kyc`; application type อื่นใช้ `retake`
+6. soft-delete history เดิมของ application/flow เดียวกัน
+7. สร้าง history ที่ถือว่าผ่านแล้วสำหรับ personal, address, work, background, suitability และ bank-account เพื่อให้ retake กลับไปทำ identity step
+8. หลัง transaction สำเร็จ ส่ง email ตาม face-recognition channel และ account-opening intent
+
+การลบ sensitive data และการเปลี่ยน application/registration/history อยู่ใน database transaction เดียวกัน; การลบใช้ `identification_id` เป็นเงื่อนไข และไม่ใช่การเปลี่ยน state ที่ `web-portal` ทำเอง
 
 `web-portal` v2 ใช้ `POST /api/kyc-approval/{applicationId}/request-retake` แล้วส่ง body `{ current_status }` ไปยัง `/web/api/v2/kyc/{applicationId}/request-retake`; Backend ยังเป็นผู้ตรวจ state และตัดสินผลลัพธ์
 
@@ -145,6 +148,8 @@ CDD date ที่ส่งใน current/previous KYC information ถูก tru
 
 ถ้า KYC approval เห็น `forgery_flag = reject` และผู้ใช้มี permission `KYC_DETAIL_REVIEW`, `web-portal` เปิด manual verify action และส่ง `PATCH /web/api/v1/kyc/forgery/manual` ผ่าน BFF โดย backend บังคับ `customer_identification_id` และ `memo`, บันทึกผลเป็น `pass` พร้อม reviewer, เวลา และ memo และไม่ update `forgery_reason` จากค่า nil ของ manual request การ refresh verification ใช้ `POST /web/api/v1/kyc/forgery/{identification_id}/refresh` และทำงานด้วย system actor
 
+ใน customer detail และ KYC approval forgery component, `web-portal` แสดง `reason` ต่อจาก memo เป็นบรรทัด `Remark: {reason}` เมื่อมีค่า; การแสดงผลนี้ไม่เปลี่ยน backend result หรือ validation
+
 KYC approval map reason code ที่รู้จักเป็นคำอธิบาย และ join เป็นรูปแบบ `code - description`; reason code ที่ไม่มี mapping จะถูกส่งต่อเป็น code เดิม
 
 `web-portal` แสดง forgery result/reason/date/by/memo ใน KYC detail, แสดง warning เมื่อ result เป็น `reject`, และ disable submit/enhance/reject/approve เมื่อ result เป็น `error`; client mapping เหล่านี้เป็น user-visible behavior เท่านั้น ไม่ใช่ backend authorization หรือ state owner
@@ -156,7 +161,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Manual forgery verification เป็น backend write path ของ `onboarding-service`; manual `pass` เก็บ memo และ reviewer แต่ไม่เขียน `forgery_reason`
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
-- Initial retake transaction เก็บ completed history ของ step ที่ไม่ต้องทำซ้ำ แล้วพาลูกค้ากลับไปเริ่มที่ front-card scan
+- Initial retake transaction ลบ `customer_laser_code` และ `customer_image_verification` ก่อนเก็บ completed history ของ step ที่ไม่ต้องทำซ้ำ แล้วพาลูกค้ากลับไปเริ่มที่ front-card scan
 - Profile-match rule ของ AdvanceAI เน้นเลขบัตรและชื่อไทย ขณะที่ address-match rule ตรวจรายละเอียดที่อยู่ครบมากขึ้น
 - การมี profile/address change ไม่ใช่ DOPA failure; เป็นผล `2009` ที่พา Flow ไปให้ลูกค้าตรวจข้อมูล
 - `onboarding-service` เป็นทั้ง owner และ executor; DOPA/AppMan/AdvanceAI เป็น integration ไม่ใช่ Business owner
@@ -190,6 +195,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `current_status` ไม่ตรงกับ application ปัจจุบัน: HTTP 200, code `1000` (`INVALID_APPLICATION_STATUS`); client ต้อง refresh state ก่อน retry
 - DOPA data changed: code `2009` เป็น business outcome สำหรับ review ข้อมูล ไม่ใช่ transport failure
 - DOPA error/expired branch: code `6600`; source ไม่ยืนยัน automated retry ใน path นี้
+- ถ้าการลบ `customer_laser_code`, การลบ `customer_image_verification` หรือ database update ใน retake transaction ล้มเหลว transaction จะคืน error และไม่ส่ง retake email; source ไม่ได้ยืนยัน error code แยกสำหรับ delete failure
 - Repository, profile, address, Keycloak หรือ state update ล้มเหลว: request ล้มด้วย service error; transaction ครอบเฉพาะบางช่วง จึงห้ามสรุปว่า external/profile updates rollback พร้อมกันทั้งหมด
 - การเขียน registration status/history หลัง DOPA completion log error แล้ว Flow ยังคืนผลได้ในบาง path; ต้องตรวจ log เมื่อ response สำเร็จแต่ progress ไม่เปลี่ยน
 - Investment bank details service error คืน HTTP 500; แต่ถ้า customer-account lookup error ใน current implementation service คืน output ว่างพร้อม `nil` error ทำให้ handler ตอบ HTTP 200 ได้
@@ -222,6 +228,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `handler/webportal/kyc-approver-handler.go`: v2 application-based request-retake
 - `pkg/kyc/helper.go`: `ValidateIsShowButtonRetake`
 - `pkg/kyc/kyc-service.go`: request transaction, flow type และ registration history
+- `pkg/ekyc/laserrepo/laser-repository.go`: ลบ `customer_laser_code` ตาม identification
+- `internal/storages/postgres/customerimageverificationrepo/repository.go`: ลบ `customer_image_verification` ตาม identification
 - `internal/domain/application.go`: `RetakeFlowType`
 - `handler/ekyc-handler.go`: dispatch DOPA success สำหรับ `retake`
 - `pkg/ekyc/dopasvc/dopa-service.go`: comparison, profile/address update และ state outcome
@@ -243,4 +251,5 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 
 - `src/app/api/kyc-approval/forgery/route.ts`: manual forgery BFF
 - `src/app/features/kyc-approval/services/forgery-verification.ts`: manual forgery client request
+- `src/app/features/customer-new/components/forgery-verification/index.tsx`: customer detail forgery reason display
 - `src/app/features/kyc-approval/components/personal-information-section/forgery-verification/index.tsx`: permission, memo และ user-visible forgery state

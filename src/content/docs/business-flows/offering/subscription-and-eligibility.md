@@ -3,10 +3,10 @@ title: Subscription and Eligibility
 description: Flow จองซื้อ Offering หรือ ICO ที่รวม eligibility, validation, status lifecycle และการแก้ไข/ยกเลิกคำสั่งจาก web portal
 capability: Offering
 services: [order-service, web-portal]
-aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, ICO order edit, ICO order cancellation, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
+aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, sales report PDF, PDF sales report, ICO order edit, ICO order cancellation, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, ดาวน์โหลดรายงานยอดขาย PDF, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
 errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "204", "400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-08-22
+lastUpdated: 2026-08-25
 documentType: flow
 ---
 
@@ -128,7 +128,9 @@ Source ไม่ได้ระบุ timing, integration หรือ failure b
 - project list: `GET /api/order-offering/projects?status=allocation,allocated,live,close` → `order-service` `GET /api/v1/order-offering/project`
 - report download: `GET /api/report/sales-report/{projectId}` → `order-service` `GET /api/v1/report/sales-report/{project_id}`
 
-`order-service` ตรวจ employee access และ project UUID, อ่าน allotted rows แล้วสร้างไฟล์ Excel เมื่อมีข้อมูล หากไม่มี project หรือ allotted rows response ยังเป็น HTTP 200 แต่มี code `204` เพื่อบอกว่าไม่มีข้อมูลให้สร้าง report สำเร็จ file response เป็น binary download และไม่เปลี่ยน order/project state
+`order-service` ตรวจ employee access และ project UUID, อ่าน allotted rows แล้วสร้างไฟล์ Excel เมื่อมีข้อมูล หากไม่มี project หรือ allotted rows response ยังเป็น HTTP 200 แต่มี code `204` เพื่อบอกว่าไม่มีข้อมูลให้สร้าง report สำเร็จ file response เป็น binary download และไม่เปลี่ยน order/project state ปัจจุบัน authoritative `order-service` ส่ง `application/octet-stream` พร้อม filename `.xlsx`
+
+`web-portal` ส่งต่อ binary response และ `Content-Disposition`/`Content-Type` ผ่าน BFF ไปยัง browser; ถ้า upstream ระบุ filename ระบบใช้ filename นั้น และถ้าไม่ระบุจะใช้ `sales-report.pdf` เมื่อ `Content-Type` เป็น `application/pdf` หรือใช้ `sales-report.xlsx` สำหรับ content type อื่น การรองรับ PDF นี้เป็น frontend compatibility branch ที่ source ยืนยัน แต่ยังไม่ใช่หลักฐานว่า endpoint `order-service` ปัจจุบันสร้าง PDF เพราะ production path ที่ตรวจยังสร้าง Excel
 
 คำอธิบายความหมายของ lifecycle status `allocation`, `allocated`, `live` และ `close` ยังต้องยืนยันกับเจ้าของ project lifecycle; ในรอบนี้ `product-service` มี uncommitted changes จึงถูกข้ามตาม safety rule และเอกสารยืนยันได้เฉพาะ status filter ที่ `web-portal` ส่งและการที่ `order-service` รับไป query ต่อ
 
@@ -182,6 +184,7 @@ Validation errors ถูกส่งกลับเป็น HTTP `400`, missing
 ## Business rules
 
 - Sales Report project selector ส่ง status filter `allocation,allocated,live,close`; filter นี้เป็น read/query behavior และไม่ใช่หลักฐานของ lifecycle transition
+- `order-service` เป็นแหล่งยืนยันชนิดไฟล์ปัจจุบันของ Sales Report (`application/octet-stream` และ `.xlsx`); `web-portal` รองรับการตั้ง default filename เป็น `.pdf` เฉพาะเมื่อ upstream ส่ง `application/pdf`
 - Unit order ต้องแปลงเป็น amount ด้วย offering price ก่อนตรวจ
 - Product minimum/maximum/step ใช้กับแต่ละรายการ
 - Project maximum ใช้กับผลรวมใน request และแยกตามประเภทนักลงทุน
@@ -234,7 +237,7 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 
 ## Final outcomes
 
-- Sales Report: ผู้ใช้ที่มี access ได้ไฟล์ Excel เมื่อมี allotted rows; เมื่อไม่มีข้อมูล frontend แสดง `Sales Report will be available after allocation completed.`
+- Sales Report: ผู้ใช้ที่มี access ได้ไฟล์ Excel จาก current `order-service` เมื่อมี allotted rows; เมื่อไม่มีข้อมูล frontend แสดง `Sales Report will be available after allocation completed.` หาก upstream ส่ง PDF โดยไม่มี filename, `web-portal` ใช้ชื่อ `sales-report.pdf`
 
 - `completed`: source อธิบายว่ากระบวนการเสร็จสมบูรณ์ แต่ไม่ได้ยืนยัน edge จาก `allocation` หรือ `allotted`
 - `allotted`: จัดสรรแล้ว และอยู่ในเงื่อนไขออก Confirmation Note

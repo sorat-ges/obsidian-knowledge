@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รองรับข้อมูล V1/V2 และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-08-22
+lastUpdated: 2026-08-25
 documentType: flow
 ---
 
@@ -70,7 +70,21 @@ Source รอบนี้ยืนยัน Backend เท่านั้น เ
 
 สำหรับ application type `new` ใน flow `onboarding`, response เพิ่ม `expiry_date = application.created_at + 7 วัน` รูปแบบ `DD/MM/YYYY`; flow/type อื่นไม่คืนค่านี้
 
-### 3. Submit suitability answers
+### 3. Update background information and refresh watchlist
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+เมื่อ `UpdateCustomerWithPersonalInformation` บันทึก step `background` สำเร็จ handler จะตอบ `200` (`success update data personal`) แล้วเปิด asynchronous `processWatchlistCheck` ต่อ โดยไม่รอให้ watchlist คำนวณเสร็จ:
+
+1. เลือก application type `new` หรือ `re-kyc` ตาม flow
+2. เรียก `UpsertWatchlistReport` ด้วย `isSaveWatchList = true` และ selector ว่างเพื่อประมวลผลกลุ่มที่ allowed ตาม registration status/flags
+3. คำนวณและ upsert personal, background-risk และ vulnerable-investor report ตาม registration status กับ stored watchlist flags
+
+เส้นทาง background update นี้ไม่เรียก `CheckAndSaveCustomerWatchlist` ซ้ำอีกต่อไป จึงไม่ทำ legacy parallel save ควบคู่กับ `UpsertWatchlistReport`; endpoint `save-watchlist` ของ KYC และ offline onboarding ที่ยังเรียก legacy service เป็นคนละ trigger
+
+### 4. Submit suitability answers
 
 **Owner service: `onboarding-service`**
 
@@ -87,7 +101,7 @@ Source รอบนี้ยืนยัน Backend เท่านั้น เ
 
 ถ้า `IsXAMOpen` เป็นจริงจะบันทึก `customer_suitability_traditional`; ถ้าไม่ใช่และ `IsXDOpen` เป็นจริงจึงบันทึก `customer_suitability_digital` หากไม่พบทั้งสองแบบ request ล้มเหลว
 
-### 4. Return calculated result
+### 5. Return calculated result
 
 **Owner service: `onboarding-service`**
 
@@ -95,7 +109,7 @@ Source รอบนี้ยืนยัน Backend เท่านั้น เ
 
 Response คืน ID ของ suitability record, description จาก risk-level mapping และ score ของ Traditional/Digital โดย score ที่ไม่เกี่ยวกับบัญชีที่เปิดยังคงคำนวณได้ แต่ persistence เลือกตาม account-opening rule ในขั้นก่อนหน้า
 
-### 5. Confirm suitability
+### 6. Confirm suitability
 
 **Owner service: `onboarding-service`**
 
@@ -111,7 +125,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 4. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
 5. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
 
-### 5. Read suitability for KYC approval
+### 7. Read suitability for KYC approval
 
 **Owner service: `onboarding-service`**
 
@@ -139,6 +153,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Persistence เลือก Traditional ก่อนเมื่อ `IsXAMOpen`; Digital ใช้เมื่อ XAM ไม่เปิดและ `IsXDOpen` เป็นจริง
 - v2 confirm ใช้ current CDD score และไม่เรียก CDD score recalculation ใน production path นี้
 - Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
+- หลังบันทึก personal-information step `background`, current customer path ใช้ `UpsertWatchlistReport` เพียงครั้งเดียวใน asynchronous handler; ไม่เรียก legacy `CheckAndSaveCustomerWatchlist` ซ้ำใน trigger เดียวกัน
+- ใน legacy `CheckAndSaveCustomerWatchlist` path ระบบ pre-create `customer_background_risk` ของ `customer` และ `spouse` ก่อน parallel checks และใช้ `personalType` ที่ร้องขอเมื่อสร้าง PEP/AMLO record เพื่อป้องกัน duplicate record จาก concurrent insert
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
 - KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่/เป็น record-not-found และ V1 มี `SuitabilityVersionID` ที่ใช้ได้
@@ -152,6 +168,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | :--- | :--- |
 | Submit suitability | create/update Traditional หรือ Digital suitability record; ยังไม่ขยับ registration |
 | Confirm suitability | `suitability-test` → next registration sub-status พร้อม history |
+| Update personal background | ไม่เปลี่ยน application/registration state จาก trigger นี้; เริ่ม asynchronous watchlist report refresh |
 | Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
 | Read onboarding status | ไม่แก้ state; derive `draft`/`completed` จาก history |
 | KYC approval reads suitability/answers | ไม่แก้ state; ใช้ v2 หรือ fallback V1 เพื่อสร้าง read model |
@@ -165,6 +182,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - ไม่พบ application/change-request/account-opening intent: submit/confirm ล้มเหลวก่อนเดิน state
 - confirm service error ถูก map เป็น HTTP 404 ใน handler ปัจจุบัน
 - onboarding-status อ่าน dependency ไม่สำเร็จ: HTTP 500
+- Background personal-information update ตอบสำเร็จหลัง primary write; ถ้า asynchronous `UpsertWatchlistReport` ล้มเหลวระบบ log error ภายหลัง และ source ยังไม่ยืนยัน retry policy หรือการ rollback primary write
 - watchlist refresh error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
 - KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
@@ -173,6 +191,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Caller เห็น `flow_type`, optional onboarding expiry และสถานะของ step ที่คำนวณจาก history
 - Suitability score/risk level ถูกบันทึกในตาราง Traditional หรือ Digital ตาม account-opening intent
 - หลัง confirm, customer background vulnerability ถูกอัปเดตและ registration เดินพ้น suitability step
+- หลัง update background, ระบบจะพยายาม persist `watchlist_report` ของ personal/background-risk/vulnerable-investor แบบ asynchronous; HTTP 200 ของ primary update ไม่ได้ยืนยันว่า report refresh เสร็จแล้ว
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
 - KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ที่มี version id ได้
 
@@ -189,13 +208,14 @@ Response คืน ID ของ suitability record, description จาก risk-l
 `onboarding-service`:
 
 - `routes/routes.go`: `registerRouteSuitability`, `registerRouteCustomer`
-- `handler/customer-handler.go`: `GetCustomerOnboardingStatus`
+- `handler/customer-handler.go`: `GetCustomerOnboardingStatus`, `UpdateCustomerWithPersonalInformation` และ `processWatchlistCheck`
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: `GetCustomerOnboardingStatusStep`
 - `internal/constants/enum/xpg-customer-registartion-status.go`: required sub-status mapping
 - `handler/suitability-handler.go`: v2 submit/confirm handlers
 - `pkg/suitability/suitability-service.go`: score, persistence และ confirmation behavior
 - `pkg/kyc/watchlist.go`: stored DOPA flag filtering และ watchlist refresh orchestration
 - `pkg/kyc/helper.go`: `filterPassedWatchlistTypes`
+- `pkg/kyc/kyc-service.go`: legacy watchlist save และ pre-create ของ customer/spouse background risk
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
 - `onboarding-service/pkg/customer/customer-suitability/service.go`: v1 fallback, latest evaluation selection และ question/answer mapping
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: company-specific suitability read model และ risk fallback
