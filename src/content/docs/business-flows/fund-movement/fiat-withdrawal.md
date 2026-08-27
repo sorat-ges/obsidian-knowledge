@@ -2,11 +2,12 @@
 title: Fiat Withdrawal
 description: Flow ถอนเงินบาทตั้งแต่ตรวจคำขอ คำนวณค่าธรรมเนียม ยืนยันตัวตน ส่งธนาคาร จนยอดพอร์ตอัปเดต
 capability: Fund Movement
-services: [order-service, payment-gateway, asset-service, asset-consumer]
+services: [order-service, order-consumer, payment-gateway, asset-service, asset-consumer]
 integrations: [bank]
-aliases: [fiat withdrawal, withdraw fiat, withdraw THB, ถอนเงิน, ถอนเงินบาท]
+aliases: [fiat withdrawal, withdraw fiat, withdraw THB, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze]
+errorCodes: ["60002"]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
@@ -19,6 +20,7 @@ documentType: flow
 **Owner service: `order-service`**
 
 - ลูกค้าเลือกบัญชีธนาคารและระบุ `inputAmount`
+- Digital Asset account status ต้องอนุญาต operation `withdraw`: `active` และ `suspended` ทำได้ ส่วน `closed` และ `freeze` ถูก block ด้วย `60002` (`ErrorCustomerSuspend`)
 - บัญชีธนาคารต้องเป็นชื่อเดียวกับเจ้าของบัญชีเทรด
 - จำนวนถอนต้องไม่ต่ำกว่าค่าใน `GetWithdrawFiatConfig`
 - Available balance ต้องครอบคลุม `inputAmount`; fee เป็นส่วนที่หักออกจากจำนวนนี้ ไม่ได้นำไปบวกเป็นยอดที่ต้องมีก้อนใหม่
@@ -29,6 +31,7 @@ documentType: flow
 | Service / integration | Responsibility |
 | :--- | :--- |
 | `order-service` | Business owner: validate, คำนวณ fee, orchestrate คำสั่ง, สร้าง logical ledger และประมวลผลผลลัพธ์จากธนาคาร |
+| `order-consumer` | รับ `CustomerSync` และ trigger status-specific cancellation endpoint เมื่อ account ไม่ใช่ `active` |
 | `asset-service` | เปิดเผย available balance ก่อนทำรายการ และ balance/report หลัง settlement |
 | `payment-gateway` | Execution service: รับคำสั่งจาก `order-service`, เชื่อมต่อธนาคาร และส่งผล transaction กลับตามความรับผิดชอบใน service map |
 | Bank | External integration ที่โอนเงินจริงและยืนยันผล |
@@ -94,6 +97,18 @@ documentType: flow
 
 หลัง ledger ถูก apply แล้ว `asset-service` เปิดเผยยอดและรายงานที่สะท้อนผลของรายการ
 
+### 7. Cancel pending withdrawal after account status change
+
+**Owner service: `order-service` สำหรับ status policy และ fiat-withdrawal cancellation**
+
+**Executing service: `order-consumer` เป็น `CustomerSync` trigger; `order-service` เลือกและยกเลิก pending withdrawal**
+
+เมื่อ `order-consumer` ได้รับ `CustomerSync` ที่มี Digital Asset account status ไม่ใช่ `active` จะเรียก `POST /api/v1/customer/suspend/cancel-orders`:
+
+- `suspended`: ไม่เข้า branch ยกเลิก pending fiat withdrawal และ operation `withdraw` ยังผ่าน status gate ได้
+- `closed` หรือ `freeze`: `order-service` โหลด pending fiat withdrawal แล้วเรียก `CancelWithdrawFiatBySystem` สำหรับแต่ละรายการ
+- หากการเลือกหรือยกเลิกบางรายการล้มเหลว ระบบเก็บ failure เพื่อ internal notification; เอกสารนี้ไม่ยืนยัน rollback ของรายการที่สำเร็จไปแล้ว
+
 ## Business rules
 
 - Fee ต้องเลือกตาม `bank_code`; แต่ละธนาคารอาจใช้อัตราไม่เท่ากัน
@@ -101,6 +116,8 @@ documentType: flow
 - ถ้าไม่พบ fee configuration ให้ใช้ 0 บาท ซึ่งทำให้บริษัทรับภาระต้นทุน
 - ถ้าอ่าน fee จากฐานข้อมูลล้มเหลว ให้บล็อกการถอนและคืน error
 - Available balance ต้องเพียงพอก่อนสร้างคำสั่ง
+- Status gate เป็น operation-specific: `suspended` ยังถอนเงินได้ แต่ `closed`/`freeze` ไม่ให้สร้างหรือยืนยัน operation ที่ handler ตรวจ
+- Pending fiat withdrawal ถูก system-cancel เมื่อ account status เป็น `closed` หรือ `freeze`
 
 ## State transitions
 
@@ -108,11 +125,14 @@ documentType: flow
 
 source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBMITTED → COMPLETED | FAILED` ขณะที่ state machine กลางอธิบาย withdrawal lifecycle ที่ละเอียดกว่า ห้ามตีความสองชุดนี้ว่าเท่ากันโดยอัตโนมัติ ดู [Order State Machine](/shared-rules/order-state-machine/) และยืนยัน enum/path ของ Fiat เมื่อต้องแก้ state transition
 
+เมื่อ status เปลี่ยนเป็น `closed`/`freeze`, pending withdrawal จะเข้า system-cancellation path ตามผลการเลือกของ `order-service`; สถานะสุดท้ายของคำสั่ง Fiat ต้องยืนยันกับ implementation ของ withdrawal path
+
 ## Error and recovery behavior
 
 **Owner service: `order-service`**
 
 - ยอดไม่ครอบคลุม `inputAmount`, บัญชีไม่ตรงเจ้าของ, จำนวนต่ำกว่าขั้นต่ำ หรือ OTP ไม่ผ่าน: ไม่ submit ไป `payment-gateway`
+- Digital Asset status ที่ไม่อนุญาตใช้ HTTP `400`, code `60002` (`ErrorCustomerSuspend`); current handler ใช้ข้อความ `customer is <status>.`
 - fee query ล้มเหลว: บล็อก flow ทันที
 - ไม่พบ fee configuration: ใช้ fee 0 ตาม behavior ที่ source ระบุ ไม่ใช่ error
 - source ไม่ระบุกลไก retry/refund หลังธนาคารตอบ `FAILED`; ต้องตรวจ code และ runtime path ก่อนเปลี่ยน recovery behavior
@@ -122,6 +142,7 @@ source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBM
 - สำเร็จ: ธนาคารยืนยัน, logical ledger ถูก apply, คำสั่งจบ `COMPLETED` และ balance/report อัปเดต
 - ล้มเหลวก่อน submit: ไม่มีคำสั่งโอนถูกส่ง
 - ธนาคารปฏิเสธหรือล้มเหลว: คำสั่งจบ `FAILED`; รายละเอียดการคืนยอดต้องยืนยันจาก implementation
+- `closed`/`freeze`: pending fiat withdrawal เข้า system-cancellation path และไม่ควรส่งต่อเป็นการโอนใหม่; ผล refund/unlock ของ payment execution ต้องยืนยันจาก implementation ที่อยู่นอก source repositories รอบนี้
 
 ## Related shared rules and flows
 
@@ -134,6 +155,8 @@ source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBM
 ## Code references
 
 - `pkg/order_fiat/service.go`
+- `pkg/customer/suspend_service.go` — เลือกและยกเลิก pending fiat withdrawal เมื่อ `closed` หรือ `freeze`
+- `order-consumer/pkg/customer-account/service.go` — trigger `/api/v1/customer/suspend/cancel-orders` จาก `CustomerSync`
 - `GetWithdrawFeeForBankAndTransferAmount`
 - `GetTransactionFeeWithCondition`
 - Actions: `WithdrawFiatActionReceivedByCustomer`, `WithdrawFiatActionPayToBank`

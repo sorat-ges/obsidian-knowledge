@@ -2,18 +2,18 @@
 title: Mutual Fund Switching
 description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจ holiday และ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
-services: [order-service]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน]
+services: [order-service, order-consumer]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, customer account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
 integrations: [FundConnext]
 errorCodes: ["500", "60002", "60005", "60007"]
 status: active
-lastUpdated: 2026-08-21
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย Mutual Fund Switching ของ `order-service` ตั้งแต่ค้นหาคู่กองทุน, ตรวจเงื่อนไขก่อนสร้างคำสั่ง, สร้าง `order-request`, ส่งคำสั่งไป `FundConnext`, การรอ allotment และการยกเลิกคำสั่งโดย customer
+อธิบาย Mutual Fund Switching ของ `order-service` ตั้งแต่ค้นหาคู่กองทุน, ตรวจ account status และเงื่อนไขก่อนสร้างคำสั่ง, สร้าง `order-request`, ส่งคำสั่งไป `FundConnext`, การรอ allotment, การยกเลิกโดย customer และ system cancellation เมื่อ account ไม่ใช่ `active`
 
 Backend เป็น source of truth ของ validation, state และการเรียก `FundConnext` ใน Flow นี้ ส่วน client trigger และ payload ของ `xspring-mobile-app` ยังยืนยันไม่ได้ในรอบนี้เพราะ repository มี uncommitted changes จึงไม่เขียน client behavior เป็นข้อเท็จจริง
 
@@ -25,7 +25,7 @@ Backend เป็น source of truth ของ validation, state และกา
 - Request ต้องมี `from_product_id`, `to_product_id`, `account_code`, `effective_date`, `amount`, `currency`, `unit_type` และ `accept_acknowledge`
 - `effective_date` ห้ามเป็นอดีต
 - target fund ต้องผ่าน investor-class check ของ customer และ source/target ต้องผ่าน sale-channel verification
-- customer account ต้องไม่อยู่ในสถานะ suspended; handler ตอบ `ErrorCustomerSuspend` (`60002`) และ `customer account is suspended` เมื่อ MF ถูก suspend
+- customer account ต้องเป็น `active`; `suspended`, `closed` และ `freeze` ถูกปฏิเสธที่ handler ด้วย `ErrorCustomerSuspend` (`60002`) และข้อความ `customer account is suspended`
 - source product ต้องไม่มี `TaxType`; target product ห้ามเป็น `LTF`
 - amount/unit ต้องผ่าน source portfolio, target portfolio และ mark-to-market validation
 
@@ -33,10 +33,11 @@ Backend เป็น source of truth ของ validation, state และกา
 
 | Service / integration | Responsibility |
 | :--- | :--- |
-| `order-service` | รับ endpoint, ตรวจ pair/product/account/holiday/cutoff/amount, สร้าง order, บันทึก action flow, เรียก `FundConnext` และจัดการ customer cancellation |
+| `order-service` | รับ endpoint, ตรวจ pair/product/account-status/holiday/cutoff/amount, สร้าง order, บันทึก action flow, เรียก `FundConnext`, customer cancellation และ system cancellation |
+| `order-consumer` | Executing service ของ `CustomerSync` trigger ที่เรียก `order-service` เมื่อ account status ไม่ใช่ `active`; ไม่ได้เป็น owner ของ switch policy |
 | `FundConnext` | รับ switch request และ cancel request สำหรับ transaction ที่มี `ResponseTransactionID` |
 
-ใน current code ของ `order-consumer` ไม่พบ switch order consumer หรือ worker ที่ execute การ switch; จึงไม่ระบุ `order-consumer` เป็น executor ของ Flow นี้
+`order-consumer` ไม่ได้ execute การ switch หรือ allotment แต่เป็น executor ของ status-event/cancellation trigger เท่านั้น
 
 ## End-to-end sequence
 
@@ -126,6 +127,16 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 
 เมื่อผ่าน predicate ระบบเรียก `FundConnext.CancelOrder` แล้วเปลี่ยน order เป็น `cancelled`, บันทึก action `cancelled`, ลบ fail-order request ถ้ามี และส่ง cancellation notification
 
+### 8. Cancel a pending switch after account status change
+
+**Owner service: `order-service` สำหรับ cancellation policy; `onboarding-service` เป็น owner ของ customer status event**
+
+**Executing service: `order-consumer` เป็น `CustomerSync` trigger และ `order-service` เป็น cancellation executor**
+
+เมื่อ `order-consumer` ได้รับ `CustomerSync` ที่มี MF account status `suspended`, `closed` หรือ `freeze` จะเรียก `/api/v1/customer/suspend/cancel-orders` หลังจาก sync account/unitholder แล้ว `order-service` ค้นหา pending switch orders และตรวจ switch-specific cancellation predicate รวมถึงว่ามี switch-out allotment แล้วหรือไม่
+
+ถ้า cancel ได้ ระบบใช้ reason `CancelledBySystem`, เปลี่ยน order เป็น `cancelled`, บันทึก order-cancellation/audit และส่ง notification; `suspended`, `closed` และ `freeze` ใช้กฎเดียวกันสำหรับ switch และ source ไม่ยืนยัน rollback ของรายการอื่นเมื่อบางรายการล้มเหลว
+
 ## Business rules
 
 - Final create validation ตรวจ source switch-out holiday แต่ code path นี้ไม่ได้ตรวจ target switch-in holiday ก่อนเลือก target buy cutoff
@@ -134,6 +145,8 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - Source ที่มี tax type สลับออกไม่ได้ และ target `LTF` สลับเข้าไม่ได้
 - `AllUnit` ใช้จำนวน unit ที่เหลือของ source portfolio และตั้ง `SellAllUnitFlag` เป็น `true` ใน request ไป `FundConnext`
 - Customer cancellation ไม่ได้ใช้ generic buy/sell cancellation predicate; switch มี predicate ของตัวเองที่ต้องเป็น `waiting-allot`, มี transaction และยังไม่พ้น cutoff
+- MF switch เป็น inbound operation: account status `suspended`, `closed` และ `freeze` ไม่อนุญาตให้สร้างคำสั่ง
+- Account status event ที่ downstream ได้รับทำให้ `order-service` พยายามยกเลิก pending switch order สำหรับทั้ง `suspended`, `closed` และ `freeze` ตาม predicate ของ switch
 
 ### Unresolved cutoff inconsistency
 
@@ -156,6 +169,7 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 | `order-confirm` | FundConnext response มี `ErrorCode` | `failed` |
 | `waiting-allot` | allotment transition ตาม enum mapping | `completed` |
 | `waiting-allot` | customer cancellation ผ่าน predicate และ FundConnext cancel สำเร็จ | `cancelled` |
+| `waiting-allot` | system cancellation หลัง `CustomerSync` non-active และ switch predicate ผ่าน | `cancelled` |
 
 `order-consumer` หรือ executor ของ allotment transition ยังไม่ถูกยืนยัน จึงไม่ระบุ ledger effect หรือผู้รับผิดชอบการเปลี่ยน `waiting-allot → completed`
 
@@ -163,7 +177,7 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 
 **Owner service: `order-service`**
 
-- `60002` (`ErrorCustomerSuspend`): customer/account ถูก suspend; ไม่สร้าง switch order
+- `60002` (`ErrorCustomerSuspend`): customer/account ไม่ใช่ `active` (`suspended`, `closed` หรือ `freeze`); ไม่สร้าง switch order
 - `60005` (`ErrorValidateOrder`): target/pair/date/holiday/tax หรือ validation อื่นไม่ผ่าน
 - HTTP `403`: placement precheck ไม่ผ่าน โดย handler ใช้ข้อความ `Error place order switching is not valid`
 - `60007` (`ErrorValidateCancelWaitAllot`): customer cancellation ไม่ผ่าน switch cancellation predicate
@@ -194,3 +208,8 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - `pkg/order/order_helpers.go`: switching request creation, FundConnext approval/cancel และ cutoff helpers
 - `pkg/product/service.go`: switching product list และ displayed cutoff calculation
 - `internal/constants/enum/order_enum.go`: switching success/cancel state mappings
+- `order-service/pkg/customer/suspend_service.go`: system cancellation ของ pending switch หลัง non-active account status
+
+`order-consumer`:
+
+- `order-consumer/pkg/customer-account/service.go`: `CustomerSync` และการเรียก system cancellation trigger

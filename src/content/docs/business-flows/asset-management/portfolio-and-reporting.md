@@ -2,16 +2,16 @@
 title: Portfolio and Reporting
 description: Flow อ่านยอดสินทรัพย์ คำนวณมูลค่าพอร์ต และสร้างรายงานตามสถานะบัญชี
 capability: Asset Management
-services: [customer-service, asset-service, report-service]
-aliases: [portfolio, asset balance, monthly statement, report, พอร์ต, รายงานสินทรัพย์]
+services: [customer-service, asset-service, asset-consumer, report-service]
+aliases: [portfolio, asset balance, monthly statement, report, account freeze portfolio, พอร์ต, รายงานสินทรัพย์, พอร์ตบัญชีถูกระงับ]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย read flow ของ asset portfolio และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement
+อธิบาย read flow ของ asset portfolio และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service`
 
 ## Trigger and preconditions
 
@@ -26,6 +26,7 @@ documentType: flow
 | Service / domain | Responsibility |
 | :--- | :--- |
 | `asset-service` | Portfolio balance reads, asset categorization, valuation และ aggregation |
+| `asset-consumer` | รับ master-data sync และ materialize downstream portfolio state ตาม event ที่เกี่ยวข้อง |
 | `customer-service` | เป็น owner ของ account lifecycle/status ที่กำหนดสิทธิ์ของบัญชี |
 | `report-service` | สร้าง monthly statement จากยอดและราคาวันสิ้นเดือน |
 
@@ -78,8 +79,9 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 | Account status | Behavior | Owner |
 | :--- | :--- | :--- |
 | `active` | เทรด ฝาก และถอนได้ตามปกติ | `customer-service` |
-| `suspended` | ดูยอดได้ แต่ถอนหรือเทรดไม่ได้ | `customer-service` |
+| `suspended` | ดูยอดได้; การสร้างหรือยกเลิกคำสั่งต้องใช้ operation-level rule ของ `order-service` | `customer-service` สำหรับ account status; `order-service` สำหรับ order operation |
 | `inactive` | อาจระงับการคำนวณ NAV รายวัน | `customer-service` |
+| `freeze` | สถานะ account ถูก sync ได้ แต่ source ของ portfolio read นี้ยังไม่ยืนยันข้อจำกัดการอ่าน; order operation ให้ใช้ [Order State Machine](/shared-rules/order-state-machine/) | `asset-consumer` สำหรับ raw status sync; `order-service` สำหรับ order operation |
 | `closed` | ต้องมียอดสินทรัพย์เป็น 0 ก่อนปิด | `customer-service` |
 
 `asset-service` เป็น owner ของ portfolio aggregation/valuation ส่วน `report-service` เป็น owner ของ monthly statement
@@ -92,7 +94,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 ## Error and recovery behavior
 
-- **`customer-service`:** บัญชี `suspended` ยังดูยอดได้แต่เทรด/ถอนไม่ได้ และบัญชีที่ยังมีสินทรัพย์ห้ามปิด
+- **Account status:** บัญชี `suspended` ยังดูยอดได้; ข้อจำกัดการเทรด/ถอนเป็น operation-specific และยืนยันที่ [Order State Machine](/shared-rules/order-state-machine/) ส่วน `freeze` ยังไม่มี source ใน portfolio read path ที่ยืนยัน read restriction
 - **`asset-service`:** source ไม่ระบุ fallback เมื่อ NAV/MTM หาย ต้องตรวจ code, master/price data และ runtime path ก่อนกำหนด behavior
 - **`report-service`:** source ไม่ระบุ recovery เมื่อ report generation ล้มเหลว ต้องตรวจ code และ runtime job configuration ก่อนกำหนด behavior
 
@@ -100,7 +102,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 - `asset-service`: Portfolio overview รวมทุก asset group และ valuation เป็น THB
 - `report-service`: Monthly statement ใช้ยอดและ NAV ณ สิ้นเดือน
-- `customer-service`: Suspended account ยังดูยอดได้แต่ทำรายการไม่ได้; Closed account ต้องยืนยันยอดเป็นศูนย์
+- `customer-service`: Suspended account ยังดูยอดได้ และ Closed account ต้องยืนยันยอดเป็นศูนย์; order operation ให้ยึด backend rule ของแต่ละ operation
 
 ## Related shared rules and flows
 
@@ -108,6 +110,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - [Customer and Product Master-Data Sync](/business-flows/asset-management/master-data-sync/)
 - [XD Balance and Cost Sync](/business-flows/asset-management/xd-sync/)
 - [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+- [Order State Machine](/shared-rules/order-state-machine/)
 
 ## Code references
 

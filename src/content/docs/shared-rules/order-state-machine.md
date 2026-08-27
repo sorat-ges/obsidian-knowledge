@@ -2,7 +2,7 @@
 title: Order State Machine
 description: สถานะ การเปลี่ยนสถานะ และข้อจำกัดของ Swap, Withdrawal และ Fund Order
 status: active
-lastUpdated: 2026-08-21
+lastUpdated: 2026-08-27
 documentType: shared-rule
 ---
 
@@ -91,6 +91,32 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 
 ดูรายละเอียดที่ [Mutual Fund Switching](/business-flows/trading/mutual-fund-switching/) และ [Mutual Fund Sell Order Cancellation](/business-flows/trading/mutual-fund-sell-cancellation/)
 
+## Customer account status gate
+
+กฎนี้เป็น account-status gate ที่ `order-service` ใช้ก่อนสร้างคำสั่ง โดยอ่านสถานะที่ไม่ใช่ `active` ของ Mutual Fund product (`22`) หรือ Digital Asset/Offering product (`32`) ส่วน `order-consumer` เป็น executor ของ event path ที่ตรวจพบการเปลี่ยนสถานะและเรียก system cancellation
+
+| Product / operation | `active` | `suspended` | `closed` / `freeze` | Backend response เมื่อไม่อนุญาต |
+| :--- | :--- | :--- | :--- | :--- |
+| Mutual Fund: buy / switch | อนุญาตตาม validation อื่น | ไม่อนุญาต | ไม่อนุญาต | HTTP `400`, `60002` (`ErrorCustomerSuspend`) |
+| Mutual Fund: sell | อนุญาตตาม validation อื่น | อนุญาตตาม validation อื่น | ไม่อนุญาต | HTTP `400`, `60002` (`ErrorCustomerSuspend`) |
+| Digital Asset: deposit / create ICO / swap buy | อนุญาตตาม validation อื่น | ไม่อนุญาต | ไม่อนุญาต | HTTP `400`, `60002`, message `customer is <status>.` |
+| Digital Asset: withdrawal / swap sell | อนุญาตตาม validation อื่น | อนุญาตตาม validation อื่น | ไม่อนุญาต | HTTP `400`, `60002`, message `customer is <status>.` |
+
+เมื่อ `onboarding-service` publish `CustomerSync` และ `order-consumer` พบ account status ที่ lower-case แล้วไม่ใช่ `active` จะเรียก `POST /api/v1/customer/suspend/cancel-orders` ของ `order-service` โดยการ cancel เป็นรายประเภทและเฉพาะ order ที่เข้า cancellation predicate:
+
+| Account status | Mutual Fund | Digital Asset |
+| :--- | :--- | :--- |
+| `suspended` | pending buy และ switch | pending ICO, fiat deposit และ swap-limit BUY |
+| `closed` / `freeze` | pending buy, switch และ sell | pending ICO, fiat deposit, fiat/crypto withdrawal และ swap-limit BUY/SELL |
+
+`order-service` เป็น Business owner และ executor ของ status validation/cancellation; `order-consumer` เป็น executor ของ `CustomerSync` และ system-cancellation trigger ไม่ใช่ owner ของ order policy. การ cancel ที่ล้มเหลวบางรายการถูกรวบรวมและส่ง internal notification แบบ asynchronous; source ไม่ยืนยัน rollback ของรายการที่สำเร็จก่อนหน้า
+
+### Unresolved implementation boundaries
+
+- Repository lookup ใช้ `LIMIT 1` โดยไม่มี ordering เมื่อมีหลาย account ที่ product เดียวกันมีสถานะต่างกัน จึงยังไม่ยืนยัน precedence ของสถานะ
+- `IsMutualFundNotAllowOrder` คืน error จาก lookup สำหรับ `sell` แต่ทิ้ง error สำหรับ order type อื่น และค่า status ว่างจะถูกประเมินเป็น not allowed สำหรับ buy/switch ตาม enum ปัจจุบัน ต้องยืนยันว่าเป็น intended behavior หรือ defect
+- System-cancellation audit detail ยังบันทึก literal `customer_account_status: suspended` แม้ trigger status จะเป็น `closed` หรือ `freeze`
+
 ## ข้อจำกัดร่วม
 
 1. ห้ามเปลี่ยนสถานะย้อนกลับ
@@ -105,3 +131,6 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 - `internal/constants/enum/order_enum.go`
 - `mappingNextStatusFlowATSSuccess`
 - `mappingNextActionFlowATSSuccess`
+- `order-service/pkg/customer/suspend_service.go`
+- `order-service/handler/digital_asset_suspension.go`
+- `order-consumer/pkg/customer-account/service.go`

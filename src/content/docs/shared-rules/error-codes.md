@@ -3,7 +3,7 @@ title: Error Code Registry (Diagnostic Guide)
 description: Registry รหัสข้อผิดพลาดของ Trading, KYC retake และ Yield Payment Setup พร้อมสาเหตุและแนวทางวินิจฉัย
 tags: [logic, error, debug, troubleshooting]
 status: active
-lastUpdated: 2026-07-28
+lastUpdated: 2026-08-27
 documentType: shared-rule
 ---
 
@@ -32,6 +32,9 @@ documentType: shared-rule
 | **90002** | `CodeTradingSwapInsufficientOrderBook` | ระบบหาคู่แมตช์ราคาไม่ได้ | อาจเกิดจากตลาดมีความผันผวนสูงหรือไม่มีคนตั้งราคา |
 | **90004** | `CodeTradingSwapAmountTooLow` | ยอดเทรดต่ำกว่าขั้นต่ำ | เพิ่มจำนวนเงินบาทหรือเหรียญที่ต้องการเทรด |
 | **90006** | `CodeTradingNoAvailableRoute` | ระบบหาเส้นทางเทรดไม่ได้ | ตรวจสอบว่ามี Route ใดบ้างที่เปิดอยู่ หรือ Remarketer ขัดข้องหรือไม่ |
+| **60002** | `ErrorCustomerSuspend` | Account status ไม่อนุญาต operation ที่ขอ; inbound operation ถูก block เมื่อ `suspended`, `closed` หรือ `freeze`, ขณะที่บาง outbound operation ยังผ่านได้เมื่อ `suspended` | ตรวจ `customer_account.status` ของ product ที่เกี่ยวข้อง และ operation ที่ handler ส่งให้ status validator |
+
+`60002` ใช้ร่วมกันโดย Mutual Fund และ Digital Asset handlers; message ของ MF path คือ `customer account is suspended` ส่วน Digital Asset path ใช้ `customer is <status>.` ตาม status ที่ backend อ่านได้ ดู [Order State Machine](/shared-rules/order-state-machine/) และ [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 
 ## หมวดหมู่ Yield Payment Setup
 

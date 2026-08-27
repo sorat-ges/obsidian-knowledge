@@ -4,10 +4,10 @@ description: Flow การซื้อขาย Swap แบบ Market ตั้
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต]
-errorCodes: ["90000", "90001", "90002", "90003", "90004", "90006", "90010"]
+aliases: [swap, market order, market swap, instant swap, best route, digital asset account freeze, suspended swap sell, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, Swap เมื่อระงับบัญชี]
+errorCodes: ["60002", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-07-29
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
@@ -19,7 +19,10 @@ Market inquiry เป็น quote สำหรับใช้สร้างค�
 
 ## Trigger and preconditions
 
+**Owner service: `order-service`**
+
 - ผู้ใช้หรือ RM เลือก BUY หรือ SELL คู่สินทรัพย์และกรอก `from_unit` ใน Mobile App, Trading Web หรือ White Glove ใน `web-portal`
+- Digital Asset account status ต้องอนุญาต side: `active` อนุญาต BUY/SELL, `suspended` อนุญาตเฉพาะ SELL (`swap_sell`), `closed`/`freeze` ไม่อนุญาตทั้งสอง side
 - Client เรียก route inquiry ด้วย `unit`, `swap_pair` และ `side`; backend ตรวจ maintenance และจำนวนขั้นต่ำก่อนคำนวณ route
 - จำนวน BUY ขั้นต่ำมาจาก digital asset transaction config; จำนวน SELL ขั้นต่ำแปลงจาก config ด้วย market price และปัดตาม decimal digit
 - ก่อนสร้างคำสั่ง backend ตรวจ investor class, คู่สินทรัพย์, product/on-shelf, เอกสารอ้างอิงที่เกี่ยวข้อง, available balance และ route ที่เลือกอีกครั้ง
@@ -135,6 +138,7 @@ Backend re-query Remarketer แล้วตรวจว่า route ชื่อ
 - Client quote เป็นค่าประมาณและอาจเปลี่ยนก่อน submit; create-time recheck ยืนยัน availability แต่ไม่ re-price payload
 - Available balance ถูกตรวจทั้งก่อนสร้าง order และก่อน hold โดย `order-consumer`
 - Market order ไม่มี customer-cancel path; cancel predicate ฝั่ง backendอนุญาตเฉพาะ `order_type=limit`
+- Account status gate เป็น backend rule: `suspended` ยังสร้าง Market SELL ได้ แต่สร้าง BUY ไม่ได้; `closed`/`freeze` ถูก block ด้วย HTTP `400`, `60002` (`ErrorCustomerSuspend`)
 - Fee inquiry และ fee จาก execution ใช้คนละจังหวะ ยอดสุดท้ายต้องยึด execution transaction ดู [Trading Fees and Campaigns](/shared-rules/trading-fees-and-campaigns/)
 
 ## State transitions
@@ -164,6 +168,7 @@ draft → open → processing → filling → sync-ledger → filled
 | `90004` | จำนวนต่ำกว่าขั้นต่ำ | ใช้ `minimum_amount` จาก inquiry ปรับจำนวน |
 | `90006` | Trading/White Glove inquiry ไม่ได้ route candidates จาก Remarketer | Client แสดง no available route และ retry inquiry |
 | `90010` | เอกสารอ้างอิงหมดอายุ | ผู้ใช้ต้องผ่าน document acceptance flow ก่อน |
+| `60002` | Digital Asset account status ไม่อนุญาต side ที่ขอ; message ใช้ `customer is <status>.` | เปลี่ยน operation เป็น side ที่ status อนุญาตหรือแก้สถานะ account ตาม business process |
 | Publish create-order event ล้มเหลว | order อาจถูก commit ที่ `open` แล้ว แต่ API คืน error เพราะ publish เกิดหลัง DB transaction | ต้องตรวจ order/event operationally; ห้ามสร้างคำสั่งซ้ำโดยเดาจาก HTTP response อย่างเดียว |
 | Consumer ส่ง Remarketer ล้มเหลว | order ถูก reject และ hold ถูกคืนด้วย logical ledger | รอ portfolio apply แล้วจึงส่งคำสั่งใหม่ |
 | Ledger processing ล้มเหลว | ห้ามข้ามเป็นผลสำเร็จปลายทางโดยไม่มี ledger ที่สอดคล้อง | retry/ตรวจที่ `sync-ledger` ตาม operational policy |
@@ -176,6 +181,7 @@ Trading Web map code ที่รู้จักไป error modal และ ref
 - ปฏิเสธก่อนส่งหรือส่ง Remarketer ไม่สำเร็จ: order เป็น `rejected` และไม่มี source asset ค้างใน hold เมื่อ ledger คืนยอด apply สำเร็จ
 - คู่ USD ที่เข้าเงื่อนไข: มี hedge transaction สำหรับ post-trade flow
 - Response create สำเร็จยืนยันว่า order ถูกสร้างและ queued แล้ว ไม่ได้ยืนยันว่า execution หรือ portfolio update สำเร็จ
+- `suspended` + SELL ผ่าน status gate ได้ แต่ไม่ได้เปลี่ยนเป็น system-cancel branch เพราะ cancellation orchestration ที่เพิ่มในรอบนี้เลือกเฉพาะ Limit Order
 
 ## Related shared rules
 

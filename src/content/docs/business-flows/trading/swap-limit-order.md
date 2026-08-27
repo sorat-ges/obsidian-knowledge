@@ -4,9 +4,10 @@ description: Flow คำสั่ง Swap Limit ตั้งแต่ตั้�
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer]
 integrations: [Remarketer, kafka]
-aliases: [swap limit, limit order, open order, cancel limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต]
+aliases: [swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ]
+errorCodes: ["60002"]
 status: active
-lastUpdated: 2026-07-28
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
@@ -22,7 +23,7 @@ Create API ตอบสำเร็จหมายถึงรับคำสั
 
 - Client เลือก `order_type = limit`, side `buy` หรือ `sell`, ระบุ source amount และ limit `price`
 - Customer endpoint ใช้ channel ตาม client ได้แก่ `XspringApp` หรือ `TradeWeb`
-- Customer ต้องไม่ถูก digital-asset suspension
+- Digital Asset account status ต้องอนุญาต operation: `active` อนุญาตทุก side, `suspended` อนุญาตเฉพาะ SELL (`swap_sell`), ส่วน `closed`/`freeze` ไม่อนุญาตทั้ง BUY และ SELL; `60002` ใช้เมื่อถูก block
 - คู่สินทรัพย์ต้อง swap ได้, product ต้อง on-shelf/tradable สำหรับ channel และ investor class, เอกสารที่เกี่ยวข้องต้องไม่หมดอายุ
 - คู่สินทรัพย์ต้องไม่อยู่ใน maintenance
 - Source amount ต้องไม่น้อยกว่า configured minimum และ available balance ต้องเพียงพอ
@@ -159,6 +160,19 @@ Customer ใช้ `POST /api/v1/order-trade/:order_trade_id/cancel`; Trade Web 
 
 `asset-consumer` consume logical-ledger batches, บันทึก audit, สร้าง portfolio เมื่อยังไม่มี, ปรับ balance และคำนวณ/reset cost fields ภายใน database transaction จากนั้น `asset-service` เปิดเผย balance และ report ที่รวม hold, fill และ refund แล้ว
 
+### 8. Cancel pending Limit Orders after account status change
+
+**Owner service: `order-service` สำหรับ cancellation policy; `onboarding-service` เป็น owner ของ status event**
+
+**Executing service: `order-consumer` เป็น `CustomerSync` trigger และ cancel-event executor; `order-service` เป็น order-state executor**
+
+เมื่อ `order-consumer` ได้รับ `CustomerSync` ที่มี Digital Asset account status ไม่ใช่ `active` จะเรียก `/api/v1/customer/suspend/cancel-orders` `order-service` เลือกเฉพาะ non-terminal Limit Order ตาม side:
+
+- `suspended`: cancel เฉพาะ BUY; SELL ไม่เข้า system-cancel branch
+- `closed` หรือ `freeze`: cancel ทั้ง BUY และ SELL
+
+สำหรับแต่ละรายการ `order-service` ตั้ง `is_cancelling = true`, ใช้ reason `CancelledBySystem` และ publish `CancelSwapOrder`; `order-consumer` จึงเป็น executor ของ asynchronous cancellation ต่อไปยัง Remarketer และ callback เป็นตัวกำหนด final outcome ตาม partial-fill state
+
 ## Business rules
 
 - Limit Order ผ่าน minimum validation แต่ข้าม route/order-book/liquidity pre-validation
@@ -169,8 +183,10 @@ Customer ใช้ `POST /api/v1/order-trade/:order_trade_id/cancel`; Trade Web 
 - Partial fill settle ได้หลายครั้งและ remaining quantity ยังคงอยู่ใน Hold
 - Reject หรือ cancel หลัง partial fill จบ status เป็น `filled` เพราะมี trade ที่เกิดขึ้นแล้ว
 - Backend cancel predicate กว้างกว่า client UI: Backend รับ non-terminal Limit Order ที่ยังมี remaining quantity ขณะที่ Mobile UI ปัจจุบันแสดง cancel เฉพาะ status `open`
+- Account status gate ของ Digital Asset แยกตาม side: `suspended` ยังสร้าง/ทำ SELL ได้ แต่ไม่ให้ BUY; `closed`/`freeze` block ทั้งสอง side
 - `SIRIHUB2` และ `AQUAROUS` ถูกปิดเฉพาะใน supporting clients; Backend generic validation ไม่บังคับ restriction นี้
 - Database transaction กับ Kafka publish ไม่ใช่ atomic operation เดียวกัน
+- System cancellation หลัง status event ใช้ side-specific selection และไม่ยกเลิก Market Order เพราะ repository query จำกัด `order_type = limit`
 
 ## State transitions
 
@@ -186,14 +202,18 @@ draft → open → processing → filling → sync-ledger → filled
 
 `is_cancelling = true` เป็น flag ระหว่างรอ `CancelSwapOrder` processing และ Remarketer callback ไม่ใช่ order status แยก
 
+เมื่อ status event เรียก system cancellation: `non-active CustomerSync → order-service selection → is_cancelling = true → CancelSwapOrder → order-consumer/Remarketer callback`; ถ้ามี partial fill final state ยังเป็น `filled` ตาม callback contract
+
 ## Error and recovery behavior
 
 - Request/body/side ไม่ถูกต้อง, maintenance, minimum, pair/product/document validation หรือ synchronous balance check ไม่ผ่าน: Create API ไม่สร้างคำสั่ง
+- Digital Asset account status ไม่อนุญาตตาม side: HTTP `400`, code `60002` (`ErrorCustomerSuspend`); Digital Asset handler ใช้ข้อความ `customer is <status>.`
 - Consumer balance recheck ไม่ผ่าน: Create API อาจตอบสำเร็จแล้ว แต่ order ถูกเปลี่ยนเป็น `rejected`
 - Hold สำเร็จแต่ Remarketer placement ล้มเหลว: consumer reject order และสร้าง ledger คืน `HOLD_IN_ORDER` ไป `AVAILABLE`
 - Kafka create publish ล้มหลัง order transaction: API คืน error แต่ order อาจคงอยู่ที่ `open`; ต้องตรวจ order row/event processing ก่อน client retry
 - Cancel event publish ล้มหลังตั้ง `is_cancelling = true`: API คืน error แต่ flag อาจค้าง ต้องตรวจ order/event ก่อน retry
 - Consumer เรียก Remarketer cancel ล้มเหลว: current consumer path log error แล้วจบโดยไม่ clear `is_cancelling`; ต้อง monitor/retry event หรือแก้สถานะตาม operational procedure
+- System cancellation ของ pending Limit Order ถ้า selection, order lookup, consumer หรือ Remarketer path ล้มเหลว อาจค้างที่ `is_cancelling`; `CustomerSuspendService` เก็บ failure/ส่ง internal notification แต่ไม่ยืนยัน rollback ของรายการอื่น
 - Callback race ระหว่าง fill กับ cancel ถูกตัดสินจาก callback และข้อมูล partial fill ที่ Backend เห็น: ส่วนที่ execute คงอยู่ ส่วน remaining จึงถูกคืน
 - Client-only block ของ `SIRIHUB2`/`AQUAROUS` ไม่ป้องกัน API client อื่น จึงต้องยืนยันกับ Business owner ว่าต้องเป็น Backend rule หรือไม่
 
@@ -204,6 +224,8 @@ draft → open → processing → filling → sync-ledger → filled
 - Reject ก่อน fill: คืน Hold ทั้งหมดและจบ `rejected`
 - Reject/cancel หลัง partial fill: เก็บ trade ที่สำเร็จ, คืน remaining Hold และจบ `filled`
 - Cancel ก่อน fill: คืน Hold ทั้งหมดและจบ `cancelled`
+- `suspended` status event: pending BUY Limit Order ที่ cancellation สำเร็จจบ `cancelled`; pending SELL ไม่ถูก system-cancel จาก branch นี้
+- `closed`/`freeze` status event: pending BUY/SELL Limit Order ที่ cancellation สำเร็จเข้าสู่ cancellation flow เดียวกัน; partial fill ยึด final callback
 - Portfolio และ report สะท้อนผลหลัง `asset-consumer` apply logical-ledger events
 
 ## Related shared rules
@@ -228,11 +250,13 @@ draft → open → processing → filling → sync-ledger → filled
 - `pkg/order_trade/service.go`: `CanSwap`, cancellation predicates และ cancel event publication
 - `pkg/order_trade/swap_service.go`: order persistence, retail route resolution และ cancellation settlement
 - `pkg/order_trade/webhook_service.go`: fill/reject callback, ledger และ final status
+- `pkg/customer/suspend_service.go`: status-specific Limit Order selection และ system cancellation trigger
 
 `order-consumer`:
 
 - `pkg/digital-asset-order-request/service.go`: dispatch `CreateSwapOrder` และ `CancelSwapOrder`
 - `pkg/digital-asset-order-request/swap.go`: balance recheck, hold, Remarketer submit/cancel, reject และ hold reversal
+- `pkg/customer-account/service.go`: `CustomerSync` non-active trigger ของ system cancellation
 
 Supporting frontend:
 

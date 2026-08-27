@@ -2,11 +2,11 @@
 title: Subscription and Eligibility
 description: Flow จองซื้อ Offering หรือ ICO ที่รวม eligibility, validation, status lifecycle และการแก้ไข/ยกเลิกคำสั่งจาก web portal
 capability: Offering
-services: [order-service, web-portal]
-aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, sales report PDF, PDF sales report, ICO order edit, ICO order cancellation, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, ดาวน์โหลดรายงานยอดขาย PDF, จองซื้อ, ตรวจสิทธิ์จองซื้อ]
-errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "204", "400", "401", "404", "500"]
+services: [order-service, order-consumer, web-portal]
+aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, sales report PDF, PDF sales report, ICO order edit, ICO order cancellation, ICO account freeze cancellation, system cancel ICO order, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, ดาวน์โหลดรายงานยอดขาย PDF, จองซื้อ, ตรวจสิทธิ์จองซื้อ, ยกเลิกคำสั่ง ICO เมื่อบัญชีถูกระงับ, บัญชี ICO ถูก freeze]
+errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "204", "400", "401", "404", "500", "60002"]
 status: active
-lastUpdated: 2026-08-25
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
@@ -25,6 +25,7 @@ Source ยืนยัน business logic และ placement endpoint ใน `or
 - ต้องมีเงื่อนไขสินค้า `minimum_buy`, optional `maximum_buy` และ `step` จาก `dw_product.product_transaction_condition`
 - ต้องมี project-level `maximum_buy` สำหรับประเภทนักลงทุนจาก `dw_product.project_transaction_condition`
 - ยอดรวมทุกรายการต้องมากกว่า `0`
+- Digital Asset account status ต้องเป็น `active` สำหรับการสร้างหรือยืนยัน ICO placement; `suspended`, `closed` และ `freeze` ถูก block ด้วย `60002` (`ErrorCustomerSuspend`)
 
 คำว่า eligibility ใน Flow นี้หมายถึงการผ่านเงื่อนไขยอดซื้อของสินค้าและวงเงินโครงการตามประเภทนักลงทุนเท่าที่ source ยืนยัน ไม่รวม KYC, suitability, accreditation หรือ allocation policy ที่ source ไม่ได้ระบุ
 
@@ -33,6 +34,7 @@ Source ยืนยัน business logic และ placement endpoint ใน `or
 | Service | Responsibility |
 | :--- | :--- |
 | `order-service` | คำนวณยอด, validate รายผลิตภัณฑ์/โครงการ/payment และดูแล Subscription Order lifecycle ตาม source |
+| `order-consumer` | รับ `CustomerSync` และ trigger status-specific cancellation endpoint เมื่อ account ไม่ใช่ `active` |
 | `web-portal` | เปิด edit/cancel action ตาม permission, status, channel และ payment method แล้วส่ง request ไปยัง backend BFF |
 
 ช่องทาง ATS, Bank Transfer, Bill Payment/QR และ CHEQUE ถูกยืนยันว่าเป็น payment methods ที่รองรับ แต่ source ไม่ได้ระบุ service/integration owner หรือ execution sequence ของแต่ละช่องทาง
@@ -172,14 +174,14 @@ Flow คือ:
 
 Validation errors ถูกส่งกลับเป็น HTTP `400`, missing order เป็น `404` และ unexpected service/database failure เป็น `500`; client permission หรือปุ่ม disabled ไม่ใช่ backend authorization substitute
 
-### 11. Cancel pending ICO orders during suspension
+### 11. Cancel pending ICO orders after account status change
 
-**Owner service: ยังไม่ยืนยัน owner ของ suspension trigger จาก source ที่เปลี่ยนในรอบนี้**
-**Executing service: `order-service` (`CustomerSuspendService` และ `orderOfferingService`)**
+**Owner service: `order-service` สำหรับ ICO cancellation policy; `onboarding-service` เป็น owner ของ confirmed KYC rejection status transition**
+**Executing service: `order-consumer` เป็น `CustomerSync` trigger และ `order-service` (`CustomerSuspendService` และ `orderOfferingService`) เป็น cancellation executor**
 
-เมื่อ `CustomerSuspendService.CancelOrdersOnSuspend` พบ digital-asset suspension ระบบค้นหา ICO order ที่ status `order-request` และ payment method ในชุด `BANK_TRANSFER`, `BILL_PAYMENT_CHEQUE`, `BILL_PAYMENT`, `QR` และ `CHEQUE` แล้วเรียก `CancelOrderOfferingBySystem` ต่อรายการ
+เมื่อ `order-consumer` ได้รับ `CustomerSync` ที่มี Digital Asset account status ไม่ใช่ `active`, endpoint `/api/v1/customer/suspend/cancel-orders` เรียก `CustomerSuspendService.CancelOrdersOnSuspend`; ระบบค้นหา ICO order ที่ status `order-request` และ payment method ในชุด `BANK_TRANSFER`, `BILL_PAYMENT_CHEQUE`, `BILL_PAYMENT`, `QR` และ `CHEQUE` แล้วเรียก `CancelOrderOfferingBySystem` ต่อรายการ
 
-การเปลี่ยนแปลงรอบนี้คือเพิ่ม `CHEQUE` ใน query payment methods ทำให้ pending ICO order ที่จ่ายด้วย `CHEQUE` เข้า auto-cancel path ได้ด้วย ในแต่ละรายการระบบเปลี่ยน order เป็น `cancelled`, สร้าง action flow, เปลี่ยน payment เป็น `cancelled`, บันทึก audit detail `customer_account_status: suspended` และส่ง `AutoNotiOfferingOrder2` หลัง cancel สำเร็จ
+สำหรับ `suspended`, `closed` และ `freeze` pending ICO order เข้า auto-cancel path เหมือนกัน ในแต่ละรายการระบบเปลี่ยน order เป็น `cancelled`, สร้าง action flow, เปลี่ยน payment เป็น `cancelled`, บันทึก audit detail `customer_account_status: suspended` และส่ง `AutoNotiOfferingOrder2` หลัง cancel สำเร็จ
 
 ## Business rules
 
@@ -191,6 +193,8 @@ Validation errors ถูกส่งกลับเป็น HTTP `400`, missing
 - ยอดรวมเป็นศูนย์ไม่ได้
 - Payment amount ต้องเท่ากับยอดรวมของออเดอร์
 - Payment methods ที่ source ระบุคือ ATS, Bank Transfer, Bill Payment/QR และ CHEQUE
+- Digital Asset status gate ของ ICO placement อนุญาตเฉพาะ `active`; `60002` ใช้กับ status `suspended`, `closed` และ `freeze`
+- Pending ICO order ที่เป็น `order-request` ถูก system-cancel เมื่อ account status ไม่ใช่ `active`
 - สถานะที่เข้าข่าย refund ได้แก่ `rejected`, `prepare-reject`, `refunded`, `prepare-refund` และ `allotted-refunding`
 
 ## State transitions
@@ -233,7 +237,9 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - Refund-related status บอกว่าออเดอร์เข้ากลุ่มคืนเงิน แต่ source ไม่ยืนยัน workflow, ledger, bank action หรือ retry จึงห้ามอนุมาน recovery sequence
 - Edit metadata ผิด status/channel/payment method หรือ `sa_code` ไม่อยู่ใน project referral list: backend คืน client error และไม่ควรตีความ client permission เป็นหลักฐานว่า update ผ่าน
 - Cancel reason ว่างหรือยาวเกิน 250 ตัวอักษร, order ไม่ใช่ `order-request` หรือ channel ไม่ใช่ `WEARE_WEB`: backend ปฏิเสธ cancellation
-- Auto-cancel ระหว่าง suspension ถ้าค้น order หรือ cancel รายการใดล้มเหลว `CustomerSuspendService` เก็บ failure และส่ง error notification ตาม collector; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จไปแล้วก่อนหน้า
+- Digital Asset status ที่ไม่อนุญาตใช้ HTTP `400`, code `60002` (`ErrorCustomerSuspend`); Digital Asset handler ใช้ข้อความ `customer is <status>.`
+- Auto-cancel หลัง status เปลี่ยน ถ้าค้น order หรือ cancel รายการใดล้มเหลว `CustomerSuspendService` เก็บ failure และส่ง error notification ตาม collector; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จไปแล้วก่อนหน้า
+- Audit detail ของ cancellation ยังเป็น literal `customer_account_status: suspended` แม้ trigger status จะเป็น `closed` หรือ `freeze`; ต้องยืนยันกับเจ้าของระบบก่อนใช้เป็น status ที่แสดงต่อผู้ใช้
 
 ## Final outcomes
 
@@ -247,6 +253,7 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - Validation fail: request ไม่ผ่านไปยัง lifecycle ขั้นถัดไปตาม business validation นี้
 - Web placement `submit`: status เป็น `order-confirm` และมี action `confirmed`
 - Web/system cancellation: status และ payment ที่เกี่ยวข้องเป็น `cancelled`
+- `closed`/`freeze` หรือ `suspended` account status: pending ICO order ถูก system-cancel ตาม status event และ payment ที่เกี่ยวข้องเป็น `cancelled`
 
 ## Related shared rules
 
@@ -263,6 +270,8 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - `order-service/pkg/orderofferingplacement/new_service.go`: edit transaction, metadata validation และ submit transition
 - `order-service/pkg/order_offering/service_cancel.go`: employee/system cancel, payment selection และ cancellation transaction
 - `order-service/pkg/customer/suspend_service.go`: suspension cancellation orchestration
+- `order-consumer/pkg/customer-account/service.go`: รับ `CustomerSync` และ trigger `/api/v1/customer/suspend/cancel-orders` เมื่อ account status ไม่ใช่ `active`
+- `onboarding-service/internal/domain/application.go`: คำนวณ `freeze`/`active` identification status และ `freeze`/`suspended` customer-account status จาก rejection case
 - `web-portal/src/app/(order-flow)/ico-order-placement/order-edit-policy.ts`: client edit/cancel policy
 - `web-portal/src/app/(order-flow)/ico-order-placement/[customerAccountId]/[orderRequestId]/edit/components/ico-order-placement-edit-form.tsx`: permission, save/submit/cancel UI behavior
 - `internal/domain/ico_project.go`

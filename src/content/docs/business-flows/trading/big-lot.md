@@ -3,11 +3,11 @@ title: Big Lot
 description: Flow ซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove ตั้งแต่เลือก order book, คำนวณ fee, สร้าง order, hold balance, ส่ง Remarketer และ settle ledger
 capability: Trading
 services: [order-service, order-consumer]
-aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_LOT, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต]
+aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_LOT, big lot account freeze, suspended big lot sell, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, Big Lot เมื่อระงับบัญชี]
 integrations: [Remarketer, kafka]
-errorCodes: ["80002", "80006"]
+errorCodes: ["60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-07-28
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
@@ -23,7 +23,7 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 
 - Endpoint White Glove ใช้ employee authentication และ API-key permission แยกตาม action
 - การสร้าง order ต้องมี permission `white_glove:trading:rm_execute` หรือ `white_glove:trading:dealer_execute`
-- Customer ต้องไม่ถูก digital-asset suspension
+- Digital Asset account status ต้องอนุญาต side: `active` อนุญาต BUY/SELL, `suspended` อนุญาตเฉพาะ SELL (`swap_sell`), `closed`/`freeze` ไม่อนุญาตทั้งสอง side; status failure ใช้ `60002`
 - Side ต้องเป็น `buy` หรือ `sell`
 - Customer ต้องมี investor class ที่ถูกต้อง, คู่สินทรัพย์ต้อง swap ได้, เอกสารที่เกี่ยวข้องต้องไม่หมดอายุ และ product ทั้งสองฝั่งต้อง tradable/on-shelf สำหรับ channel `WEARE_WEB_BIG_LOT`
 - Request ที่มี `volume_size = bulk` ถูกจัดเป็น Big Lot และ Backend ตั้ง channel เป็น `WEARE_WEB_BIG_LOT`
@@ -115,7 +115,7 @@ Frontend ส่งผล preview ต่อไปยัง `POST /api/v1/white-gl
 - `route = dealer`
 - `volume_size = bulk`
 
-Backend ตรวจ permission, suspension, side และ business eligibility แล้ว:
+Backend ตรวจ permission, account status, side และ business eligibility แล้ว:
 
 1. ข้าม maintenance validation สำหรับ `bulk`
 2. ข้าม minimum-amount rejection
@@ -169,6 +169,7 @@ Webhook เป็นจุดยืนยันผล trade จริง; previe
 - Create API ไม่ force route เอง; route ถูกส่งจาก client แล้ว persist ลง order
 - Dealer permission และ RM permission ต่างสร้าง White Glove order ได้; `IsDealerTrading` เป็นจริงเฉพาะผู้มี dealer-execute permission
 - Big Lot order quantity ไม่ถูกปัดตอน persist
+- `suspended` อนุญาตเฉพาะ Big Lot SELL; Big Lot BUY และทั้งสอง side เมื่อ `closed`/`freeze` ถูก block ด้วย `60002` จาก backend status validator
 - Backend create ไม่ทำ exact order-book match หรือ recompute fee/price; exact match และการส่งค่าจาก calculate เป็น client-orchestrated behavior
 - การ publish Kafka เกิดหลัง database transaction จึงไม่ใช่ atomic operation เดียวกัน
 
@@ -193,6 +194,7 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - Authentication/permission ไม่ผ่าน: HTTP 401
 - Request/body/side/ID ไม่ถูกต้อง: HTTP 400
 - `80006`: investor class ไม่มีหรือไม่ถูกต้อง
+- `60002`: Digital Asset account status ไม่อนุญาต side ที่ขอ; message เป็น `customer is <status>.`
 - Pair, product-on-shelf หรือ document expiry ไม่ผ่าน: HTTP 400 พร้อม service message; Big Lot handler ไม่มี business code แยกสำหรับทุกกรณี
 - `80002`: synchronous balance check ใน create พบ available asset ไม่พอ
 - Consumer recheck พบ balance ไม่พอ: order ถูกเปลี่ยนเป็น `rejected` ด้วย reason `insufficient asset`; create API อาจตอบสำเร็จไปแล้วเพราะเป็น async step
@@ -209,6 +211,7 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - Final fill ทำให้ order เป็น `filled`, บันทึก trade/exchange detail และ settle executed/refunded ledger
 - Failure ก่อน Remarketer acceptance จบที่ `rejected` และคืน hold balance เมื่อ hold เกิดขึ้นแล้ว
 - Order detail แสดง size `big-lot` เมื่อ persisted `volume_size = bulk`
+- `suspended` + SELL ผ่าน account-status gate ได้; status gate นี้เป็น backend rule และไม่ใช่ client-only restriction
 
 ## Related shared rules
 

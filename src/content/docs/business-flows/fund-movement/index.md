@@ -2,11 +2,11 @@
 title: Fund Movement
 description: จุดเริ่มต้นสำหรับ Flow ฝาก ถอน และโอนสินทรัพย์ระหว่างบัญชีลูกค้า
 capability: Fund Movement
-services: [order-service, payment-gateway, asset-service, asset-consumer]
+services: [order-service, order-consumer, payment-gateway, asset-service, asset-consumer]
 integrations: [bank, fireblocks]
-aliases: [fund movement, money movement, ฝากถอน, เคลื่อนย้ายเงิน, โอนสินทรัพย์]
+aliases: [fund movement, money movement, account status fund movement, ฝากถอน, เคลื่อนย้ายเงิน, โอนสินทรัพย์, ฝากถอนเมื่อบัญชีถูกระงับ]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
@@ -14,8 +14,8 @@ documentType: flow
 
 | Flow | Trigger | Primary participating services |
 | :--- | :--- | :--- |
-| [Fiat Withdrawal](/business-flows/fund-movement/fiat-withdrawal/) | ลูกค้าขอถอนเงินบาทเข้าบัญชีธนาคารและยืนยัน OTP/2FA | `order-service`, `payment-gateway`, `asset-service`, `asset-consumer` |
-| [Crypto Deposit and Withdrawal](/business-flows/fund-movement/crypto-deposit-and-withdrawal/) | `order-service` รับ Fireblocks webhook สำหรับรายการฝากหรือถอนคริปโต | `order-service`, `asset-consumer`, `asset-service` |
+| [Fiat Withdrawal](/business-flows/fund-movement/fiat-withdrawal/) | ลูกค้าขอถอนเงินบาทเข้าบัญชีธนาคารและยืนยัน OTP/2FA | `order-service`, `order-consumer`, `payment-gateway`, `asset-service`, `asset-consumer` |
+| [Crypto Deposit and Withdrawal](/business-flows/fund-movement/crypto-deposit-and-withdrawal/) | `order-service` รับ Fireblocks webhook สำหรับรายการฝากหรือถอนคริปโต | `order-service`, `order-consumer`, `asset-consumer`, `asset-service` |
 | [Internal Customer Transfer](/business-flows/fund-movement/internal-transfer/) | Dealer/RM สร้าง White Glove transfer ระหว่างบัญชีลูกค้าภายในระบบ | `order-service`, `asset-service`, `asset-consumer` |
 
 ## กฎและ Flow ที่ใช้ร่วมกัน

@@ -2,18 +2,18 @@
 title: Mutual Fund Sell Order Cancellation
 description: Flow ยกเลิกคำสั่งขายกองทุนรวมโดย customer ตั้งแต่ตรวจ cutoff และ effective date จนถึงยกเลิก FundConnext และ payment records
 capability: Trading
-services: [order-service]
-aliases: [mutual fund sell cancellation, cancel MF sell order, cancel sell order, ยกเลิกคำสั่งขายกองทุน, ยกเลิกคำสั่งขายกองทุนรวม, cancel mutual fund order]
+services: [order-service, order-consumer]
+aliases: [mutual fund sell cancellation, cancel MF sell order, cancel sell order, system cancel sell on freeze, closed account sell cancellation, ยกเลิกคำสั่งขายกองทุน, ยกเลิกคำสั่งขายกองทุนรวม, ยกเลิกคำสั่งขายเมื่อ Freeze, cancel mutual fund order]
 integrations: [FundConnext]
-errorCodes: ["404", "500", "60004"]
+errorCodes: ["404", "500", "60002", "60004"]
 status: active
-lastUpdated: 2026-08-21
+lastUpdated: 2026-08-27
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย customer cancellation ของคำสั่งขาย Mutual Fund ผ่าน `order-service` รวม cancel predicate, การเรียก `FundConnext.CancelOrder`, การเปลี่ยน state และการยกเลิก payment records
+อธิบาย customer cancellation ของคำสั่งขาย Mutual Fund ผ่าน `order-service` รวม cancel predicate, การเรียก `FundConnext.CancelOrder`, การเปลี่ยน state, การยกเลิก payment records และ system cancellation เมื่อ account เป็น `closed` หรือ `freeze`
 
 หน้านี้ไม่ครอบคลุม ICO, digital-asset order หรือ switch order ซึ่งมี cancellation predicate แยกกัน และไม่สรุป frontend behavior เพราะ `xspring-mobile-app` มี uncommitted changes ในรอบที่ตรวจ
 
@@ -32,6 +32,7 @@ documentType: flow
 | Service / integration | Responsibility |
 | :--- | :--- |
 | `order-service` | รับ cancellation request, ตรวจ predicate, เรียก external cancel, เปลี่ยน order/action/payment status และส่ง notification |
+| `order-consumer` | รับ `CustomerSync` ที่มี account status ไม่ใช่ `active` และ trigger `order-service` system cancellation; ไม่ได้เป็น owner ของ sell cancellation policy |
 | `FundConnext` | ยกเลิก external transaction เมื่อ order มี `ResponseTransactionID` |
 
 ## End-to-end sequence
@@ -87,6 +88,16 @@ documentType: flow
 
 เมื่อ cancellation สำเร็จ `executeCancelAndNotify` ส่ง notification `AutoNoti8` พร้อม fund code และข้อความประเภท sell order แบบ asynchronous หลัง service คืน success
 
+### 6. Cancel pending sell orders after account status change
+
+**Owner service: `order-service` สำหรับ sell cancellation policy; `onboarding-service` เป็น owner ของ status event**
+
+**Executing service: `order-consumer` เป็น `CustomerSync` trigger และ `order-service` เป็น cancellation executor**
+
+เมื่อ `order-consumer` ได้รับ `CustomerSync` ที่มี MF account status `closed` หรือ `freeze` จะเรียก `/api/v1/customer/suspend/cancel-orders` แล้ว `order-service` ค้นหา pending sell orders ที่เข้า system-cancel predicate และเรียก `CancelOrderSell` ด้วย reason `CancelledBySystem`
+
+MF `suspended` ไม่เข้า sell auto-cancel branch; ระบบยังคงอนุญาต sell order ตาม status gate แต่ `closed`/`freeze` จะพยายามยกเลิก pending sell order เป็นรายรายการ พร้อม order-cancellation/audit/notification ตาม dependency ที่ทำงานสำเร็จ
+
 ## Business rules
 
 - การเปลี่ยนรอบนี้ทำให้ sell order ที่มี future effective date ยกเลิกได้ตาม status allow-list แม้ current time จะเลย product cutoff แล้ว
@@ -94,6 +105,8 @@ documentType: flow
 - สำหรับ non-future `waiting-allot` ต้องมี `ResponseTransactionID` และต้องยังไม่พ้น cutoff
 - `WEARE_WEB` ถูกปฏิเสธโดย generic customer cancellation path; หน้า frontend ที่ใช้ channel นี้ต้องใช้ cancellation flow เฉพาะของตัวเอง
 - Presence ของ transaction ID ทำให้ order-service ต้องยกเลิก transaction ที่ `FundConnext` ก่อน commit local status/payment cancellation
+- Status gate ของ MF sell อนุญาต `active` และ `suspended` แต่ปฏิเสธ `closed` และ `freeze` ด้วย `60002`; กฎนี้อยู่ที่ [Order State Machine](/shared-rules/order-state-machine/)
+- System cancellation ของ MF sell เกิดเฉพาะ `closed`/`freeze`; `suspended` cancel เฉพาะ pending buy/switch ไม่ใช่ sell
 
 ## State transitions
 
@@ -105,6 +118,7 @@ documentType: flow
 | `order-confirm` | sell cancellation predicate ผ่านและ payment mapping รองรับ | `cancelled` |
 | `failed` | sell cancellation predicate ผ่าน | `cancelled` |
 | `waiting-allot` | non-future มี transaction และยังไม่พ้น cutoff หรือ future effective date ตาม current rule | `cancelled` |
+| pending sell order | `CustomerSync` non-active status เป็น `closed`/`freeze` และ system predicate ผ่าน | `cancelled` |
 
 Action flow ใช้ `cancelled`; payment records ที่ service update คือ `AMCToSA` และ `SAToCustomer` เป็น cancelled
 
@@ -117,12 +131,14 @@ Action flow ใช้ `cancelled`; payment records ที่ service update ค�
 - `60007` (`ErrorValidateCancelWaitAllot`) ไม่ใช่ generic sell validation response ใน current `CancelOrderByCustomer` path; switch และ buy ATS มี path เฉพาะของตนเอง จึงไม่ map code นี้มารวมกับ sell
 - `500` (`ErrorInternal`): context, database transaction หรือ integration failure ที่ไม่เข้า mapping อื่น
 - FundConnext cancel failure ไม่ควร retry จากเอกสารนี้โดยอัตโนมัติ; source ยืนยันเพียงว่าการ local cancellation จะไม่ถือว่าสำเร็จเมื่อ external cancel คืน error
+- System cancellation failure ถูกเก็บต่อรายการโดย `CustomerSuspendService`; source ไม่ยืนยัน rollback ของ sell order ที่ cancel สำเร็จก่อนหน้า
 
 ## Final outcomes
 
 - Success: order status เป็น `cancelled`, action flow เป็น `cancelled`, sell-side payment records เป็น cancelled และส่ง `AutoNoti8`
 - Validation failure: order และ payment ไม่เปลี่ยนจาก cancellation attempt
 - External/infrastructure failure: source คืน error ตาม mapping; operational retry procedure ไม่ได้ยืนยันใน repositories ที่อยู่ใน scope
+- `closed`/`freeze` account ที่ได้รับ `CustomerSync` อาจทำให้ pending sell order จบ `cancelled`; ถ้า event propagation หรือ cancellation dependency ล้ม ต้องตรวจ order state แยก
 
 ## Related shared rules
 
@@ -140,3 +156,8 @@ Action flow ใช้ `cancelled`; payment records ที่ service update ค�
 - `pkg/order/order_helpers.go`: `validateOrderIsCancelable`, `isSellOrderCancelable`, `cancelOrderToFundconnext`
 - `internal/constants/enum/order_enum.go`: sell cancellation allow-list and cancel status mappings
 - `internal/constants/enum/response_enum.go`: response code mapping
+- `order-service/pkg/customer/suspend_service.go`: status-specific system cancellation ของ MF sell
+
+`order-consumer`:
+
+- `order-consumer/pkg/customer-account/service.go`: `CustomerSync` non-active trigger

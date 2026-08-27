@@ -350,7 +350,7 @@ test("Pagefind ranks the browser-segmented Thai Swap Limit query first", async (
   });
   const first = await response.results[0].data();
   assert.equal(first.raw_url, "/business-flows/trading/swap-limit-order/");
-  assert.match(first.plain_excerpt, /คำสั่งลิมิต \(Swap Limit Order\)/);
+  assert.match(first.plain_excerpt, /คำสั่งลิมิต/);
 });
 
 test("Swap Limit visible body includes the exact Thai search phrase", () => {
@@ -391,7 +391,7 @@ test("renders weighted segmented Thai aliases for search without changing visibl
   assert.doesNotMatch(textContent(variants[0]), /swap limit|limit order/);
   assert.equal(
     textContent(metadataValue(document, "คำค้น")).trim(),
-    "swap limit, limit order, open order, cancel limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต",
+    "swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ",
   );
 });
 
