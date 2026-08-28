@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รองรับข้อมูล V1/V2 และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, has default bank account, เริ่ม onboarding, change-request log, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-08-25
+lastUpdated: 2026-08-28
 documentType: flow
 ---
 
@@ -14,7 +14,7 @@ documentType: flow
 
 อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึง read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่
 
-Source รอบนี้ยืนยัน Backend เท่านั้น เพราะ frontend repositories ที่เกี่ยวข้องถูกข้ามเนื่องจากมี uncommitted changes จึงไม่ระบุหน้าจอ, client validation หรือ user-visible mapping ที่ยังตรวจไม่ได้
+Source รอบนี้ยืนยัน behavior จาก Backend เป็นหลัก; web-portal ถูกใช้เฉพาะ supporting client behavior ที่เปลี่ยนในรอบนี้ ส่วน xspring-mobile-app ถูกข้ามเนื่องจากมี uncommitted changes
 
 ## Trigger and preconditions
 
@@ -26,6 +26,7 @@ Source รอบนี้ยืนยัน Backend เท่านั้น เ
 - ถ้า request ไม่ส่ง `flow_type`, submit endpoint ใช้ `onboarding`
 - Submit ต้องพบ latest KYC-approval application และ change-request log เพื่อรู้ว่าจะเปิด XAM หรือ XD
 - `PATCH /api/v2/suitability/confirm` ต้องส่ง `customer_background_suitability_id` และ `flow_type`
+- การเริ่ม onboarding ของลูกค้าใหม่สร้าง `customer_change_request_log` ใน transaction เดียวกับ identification/application/registration history และกำหนด `HasDefaultBankAccount = false`
 
 ## Participating services
 
@@ -51,6 +52,8 @@ Source รอบนี้ยืนยัน Backend เท่านั้น เ
 4. `bank-account`
 
 ถ้า change-request log ระบุว่าลูกค้ามี default bank account อยู่แล้ว ระบบตัด `bank-account` ออกจากผลลัพธ์
+
+สำหรับ customer signup ใหม่ `createIdentificationTx` สร้าง change-request log หลัง registration history ภายใน transaction เดียวกัน โดยบันทึก `has_default_bank_account = false`; record นี้จึงพร้อมให้ status และ suitability read path ใช้เป็น account-opening context ตั้งแต่เริ่ม flow
 
 การเขียน registration status ใน migrated, offline และ open-initial-account paths ใช้ `UpsertTx` ภายใน transaction: ถ้ามี record ของ `identification_id` อยู่แล้วจะ update status, sub-status, flow type, application และ soft-delete flag; ถ้าไม่พบจึง insert record ใหม่
 
@@ -148,6 +151,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - เมื่อเจ้าหน้าที่ request retake ระบบสร้าง completed history สำหรับ personal/address/work/background/suitability/bank ของ flow ที่เลือก แล้วตั้ง current step กลับไป `identity-verification/front-card-scan`
 - Application type `re-kyc` ใช้ `retake-re-kyc` ตอนเริ่ม retake; application type อื่นใช้ `retake`
 - Default bank account ทำให้ status response ไม่แสดง bank-account step
+- Customer signup ใหม่ต้องสร้าง change-request log พร้อม `has_default_bank_account = false` ก่อน transaction สร้าง customer จะ commit
 - Multiple-answer suitability ใช้ helper เลือกคะแนนสูงสุดแบบ unique ก่อนรวมคะแนน
 - Digital score อาจต่างจาก Traditional score เพราะ digital-experience adjustment
 - Persistence เลือก Traditional ก่อนเมื่อ `IsXAMOpen`; Digital ใช้เมื่อ XAM ไม่เปิดและ `IsXDOpen` เป็นจริง
@@ -171,6 +175,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | Update personal background | ไม่เปลี่ยน application/registration state จาก trigger นี้; เริ่ม asynchronous watchlist report refresh |
 | Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
 | Read onboarding status | ไม่แก้ state; derive `draft`/`completed` จาก history |
+| Start new onboarding | สร้าง `customer_change_request_log` พร้อม `has_default_bank_account = false` ภายใน customer-creation transaction |
 | KYC approval reads suitability/answers | ไม่แก้ state; ใช้ v2 หรือ fallback V1 เพื่อสร้าง read model |
 
 ## Error and recovery behavior
@@ -221,3 +226,4 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: company-specific suitability read model และ risk fallback
 - `onboarding-service/pkg/kyc/kyc-service.go`: legacy answer/risk-result fallback ไปยัง v2 suitability
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: registration status write path ที่เรียก `UpsertTx`
+- `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: `createIdentificationTx` และ `createCustomerChangeRequestLog` สำหรับ initial onboarding context

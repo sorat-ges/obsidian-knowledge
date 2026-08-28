@@ -4,9 +4,9 @@ description: Flow ซิงค์ข้อมูลลูกค้า บัญ�
 capability: Asset Management
 services: [asset-consumer, asset-service]
 integrations: [kafka]
-aliases: [master data sync, customer sync, product sync, dealer mapping, ซิงค์ข้อมูลลูกค้า, ซิงค์สินค้า]
+aliases: [master data sync, customer sync, product sync, dealer mapping, account status sync, freeze account sync, ซิงค์ข้อมูลลูกค้า, ซิงค์สินค้า, ซิงค์สถานะบัญชี]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-08-28
 documentType: flow
 ---
 
@@ -44,7 +44,7 @@ Trigger คือ event อัปเดต customer/account, unitholder, product
 - บันทึก identification ใน `dw_customer.customer_identification`
 - บันทึก account mapping ใน `dw_customer.customer_account`
 - ซิงค์ Unitholder ID ใน `dw_order.customer_account_unitholder`
-- อัปเดต account status เช่น `active` หรือ `suspended` เมื่อได้รับ event
+- อัปเดต account status ตามค่าที่ได้รับจาก event เช่น `active`, `suspended`, `freeze` หรือ `closed`; consumer เก็บ raw status และไม่ได้เพิ่ม operation-level gate ในขั้น sync
 
 ### 3. Materialize product and price data
 
@@ -67,6 +67,7 @@ Trigger คือ event อัปเดต customer/account, unitholder, product
 ## Business rules
 
 - Account status ต้องอัปเดตทันทีเมื่อได้รับ event
+- `asset-consumer` เป็น executor ของการเก็บ raw account status; การที่ status ถูก materialize ไม่ได้แปลว่า operation ทุกชนิดได้รับอนุญาต
 - Product master ต้องเก็บ Symbol, Asset Group และ Currency
 - NAV/Price ล่าสุดใช้กับ Mark-to-Market และเป็น context เมื่อ ledger ไม่มี cost
 - Dealer mapping ต้องเชื่อม external `DealerID` กับ XSpring `CustomerAccountID`

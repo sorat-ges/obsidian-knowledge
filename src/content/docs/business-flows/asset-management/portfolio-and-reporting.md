@@ -3,15 +3,15 @@ title: Portfolio and Reporting
 description: Flow อ่านยอดสินทรัพย์ คำนวณมูลค่าพอร์ต และสร้างรายงานตามสถานะบัญชี
 capability: Asset Management
 services: [customer-service, asset-service, asset-consumer, report-service]
-aliases: [portfolio, asset balance, monthly statement, report, account freeze portfolio, พอร์ต, รายงานสินทรัพย์, พอร์ตบัญชีถูกระงับ]
+aliases: [portfolio, asset balance, monthly statement, report, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, รายงานสินทรัพย์, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-08-28
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย read flow ของ asset portfolio และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service`
+อธิบาย read flow ของ asset portfolio และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service` สถานะ `closed` ถูกตัดออกจาก account/portfolio query ที่เปลี่ยนในรอบนี้ ส่วน status อื่นที่ไม่ใช่ `closed` ยังอยู่ใน read path เหล่านั้นได้
 
 ## Trigger and preconditions
 
@@ -20,6 +20,7 @@ documentType: flow
 - Reporting trigger: ถึงสิ้นเดือนเวลา 23:59:59 โดย `report-service` เป็น owner
 - ต้องมี customer/account mapping, product definition และราคา NAV/MTM ที่เกี่ยวข้อง
 - การปิดบัญชีต้องมียอดสินทรัพย์เป็น 0
+- สำหรับ portfolio overview และ account lookup ที่ใช้ query ใหม่ บัญชีต้องมี status ไม่ใช่ `closed`; `freeze`, `suspended` และ status อื่นที่ไม่ใช่ `closed` ไม่ถูกตัดออกด้วย predicate นี้
 
 ## Participating services
 
@@ -36,13 +37,17 @@ documentType: flow
 
 **Owner service: `customer-service`**
 
-รักษาสถานะ `active`, `suspended`, `inactive` และ `closed`; การปิดบัญชีต้องตรวจว่าสินทรัพย์เป็น 0
+รักษาสถานะ `active`, `suspended`, `inactive`, `freeze` และ `closed`; การปิดบัญชีต้องตรวจว่าสินทรัพย์เป็น 0
 
 ### 2. Read, categorize and aggregate portfolio
 
 **Owner service: `asset-service`**
 
-อ่าน portfolio ที่ materialize แล้วและจัดกลุ่มตาม source:
+อ่าน account และ portfolio ที่ materialize แล้ว โดย query ที่ใช้กับ overview จะ join `customer_account` แล้วกรอง `ca.status NOT IN ('closed')` ก่อนจัดกลุ่มตาม source:
+
+- `GetAllPortfolio`, `GetPortfolioOverview` และ `GetTradingPortfolioOverview` ใช้ `GetNotClosedCustomerAccounts`
+- portfolio reads แบบ identification/asset group/account set ใช้ not-closed predicate เดียวกัน
+- wallet/account-list paths ที่ resolve account ผ่าน `GetCustomerAccountsByProduct` จึงไม่เลือก `closed` account ก่อนอ่าน portfolio
 
 | Asset group | Product type | Meaning |
 | :--- | :--- | :--- |
@@ -78,11 +83,11 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 | Account status | Behavior | Owner |
 | :--- | :--- | :--- |
-| `active` | เทรด ฝาก และถอนได้ตามปกติ | `customer-service` |
-| `suspended` | ดูยอดได้; การสร้างหรือยกเลิกคำสั่งต้องใช้ operation-level rule ของ `order-service` | `customer-service` สำหรับ account status; `order-service` สำหรับ order operation |
-| `inactive` | อาจระงับการคำนวณ NAV รายวัน | `customer-service` |
-| `freeze` | สถานะ account ถูก sync ได้ แต่ source ของ portfolio read นี้ยังไม่ยืนยันข้อจำกัดการอ่าน; order operation ให้ใช้ [Order State Machine](/shared-rules/order-state-machine/) | `asset-consumer` สำหรับ raw status sync; `order-service` สำหรับ order operation |
-| `closed` | ต้องมียอดสินทรัพย์เป็น 0 ก่อนปิด | `customer-service` |
+| `active` | อยู่ใน portfolio/account read paths ที่ใช้ not-closed predicate; operation อื่นให้ยึด backend ของ operation นั้น | `customer-service` สำหรับ status; `asset-service` สำหรับ read |
+| `suspended` | อยู่ใน portfolio/account read paths ที่ใช้ not-closed predicate; การสร้างหรือยกเลิกคำสั่งต้องใช้ operation-level rule ของ `order-service` | `customer-service` สำหรับ account status; `asset-service` สำหรับ read; `order-service` สำหรับ order operation |
+| `inactive` | อยู่ใน query ที่ตัดเฉพาะ `closed`; source รอบนี้ไม่ได้ยืนยันกฎคำนวณ NAV ของ status นี้ | `customer-service` สำหรับ status; `asset-service` สำหรับ read |
+| `freeze` | อ่าน portfolio/account ได้ใน query ที่ตัดเฉพาะ `closed`; การแสดงผลไม่ปลดล็อก order operation ที่ backend block ไว้ | `customer-service` สำหรับ status; `asset-service` สำหรับ read; `order-service` สำหรับ order operation |
+| `closed` | ไม่ถูกเลือกใน account/portfolio query ที่ใช้ not-closed predicate; การปิดบัญชีต้องมียอดสินทรัพย์เป็น 0 | `customer-service` สำหรับ lifecycle; `asset-service` สำหรับ read filter |
 
 `asset-service` เป็น owner ของ portfolio aggregation/valuation ส่วน `report-service` เป็น owner ของ monthly statement
 
@@ -90,19 +95,27 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 **Owner service: `customer-service`**
 
-เอกสารต้นทางกำหนดความหมายของ `active`, `suspended`, `inactive`, `closed` แต่ไม่ได้กำหนด transition graph ระหว่างสถานะ ห้ามเพิ่ม transition หรือ automatic recovery โดยไม่มี source เพิ่มเติม
+เอกสารต้นทางกำหนดความหมายของ `active`, `suspended`, `inactive`, `freeze`, `closed` แต่ไม่ได้กำหนด transition graph ระหว่างสถานะ ห้ามเพิ่ม transition หรือ automatic recovery โดยไม่มี source เพิ่มเติม
+
+การเปลี่ยนในรอบนี้เป็น read-selection policy ไม่ใช่ state transition:
+
+| Read query | Selection behavior |
+| :--- | :--- |
+| Portfolio/account queries ที่ใช้ `status NOT IN ('closed')` | status ที่ไม่ใช่ `closed` ถูกนำไปอ่านและ aggregate; `closed` ถูกตัดออก |
+| Monthly statement query `GetAssetPortfolioAllByIdentificationForMonthlyStatement` | source ปัจจุบันยังไม่มี predicate ใหม่ จึงไม่สรุปว่า monthly statement ตัด `closed` ออก |
 
 ## Error and recovery behavior
 
-- **Account status:** บัญชี `suspended` ยังดูยอดได้; ข้อจำกัดการเทรด/ถอนเป็น operation-specific และยืนยันที่ [Order State Machine](/shared-rules/order-state-machine/) ส่วน `freeze` ยังไม่มี source ใน portfolio read path ที่ยืนยัน read restriction
+- **Account status:** บัญชี `suspended` และ `freeze` ยังถูกเลือกใน portfolio read paths ที่ตัดเฉพาะ `closed`; ข้อจำกัดการเทรด/ถอนเป็น operation-specific และยืนยันที่ [Order State Machine](/shared-rules/order-state-machine/)
+- **Read-path boundary:** direct account-ID portfolio reads และ monthly statement ใช้ repository methods ที่ไม่มี not-closed predicate ใน diff นี้ จึงต้องไม่ขยายกฎ `closed` exclusion ไปยังทุก endpoint
 - **`asset-service`:** source ไม่ระบุ fallback เมื่อ NAV/MTM หาย ต้องตรวจ code, master/price data และ runtime path ก่อนกำหนด behavior
 - **`report-service`:** source ไม่ระบุ recovery เมื่อ report generation ล้มเหลว ต้องตรวจ code และ runtime job configuration ก่อนกำหนด behavior
 
 ## Final outcomes
 
-- `asset-service`: Portfolio overview รวมทุก asset group และ valuation เป็น THB
+- `asset-service`: Portfolio overview รวม asset group ของ account ที่ status ไม่ใช่ `closed` และ valuation เป็น THB
 - `report-service`: Monthly statement ใช้ยอดและ NAV ณ สิ้นเดือน
-- `customer-service`: Suspended account ยังดูยอดได้ และ Closed account ต้องยืนยันยอดเป็นศูนย์; order operation ให้ยึด backend rule ของแต่ละ operation
+- `customer-service`: Suspended และ freeze account ยังมีข้อมูลใน read paths ที่ใช้ not-closed predicate; Closed account ถูกตัดจาก query กลุ่มนั้นและต้องยืนยันยอดเป็นศูนย์; order operation ให้ยึด backend rule ของแต่ละ operation
 
 ## Related shared rules and flows
 
@@ -118,4 +131,6 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - `pkg/asset/service.go`
 - `pkg/customer/service.go`
 - `pkg/report/monthly_service.go`
+- `storages/postgres/customerrepository/customer_account_repository.go`: not-closed account selection
+- `storages/postgres/assetrepository/asset_portfolio_repository.go`: account-status predicate ใน portfolio reads
 - Tables: `xpg_asset.asset_portfolio`, `xpg_asset.report_monthly_statement_file`

@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal]
-aliases: [KYC retake, request retake, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, รายการลูกค้า KYC, สถานะลูกค้า KYC, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-08-25
+lastUpdated: 2026-08-28
 documentType: flow
 ---
 
@@ -43,7 +43,17 @@ documentType: flow
 
 ## End-to-end sequence
 
-### 1. Decide whether retake is available
+### 1. Load the KYC customer review list
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+`GET /web/api/v2/customer/list` รับ filter ของ employee เช่น `q`, `status`, `sort`, `order`, `page` และ `limit` แล้ว query เฉพาะ individual identification ที่ `is_deleted = false` โดย base status predicate ปัจจุบันตัด `rejected` และ `onboarding` ออก แทนการจำกัดไว้เฉพาะ `active` และ `suspended` เท่านั้น ดังนั้น `active`, `suspended`, `closed`, `inactive` และ `freeze` ยังอาจอยู่ในรายการได้ หากไม่ถูกตัดด้วย request filter เพิ่มเติม
+
+ขั้นนี้เป็น entry read path ของ KYC approval; การเปิด detail และตัดสินใจ retake ใช้ state/permission rule ในขั้นถัดไป
+
+### 2. Decide whether retake is available
 
 **Owner service: `onboarding-service`**
 
@@ -51,7 +61,7 @@ documentType: flow
 
 Backend คืน `is_show_button_retake` เป็น nullable boolean: `nil` คือซ่อน, `false` คือแสดงแต่ disabled และ `true` คือเปิดให้กด สำหรับ application ใหม่ยังอิง feature flag, channel, `to-review` และ DOPA result; re-KYC ใช้ `re_kyc_type` override ตาม preconditions ข้างต้น
 
-### 2. Employee requests retake
+### 3. Employee requests retake
 
 **Owner service: `onboarding-service`**
 
@@ -72,7 +82,7 @@ Handler ตรวจ claim, bind `current_status` และยืนยันว
 
 `web-portal` v2 ใช้ `POST /api/kyc-approval/{applicationId}/request-retake` แล้วส่ง body `{ current_status }` ไปยัง `/web/api/v2/kyc/{applicationId}/request-retake`; Backend ยังเป็นผู้ตรวจ state และตัดสินผลลัพธ์
 
-### 3. Customer repeats identity verification
+### 4. Customer repeats identity verification
 
 **Owner service: `onboarding-service`**
 
@@ -82,7 +92,7 @@ Handler ตรวจ claim, bind `current_status` และยืนยันว
 
 ถ้า DOPA เป็น error/บัตรหมดอายุตามเงื่อนไข service จะคืน code `6600` และ message `ID Card Expired` โดยไม่เดิน profile-comparison path
 
-### 4. Compare current data with newly verified data
+### 5. Compare current data with newly verified data
 
 **Owner service: `onboarding-service`**
 
@@ -100,7 +110,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 
 ช่องทาง `APPMAN` ใช้ comparison/result builder ของ AppMan แต่เข้าสู่ state decision ชุดเดียวกัน
 
-### 5. Apply matched or changed result
+### 6. Apply matched or changed result
 
 **Owner service: `onboarding-service`**
 
@@ -111,7 +121,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 - เมื่อ profile เปลี่ยน service อัปเดตชื่อใน Keycloak และบันทึก `name_change` ใน application change-request log สำหรับ AdvanceAI
 - Face-recognition image/reference และ ratio ถูก refresh จากผล retake
 
-### 6. Read stored watchlist information for KYC review
+### 7. Read stored watchlist information for KYC review
 
 **Owner service: `onboarding-service`**
 
@@ -119,7 +129,7 @@ Address match ต้องตรงทั้ง province, district, sub-district
 
 เมื่อ KYC approval อ่านข้อมูลจาก stored customer capture, `onboarding-service` เลือก capture ตามสถานะของ application: ใช้ `NewCaptureId` เป็นค่าเริ่มต้น, ใช้ `SubmitCaptureId` เมื่อ application เป็น `rejected`, ใช้ `OldCaptureId` เมื่อเป็น `cancelled-by-system` และ fallback เป็น `OldCaptureId` หากไม่มี capture id อื่น จาก capture ระบบจะสร้าง `watchlist_report` ได้เมื่อมี stored report อย่างน้อยหนึ่งกลุ่มจาก personal, background หรือ vulnerable-investor หากบางกลุ่มไม่มี row ระบบคืนกลุ่มนั้นเป็น object ว่างและ map เฉพาะกลุ่มที่มีข้อมูล จึงไม่ทำให้การอ่าน capture ล้มเหลวเพราะ report ไม่ครบทุกกลุ่ม ขั้นตอนนี้เป็น read/display path และไม่เปลี่ยน application หรือ registration state
 
-### 7. Read suitability and default investment bank account
+### 8. Read suitability and default investment bank account
 
 **Owner service: `onboarding-service`**
 
@@ -138,7 +148,7 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 
 CDD date ที่ส่งใน current/previous KYC information ถูก truncate เป็นวันที่เวลา 00:00 ใน business timezone ก่อน map เป็น `cdd_date`; read model จึงสื่อเฉพาะวัน ไม่ใช่เวลาที่คำนวณ
 
-### 8. Verify forgery and expose KYC decision
+### 9. Verify forgery and expose KYC decision
 
 **Owner service: `onboarding-service`**
 
@@ -156,6 +166,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 
 ## Business rules
 
+- KYC approval customer list base query ตัดเฉพาะ individual identification ที่ `is_deleted = false` และ status `rejected`/`onboarding`; ไม่ควรสรุปว่า list ตัด `closed`, `inactive` หรือ `freeze` หากไม่มี request status filter เพิ่มเติม
 - CDD date ใน KYC approval เป็น date-only ที่ normalize ตาม business timezone
 - Automatic forgery verification ทำงานหลัง DOPA completion แบบ asynchronous เมื่อ feature flag เปิด และเก็บผล `pass`/`reject`/`error` ใน background KYC
 - Manual forgery verification เป็น backend write path ของ `onboarding-service`; manual `pass` เก็บ memo และ reviewer แต่ไม่เขียน `forgery_reason`
@@ -180,6 +191,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | DOPA success; profile/address match | `to-retake` → `to-review` | → `completed-draft/application-completed-draft` |
 | DOPA success; data changed | คงอยู่ใน retake path จนลูกค้าตรวจข้อมูลต่อ | → `personal-information/personal` |
 | DOPA error/expired condition | ไม่มี completion transition ใน path นี้ | ไม่เดิน profile-comparison transition |
+| KYC approval reads customer list | ไม่เปลี่ยน application | คืน customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base query และ request filter |
 | KYC approval reads stored capture | ไม่เปลี่ยน application | คืน `watchlist_report` เท่าที่มี stored report |
 | KYC approval reads suitability/bank account | ไม่เปลี่ยน application | คืน v2/V1 suitability และ default investment bank account ที่ map ได้ |
 
@@ -190,6 +202,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Automatic forgery เป็น asynchronous side path; error ถูก log และไม่เปลี่ยน DOPA response ที่สำเร็จแล้ว ส่วน client จะแสดง `error` และปิด main KYC actions เมื่อ read model ได้ผลดังกล่าว
 - Manual forgery request ที่ claim ไม่ถูกต้องคืน HTTP 401, body ไม่ผ่าน validation คืน HTTP 400 และ service failure คืน HTTP 500
 - `web-portal` แสดง memo เป็น optional และส่ง `null` เมื่อช่องว่าง แต่ backend DTO ติด `validate:required`; การทำงานจริงของ empty memo ต้องยืนยันกับเจ้าของ contract และไม่ถือว่า client behavior override backend validation
+- KYC customer-list query ใช้ base status exclusion ที่กว้างกว่าเดิม; หาก UI ต้องการซ่อน `closed`, `inactive` หรือ `freeze` ต้องส่ง/ยืนยัน request status filter เพิ่มเติม ไม่ควรอนุมานจาก base query
 - Claim ไม่ถูกชนิด: HTTP 401
 - Request body ไม่ถูกต้อง: HTTP 400, code `4001` (`INVALID_REQUEST`)
 - `current_status` ไม่ตรงกับ application ปัจจุบัน: HTTP 200, code `1000` (`INVALID_APPLICATION_STATUS`); client ต้อง refresh state ก่อน retry
@@ -210,6 +223,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Backend แยก `DOPA_SUCCESS` (`200`) ออกจาก `DOPA_DATA_CHANGE` (`2009`)
 - KYC approval response แสดง stored watchlist report แบบ partial ได้โดยไม่ต้องมีครบทุกกลุ่ม
 - KYC approval รองรับการอ่าน detail จาก `OldCaptureId` ของ `cancelled-by-system` และแสดงเฉพาะ default investment bank account ที่ผูก company ได้
+- KYC approval customer list แสดง individual customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base predicate และอาจรวม status อื่นที่ไม่ถูก filter เพิ่มเติม
 
 ## Related shared rules
 
@@ -226,6 +240,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `routes/routes.go`: web-portal KYC retake routes และ permissions
 - `handler/webportal/kyc-handler.go`: v1 request-retake validation/error mapping
 - `handler/webportal/kyc-approver-handler.go`: v2 application-based request-retake
+- `handler/webportal/kyc-customer-handler.go`: KYC customer list endpoint และ employee permission scope
 - `pkg/kyc/helper.go`: `ValidateIsShowButtonRetake`
 - `pkg/kyc/kyc-service.go`: request transaction, flow type และ registration history
 - `pkg/ekyc/laserrepo/laser-repository.go`: ลบ `customer_laser_code` ตาม identification
@@ -237,7 +252,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/customer/kyc_approver/helper.go`: re-KYC expiry timestamp normalization
 - `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
 - `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response
-- `onboarding-service/pkg/customer/kyc_approver/customer-service.go`: capture selection และ default investment-bank account output
+- `onboarding-service/pkg/customer/kyc_approver/customer-service.go`: KYC customer list scope, capture selection และ default investment-bank account output
+- `pkg/customer/customer-repo/customer-repository.go`: KYC customer-list status/deleted predicate
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: suitability V1 fallback และ risk/answer mapping
 - `onboarding-service/handler/webportal/kyc-customer-handler.go`: investment-bank-account endpoint
 - `web-portal/src/app/features/kyc-approval/services/kyc-approval-detail.ts`: request-retake payload

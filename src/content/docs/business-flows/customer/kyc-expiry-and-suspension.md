@@ -3,26 +3,26 @@ title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
-aliases: [KYC expiry, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, cancel orders on suspension, cancel orders on freeze, closed account, CDD expiry, suitability expiry, KYC หมดอายุ, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+aliases: [KYC expiry, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, CDD expiry, suitability expiry, KYC หมดอายุ, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-08-28
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย background Flow ที่ `onboarding-service` ใช้กำหนด `kyc_expiry_date` และ `re_kyc_type` สำหรับลูกค้าที่เข้าเงื่อนไข แล้วเปลี่ยน identification และ account ที่ยัง active เป็น `suspended` พร้อม reason code สร้าง `suspended-by-system` application และยกเลิก application บางประเภทที่ยังทำไม่เสร็จ รวมถึงผลของ KYC rejection ต่อ existing/migrated customer, การ auto-cancel re-KYC, การ sync `CustomerSync` และการยกเลิก order downstream
+อธิบาย background Flow ที่ `onboarding-service` ใช้กำหนด `kyc_expiry_date` และ `re_kyc_type` สำหรับลูกค้าที่เข้าเงื่อนไข แล้วเปลี่ยน account ที่ยัง active เป็น `suspended` พร้อม reason code โดยคง identification เป็น `active` สร้าง `suspended-by-system` application และยกเลิก application บางประเภทที่ยังทำไม่เสร็จ รวมถึงผลของ KYC rejection ต่อ existing/migrated customer, การ auto-cancel re-KYC, การ sync `CustomerSync` และการยกเลิก order downstream
 
-สำหรับ current develop, `Freeze` เป็น customer/account status ที่ source ยืนยันแล้วเฉพาะ KYC rejection ของ existing/migrated customer หรือ `re-kyc` ที่เข้า auto-reject case; KYC expiry background path ยังคงใช้ `suspended` ไม่ใช่ `freeze`
+สำหรับ current develop, `Freeze` เป็น customer/account status ที่ source ยืนยันแล้วเฉพาะ KYC rejection ของ existing/migrated customer หรือ `re-kyc` ที่เข้า auto-reject case; KYC expiry background path คง identification เป็น `active` และเปลี่ยนเฉพาะ active account เป็น `suspended` ไม่ใช่ `freeze`
 
 ## Trigger and preconditions
 
 **Owner service: `onboarding-service`**
 
 - Background job ต้องได้ distributed lock ก่อนเริ่มรอบ
-- Phase คำนวณอ่านลูกค้าที่ identification status เป็น active หรือ suspended
+- Phase suspension อ่านลูกค้าที่ identification status เป็น `active` และมี customer account status `active` อย่างน้อยหนึ่งรายการ
 - Initial calculation ต้องมี customer profile และ account บริษัท XAM หรือ XD
 - CDD candidate ใช้ latest CDD date/risk level
 - Suitability candidate ใช้ evaluation date ของ Traditional สำหรับ XAM และ Digital สำหรับ XD
@@ -37,7 +37,7 @@ documentType: flow
 | `order-consumer` | Executing service ของ `CustomerSync` persistence และ trigger เรียก system cancellation เมื่อ account status ไม่ใช่ `active` |
 | `order-service` | Business owner/executor ของ order status gate และ executor ของ cancellation ที่ `order-consumer` trigger |
 | `asset-consumer` | Executing service ของ downstream customer/account sync และ ledger/portfolio processing ที่เกี่ยวข้อง; status sync จาก `CustomerSync` เป็น raw status storage |
-| `web-portal` | Supporting client ที่ map identification status `freeze` เป็น label `Freeze`; ไม่ override backend status policy |
+| `web-portal` | Supporting client ที่ map identification/account status `freeze` เป็น label และ disable บาง action ใน White Glove; ไม่ override backend status policy |
 
 `order-consumer`, `order-service`, `asset-consumer` และ `web-portal` เป็น downstream/supporting participants; owner ของ customer status transition ยังคงเป็น `onboarding-service`
 
@@ -101,9 +101,10 @@ Phase suspension อ่าน customer KYC candidates, ตรวจ expiry เ�
 
 1. สร้าง `suspended-by-system` application/action flow
 2. update customer accounts ที่มี status `active` เป็น `suspended` พร้อม reason code/description และเขียน `status_date` ของ account ในการ update เดียวกัน
-3. update customer identification เป็น `suspended`
-4. เปลี่ยน application เป็น `to-review`
-5. auto-cancel unfinished application บางประเภทตาม target list
+3. เปลี่ยน application เป็น `to-review`
+4. auto-cancel unfinished application บางประเภทตาม target list
+
+การ update ใน path นี้ไม่เปลี่ยน customer identification เป็น `suspended`; repository guard เลือกเฉพาะ identification ที่ `active` และ update เฉพาะ account ที่ `active`
 
 Reason mapping:
 
@@ -177,7 +178,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | Application | `rejected`, `suspended-by-system`, `to-review`, `completed` และ status อื่นตาม application flow | ไม่มี application status ชื่อ `Freeze` |
 | AMLO result | `FREEZE-04`, `FREEZE-05`, `FREEZE-15` เป็น watchlist/risk code ที่ทำให้ผล AMLO ไม่ผ่าน | ชื่อ `FREEZE-*` ไม่ใช่ customer/account status |
 
-สำหรับ order intake, `order-service` ยืนยันว่า suspended ยังอนุญาต MF sell และ digital-asset withdrawal/swap sell แต่ปฏิเสธ inbound operation และ closed/freeze; รายละเอียดรวมอยู่ที่ [Order State Machine](/shared-rules/order-state-machine/) ส่วน portfolio display, payment execution และผู้รับอีเมลภายในเฉพาะ Freeze ยังต้องยืนยันจาก source ที่อยู่นอก scope
+สำหรับ order intake, `order-service` ยืนยันว่า suspended ยังอนุญาต MF sell และ digital-asset withdrawal/swap sell แต่ปฏิเสธ inbound operation และ closed/freeze; รายละเอียดรวมอยู่ที่ [Order State Machine](/shared-rules/order-state-machine/) ส่วน portfolio read paths ของ `asset-service` ที่ใช้ not-closed predicate ยังอ่าน suspended/freeze ได้ ขณะที่ payment execution และผู้รับอีเมลภายในเฉพาะ Freeze ยังต้องยืนยันจาก source ที่อยู่นอก scope
 
 ### 11. Current cross-service and client impact
 
@@ -188,7 +189,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | `order-service` | อ่าน `suspended`, `closed`, `freeze` และใช้ operation-level gate; inbound MF buy/switch และ digital deposit/ICO/swap-buy ถูก block เมื่อ non-active ส่วน outbound exception ขึ้นกับ operation | `order-service` เป็น executor ของ order validation/cancellation |
 | `order-consumer` | lower-case account status ที่ไม่ใช่ `active` trigger `/api/v1/customer/suspend/cancel-orders` หลัง `CustomerSync` และ log แล้วกลืน error จาก cancellation endpoint | `order-consumer` เป็น event/cancellation trigger executor |
 | `asset-consumer` | upsert status จาก `CustomerSync` เป็น raw value; ไม่พบ business gate เพิ่มเติม | `asset-consumer` เป็น sync executor; asset portfolio effect ต้อง trace จาก ledger event แยก |
-| `web-portal` | `EnumIdentificationStatus.FREEZE` map เป็น label `Freeze` และสี info; `InvestmentAccountStatus` ยังมีเพียง active/suspended/closed | `web-portal` เป็น supporting client/BFF; backend ยังเป็น owner |
+| `web-portal` | `EnumIdentificationStatus.FREEZE` map เป็น label `Freeze`; `InvestmentAccountStatus` รองรับ `Freeze` และ White Glove แยก `isSuspended` จาก `isFreezeAccount`, disable main trading action เมื่อ freeze/knowledge test required และ disable deposit เมื่อ suspended | `web-portal` เป็น supporting client/BFF; backend ยังเป็น owner |
 | `trading-web` | current status enum/UI ที่ตรวจใน repository ยังเน้น active/suspended; ไม่พบการเปลี่ยน Freeze UI ใน commit range นี้ | `trading-web` เป็น supporting client และอาจล้าหลัง backend contract |
 | `FundConnext` | existing-customer rejection ที่มี XAM account มี type `re-kyc-rejected`; KYC expiry `Suspended by System` path ที่ตรวจไม่พบการส่ง Freeze/Suspended callback | `onboarding-service` เรียก integration; downstream FCN behavior ต้องยืนยันกับเจ้าของ integration |
 | Email/notification | rejection/re-KYC path ที่ตรวจพบส่ง customer notification/email และบาง onboarding rejection ส่ง AML email; ไม่พบ Freeze-specific recipients/template สำหรับ AML+CU และ RM/WS/ACM | `onboarding-service` เป็น executor ของ current email path |
@@ -199,10 +200,12 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `order-service` customer lookup ใช้ `LIMIT 1` โดยไม่กำหนด precedence เมื่อมีหลาย account ของ product เดียวกันคนละ status
 - `IsMutualFundNotAllowOrder` ทิ้ง lookup error สำหรับ order type ที่ไม่ใช่ `sell` และ status ว่างถูกประเมินเป็น not allowed สำหรับ buy/switch; เอกสารนี้จึงแยก intended status matrix ออกจาก defect/inconsistency นี้
 - `ProcessFreezeCustomerStatus` มี implementation ใน `onboarding-service` แต่ไม่พบ production caller ใน tree ที่ตรวจ; freeze ที่ยืนยันในรอบนี้มาจาก rejection calculation path
+- `asset-service` ตัด `closed` ออกจาก portfolio/account query หลายกลุ่ม แต่ monthly statement และ direct account-ID read ใช้ method ที่ไม่มี predicate ใหม่ จึงยังไม่ยืนยันว่า `closed` ถูกตัดจากทุก asset endpoint
 
 ## Business rules
 
 - เมื่อ account ที่ยัง active ถูก suspend จาก re-KYC expiry path ระบบบันทึก `status_date` ของ account พร้อมการเปลี่ยน status เป็น `suspended`; path นี้ไม่ใช่ Freeze transition
+- KYC expiry suspension query ต้องพบ identification ที่ `active` และมี active account อย่างน้อยหนึ่งรายการ; การ apply เปลี่ยนเฉพาะ active account เป็น `suspended` และคง identification เป็น `active`
 - KYC expiry ใช้ candidate ที่เร็วที่สุด ไม่ใช่เลือกตามลำดับ ID/CDD/suitability
 - CDD risk level 3 หมดอายุใน 1 ปี; risk level อื่นใน 2 ปี
 - Suitability Traditional/Digital หมดอายุ 2 ปีหลัง evaluation date
@@ -228,7 +231,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | Existing KYC type | `suitability-expired` → `cdd-expired` เมื่อ CDD หมดอายุ; any non-force/non-ID type → `id-card-expired` เมื่อบัตรหมด |
 | Customer account | `active` → `suspended` พร้อม `SUP-001`/`004`/`005`/`006` และ `status_date` ของการเปลี่ยนสถานะ |
 | Existing/migrated or re-KYC rejection | `rejected` application → identification `active` + account `suspended` เมื่อ manual/non-auto หรือ identification `freeze` + account `freeze` เมื่อ auto-reject; ใช้ `SUP-007` |
-| Customer identification | current status → `suspended` ใน expiry path |
+| Customer identification | `active` คงเดิมใน expiry path; ไม่พบ update identification status ใน transaction นี้ |
 | Suspended application | created → `to-review` |
 | Eligible unfinished application | current status → cancellation path ตาม application type |
 | Existing re-KYC application | current status → `cancelled-by-system` เมื่อ auto-cancel condition เป็นจริง |
@@ -252,7 +255,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 ## Final outcomes
 
 - ลูกค้ามี `kyc_expiry_date` และ `re_kyc_type` ที่อิง earliest verified expiry source
-- ลูกค้าที่ถึง expiry suspension rule มี identification เป็น `suspended` และ account ที่เดิม `active` เป็น `suspended` พร้อม reason ที่ตรงกับ expiry type
+- ลูกค้าที่ถึง expiry suspension rule มี identification คงเป็น `active` และ account ที่เดิม `active` เป็น `suspended` พร้อม reason ที่ตรงกับ expiry type
 - ระบบสร้าง suspended-by-system application ใน `to-review`
 - unfinished applications ที่เข้า target ถูกยกเลิกตาม helper ของแต่ละ type
 - re-KYC ที่ถูก auto-cancel จะคืนข้อมูลจาก capture, ปิด capture flow และคำนวณ expiry ใหม่หลัง restore
@@ -276,6 +279,9 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `pkg/customer/re-kyc/service.go`: job orchestration และ expiry calculation
 - `pkg/customer/kyc-expiry/service.go`: CDD/suitability expiry periods
 - `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application และ cancellation processing
+- `internal/storages/postgres/applicationrepository/application_repository.go`: active-identification และ active-account selection สำหรับ expiry suspension
+- `pkg/customer/application/customer-application-repo/customer-application-repository.go`: current re-KYC application lookup และ suspension candidates
+- `pkg/customer/customer-account/customer-account-repo/customer-account-repository.go`: active-account-only update พร้อม reason/status date
 - `pkg/customer/application/reject_application.go`: rejection branching, existing-customer suspension, `SUP-007`, notification และ `CustomerSync`
 - `internal/constants/enum/xpg-customer-status.go`: customer identification status enum
 - `internal/constants/enum/customer_account.go`: customer account status enum
