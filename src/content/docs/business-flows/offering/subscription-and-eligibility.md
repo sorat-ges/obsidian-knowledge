@@ -6,13 +6,13 @@ services: [order-service, order-consumer, web-portal]
 aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, sales report PDF, PDF sales report, ICO order edit, ICO order cancellation, ICO account freeze cancellation, system cancel ICO order, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, ดาวน์โหลดรายงานยอดขาย PDF, จองซื้อ, ตรวจสิทธิ์จองซื้อ, ยกเลิกคำสั่ง ICO เมื่อบัญชีถูกระงับ, บัญชี ICO ถูก freeze]
 errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "204", "400", "401", "404", "500", "60002"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-04
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย Order Offering หรือ ICO Subscription โดยรวมเงื่อนไขก่อนตรวจ, การคำนวณยอด, eligibility จากข้อกำหนดรายผลิตภัณฑ์/โครงการ, payment validation และความหมายของ subscription statuses ที่ source ยืนยัน
+อธิบาย Order Offering หรือ ICO Subscription โดยรวม account-product guard ของ placement, เงื่อนไขก่อนตรวจ, การคำนวณยอด, eligibility จากข้อกำหนดรายผลิตภัณฑ์/โครงการ, payment validation และความหมายของ subscription statuses ที่ source ยืนยัน
 
 Source ยืนยัน business logic และ placement endpoint ใน `order-service`; `web-portal` เป็น supporting source สำหรับ permission, route และ user-visible edit/cancel action เท่านั้น ไม่ override backend validation หรือ state transition
 
@@ -26,6 +26,7 @@ Source ยืนยัน business logic และ placement endpoint ใน `or
 - ต้องมี project-level `maximum_buy` สำหรับประเภทนักลงทุนจาก `dw_product.project_transaction_condition`
 - ยอดรวมทุกรายการต้องมากกว่า `0`
 - Digital Asset account status ต้องเป็น `active` สำหรับการสร้างหรือยืนยัน ICO placement; `suspended`, `closed` และ `freeze` ถูก block ด้วย `60002` (`ErrorCustomerSuspend`)
+- `web-portal` อ่าน customer account information จาก `order-service` ก่อนเปิด placement detail: ICO ต้องเป็น `ProductICO`, ส่วน generic fund placement ต้องเป็น `ProductLBDU`; product mismatch แสดง `Customer Account Not Found` และไม่เปิด form
 
 คำว่า eligibility ใน Flow นี้หมายถึงการผ่านเงื่อนไขยอดซื้อของสินค้าและวงเงินโครงการตามประเภทนักลงทุนเท่าที่ source ยืนยัน ไม่รวม KYC, suitability, accreditation หรือ allocation policy ที่ source ไม่ได้ระบุ
 
@@ -37,9 +38,21 @@ Source ยืนยัน business logic และ placement endpoint ใน `or
 | `order-consumer` | รับ `CustomerSync` และ trigger status-specific cancellation endpoint เมื่อ account ไม่ใช่ `active` |
 | `web-portal` | เปิด edit/cancel action ตาม permission, status, channel และ payment method แล้วส่ง request ไปยัง backend BFF |
 
+Account-product check ของ `web-portal` เป็น supporting client gate; `order-service` ยังคงเป็น owner ของ account/product validation และ order state
+
 ช่องทาง ATS, Bank Transfer, Bill Payment/QR และ CHEQUE ถูกยืนยันว่าเป็น payment methods ที่รองรับ แต่ source ไม่ได้ระบุ service/integration owner หรือ execution sequence ของแต่ละช่องทาง
 
 ## End-to-end sequence
+
+### Account-product guard in placement detail
+
+**Owner service: `order-service` สำหรับ customer information contract**
+
+**Executing client: `web-portal`**
+
+`GET /api/v1/customer/investment-account/{account_code}` คืน customer information พร้อม `product` จาก `order-service`. ก่อน render placement form, web ตรวจ product ให้ตรงกับ flow: `ProductICO` สำหรับ ICO หรือ `ProductLBDU` สำหรับ generic fund placement ถ้าไม่ตรงจะแสดง warning `Customer Account Not Found` และพากลับรายการ placement
+
+นี่เป็น routing/UX guard ของ client ไม่ใช่หลักฐานว่า client เป็นผู้อนุมัติ eligibility; create/submit backend ยังคงตรวจ account status, product และเงื่อนไข order อีกครั้ง
 
 ### 1. Load offering conditions and establish eligibility
 
@@ -194,6 +207,7 @@ Validation errors ถูกส่งกลับเป็น HTTP `400`, missing
 - Payment amount ต้องเท่ากับยอดรวมของออเดอร์
 - Payment methods ที่ source ระบุคือ ATS, Bank Transfer, Bill Payment/QR และ CHEQUE
 - Digital Asset status gate ของ ICO placement อนุญาตเฉพาะ `active`; `60002` ใช้กับ status `suspended`, `closed` และ `freeze`
+- Placement detail ต้องใช้ account product ให้ตรงกับ flow; product mismatch ถูกหยุดที่ web ก่อนเริ่มกรอก order แต่ไม่แทน backend validation
 - Pending ICO order ที่เป็น `order-request` ถูก system-cancel เมื่อ account status ไม่ใช่ `active`
 - สถานะที่เข้าข่าย refund ได้แก่ `rejected`, `prepare-reject`, `refunded`, `prepare-refund` และ `allotted-refunding`
 
@@ -266,6 +280,7 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 `order-service`:
 
 - `pkg/order_offering/service.go`: `ValidateOrderDetail`, `calculateOrderAmount`, `validateSingleOrder`, `validateTotalAmount`
+- `pkg/customer/dto.go` และ `pkg/customer/service.go`: `product` ใน customer investment-account information
 - `order-service/handler/order_offering_placement.go`: web edit/cancel handlers และ HTTP error mapping
 - `order-service/pkg/orderofferingplacement/new_service.go`: edit transaction, metadata validation และ submit transition
 - `order-service/pkg/order_offering/service_cancel.go`: employee/system cancel, payment selection และ cancellation transaction
@@ -273,6 +288,8 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - `order-consumer/pkg/customer-account/service.go`: รับ `CustomerSync` และ trigger `/api/v1/customer/suspend/cancel-orders` เมื่อ account status ไม่ใช่ `active`
 - `onboarding-service/internal/domain/application.go`: คำนวณ `freeze`/`active` identification status และ `freeze`/`suspended` customer-account status จาก rejection case
 - `web-portal/src/app/(order-flow)/ico-order-placement/order-edit-policy.ts`: client edit/cancel policy
+- `web-portal/src/app/(order-flow)/ico-order-placement/[customerAccountId]/container.tsx`: ICO product/status guard
+- `web-portal/src/app/(order-flow)/order-placement/[fcnAccountId]/container.tsx`: generic fund product/status guard
 - `web-portal/src/app/(order-flow)/ico-order-placement/[customerAccountId]/[orderRequestId]/edit/components/ico-order-placement-edit-form.tsx`: permission, save/submit/cancel UI behavior
 - `internal/domain/ico_project.go`
 - `internal/domain/project_ico_extension.go`

@@ -408,7 +408,7 @@ test("Pagefind filters cross-service ownership for fund and asset flows", async 
       })
     ).includes(fiatWithdrawalRoute),
   );
-  for (const service of ["customer-service", "report-service"]) {
+  for (const service of ["customer-service", "asset-service"]) {
     assert.ok(
       (
         await searchUrls(null, {

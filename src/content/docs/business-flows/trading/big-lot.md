@@ -7,7 +7,7 @@ aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_
 integrations: [Remarketer, kafka]
 errorCodes: ["60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-04
 documentType: flow
 ---
 
@@ -28,6 +28,7 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 - Customer ต้องมี investor class ที่ถูกต้อง, คู่สินทรัพย์ต้อง swap ได้, เอกสารที่เกี่ยวข้องต้องไม่หมดอายุ และ product ทั้งสองฝั่งต้อง tradable/on-shelf สำหรับ channel `WEARE_WEB_BIG_LOT`
 - Request ที่มี `volume_size = bulk` ถูกจัดเป็น Big Lot และ Backend ตั้ง channel เป็น `WEARE_WEB_BIG_LOT`
 - Big Lot product list เลือกเฉพาะ Digital Asset ที่อยู่ใน sale channel นี้, ผ่าน investor-class filter และมี trade pair กับ THB
+- White Glove customer picker ใช้ `order-service` query customer/account ที่ตัด identification status `onboarding`, `rejected`, `closed` และตัดเฉพาะ digital-asset account status `closed`; status อื่นอาจอยู่ในรายการก่อน create path ตรวจ side-specific account gate
 
 ## Participating services
 
@@ -41,6 +42,16 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 `order-consumer` เป็น executor ของ async step ไม่ใช่ Business owner
 
 ## End-to-end sequence
+
+### White Glove customer and account selection
+
+**Owner and executing service: `order-service`**
+
+`GET /api/v1/white-glove/customers` ใช้สำหรับเลือก customer/account ก่อนเข้า product หรือ order flow โดย query ปัจจุบันไม่จำกัดผลไว้เฉพาะ `active`/`suspended`: identification ต้องไม่เป็น `onboarding`, `rejected` หรือ `closed` และ digital-asset account ที่ใช้ต่อ flow ต้องไม่เป็น `closed`
+
+การที่ customer ผ่าน picker ไม่ได้แปลว่า BUY/SELL ผ่านเสมอ; product list และ create endpoint ยังตรวจ account status ตาม side โดย `active` รองรับทั้งสอง side, `suspended` รองรับ SELL เท่านั้น และ `closed`/`freeze` ถูก block
+
+ใน `web-portal` หน้า Big Lot อาจ disable การเริ่ม action เมื่อ customer ต้องทำ Digital Knowledge Test (`requireKnowledgeDigital`) หรืออยู่ใน freeze (`isFreezeCustomer`) การ gate นี้เป็น client behavior ที่ช่วยสะท้อน customer overview และไม่แทนการตรวจ account status/permission/eligibility ใน `order-service`
 
 ### 1. Load eligible products
 
@@ -163,6 +174,8 @@ Webhook เป็นจุดยืนยันผล trade จริง; previe
 
 - `volume_size = bulk` เป็นตัวกำหนด Big Lot channel และ bypass rules
 - Big Lot ยังบังคับ investor class, swap pair, product-on-shelf และ document-expiry validation
+- White Glove customer picker เป็น read/selection policy ที่ตัด `onboarding`, `rejected` และ `closed` ตาม query ปัจจุบัน; ห้ามขยายเป็น trading eligibility โดยไม่ผ่าน create-path validation
+- Big Lot client gate ของ `web-portal` ที่ block Digital Knowledge required หรือ freeze เป็น supporting UX rule; backend `order-service` ยังเป็น source of truth สำหรับการสร้าง order
 - Valid bulk path ข้าม minimum check จึงไม่ควรคืน `80005`
 - Valid bulk path ข้าม `checkRoute` จึงไม่ควรคืน `80003` หรือ `80004` จาก pre-create route validation
 - Calculate ใช้ route `dealer` เพื่อเลือก fee และ response ก็คืน `dealer`
@@ -230,6 +243,8 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - `handler/white_glove_handler.go`: product/order-book/calculate/create handlers และ error mapping
 - `handler/order_trade_dto.go`: create payload mapping และ Big Lot display size
 - `pkg/crypto_product/service.go`: product eligibility และ balance response
+- `pkg/customer/service.go`: White Glove customer/account selection และ account detail lookup
+- `storages/postgres/customerrepository/customer_account_repository.go`: not-closed customer/account predicates
 - `pkg/order_trade/orderbook.go`: Remarketer Big Lot order-book transformation
 - `pkg/order_trade/service.go`: `CanSwap` bulk bypass และ `BigLotSwapCalculate`
 - `pkg/order_trade/swap_service.go`: order persistence, quantity rule และ Kafka publication
