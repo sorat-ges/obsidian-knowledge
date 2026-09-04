@@ -5,15 +5,17 @@ capability: Customer
 services: [onboarding-service, order-consumer, asset-consumer, web-portal]
 integrations: [Kafka]
 errorCodes: ["400", "401", "422", "500"]
-aliases: [knowledge test, digital knowledge test, customer knowledge test, knowledge-test, customer knowledge test list, แบบทดสอบความรู้, แบบทดสอบความรู้ด้านสินทรัพย์ดิจิทัล, แบบทดสอบ knowledge test]
+aliases: [knowledge test, digital knowledge test, customer knowledge test, knowledge-test, customer knowledge test list, closed customer knowledge test, pending activity knowledge test, แบบทดสอบความรู้, แบบทดสอบความรู้ด้านสินทรัพย์ดิจิทัล, แบบทดสอบ knowledge test, แบบทดสอบความรู้ลูกค้าบัญชีปิด, แบบทดสอบความรู้รายการค้าง]
 status: active
-lastUpdated: 2026-08-28
+lastUpdated: 2026-08-29
 documentType: flow
 ---
 
 ## Purpose and scope
 
 อธิบาย Digital Knowledge Test ตั้งแต่ back-office ค้น customer และอ่านสถานะ ไปจนถึง employee หรือ customer submit ผล, บันทึก application/knowledge history และ publish event ไปยัง `order-consumer` กับ `asset-consumer` โดย `onboarding-service` เป็น owner ของ business transaction และ application eligibility
+
+สำหรับ `web-portal` การ upload ใช้ `KNT` temporary document ก่อน submit และ client แสดงผลตาม `customer_status`, `request_allowed` และ response envelope; behavior เหล่านี้เป็น supporting user-visible behavior และไม่ override backend eligibility
 
 ไม่สรุปว่า `product-service` consume event สำเร็จ เพราะ current tree ที่ตรวจไม่พบ consumer path ของ topic นี้
 
@@ -65,6 +67,8 @@ Detail path ไม่รับ `onboarding` หรือ `rejected`; status อ�
 
 `GET /api/v1/customer/{identification_id}/knowledge-test/digital` คืน knowledge date/expiry flag; เมื่อไม่พบ knowledge record service คืนค่า date และ expiry เป็น `nil`
 
+`web-portal` BFF คง response envelope (`code`, `message`, `data`) จาก backend; hook map body `code = '400'` เป็น `CUSTOMER_NOT_FOUND` และใช้ `customer_status`/`request_allowed` จาก detail เพื่อเลือกข้อความและ modal ที่ผู้ใช้เห็น
+
 ### 3. Submit the test result
 
 **Owner service: `onboarding-service`**
@@ -72,6 +76,8 @@ Detail path ไม่รับ `onboarding` หรือ `rejected`; status อ�
 **Executing service: `onboarding-service`**
 
 Employee ใช้ `POST /api/v1/customer/{identification_id}/knowledge-test` พร้อมวันสอบและ attachment; customer ใช้ `POST /api/v1/customer/digital-knowledge-test/submit` พร้อม master test version ID
+
+ใน customer upload path, `web-portal` เรียก `POST /api/document/upload-file` ด้วย `document_type = KNT`, `is_temp = true`, `group_name = DEFAULT` และส่งผล upload ไปยัง BFF ก่อน submit payload ของ knowledge test; `onboarding-service` ยังคงเป็นผู้ตรวจ eligibility และบันทึก transaction
 
 หลังผ่าน eligibility service:
 
@@ -111,6 +117,7 @@ Current product/order code มี read path ที่ใช้ knowledge result 
 - การเขียน current knowledge, history และ application state อยู่ใน transaction เดียวก่อน post customer capture หลัง commit
 - Event publish เป็นส่วนหนึ่งของ service transaction callback; หาก publish หรือ downstream consume ล้มเหลว source ไม่ยืนยัน automatic retry หรือ compensating action
 - Downstream consumer เป็น executor ของ read-model upsert ไม่ใช่ owner ของ customer knowledge business rule
+- `web-portal` แสดง warning และหยุด flow เมื่อ detail error, `customer_status = closed` หรือ `request_allowed = false`; เป็น client behavior ที่สะท้อน backend response ไม่ใช่การตัดสิน eligibility ใหม่
 
 ## State transitions
 
@@ -126,7 +133,9 @@ Current product/order code มี read path ที่ใช้ knowledge result 
 
 - Invalid/missing identification path parameter: HTTP `400` หรือ `422` ตาม handler route
 - Invalid portal claim: HTTP `401`
-- Customer status `onboarding` หรือ `rejected` ใน detail: backend response ใช้ HTTP `200` พร้อม code `400` และ message `Customer Not Found`; web-portal BFF/detail hook ตรวจ HTTP status เป็นหลัก จึงอาจไม่เข้า branch ที่ตั้งใจ map `Invalid Customer Status`
+- Customer status ที่ backend ส่ง body `code = '400'`: current `web-portal` hook map เป็น `CUSTOMER_NOT_FOUND` แม้ response envelope จะถูกส่งผ่าน BFF; ไม่ได้พึ่ง HTTP status เพียงอย่างเดียว
+- `customer_status = closed`: web-portal แสดง warning ว่าบัญชีปิดแล้วและพากลับ customer list; `request_allowed = false` แสดง ongoing activity/status แล้วพากลับ list
+- Detail/upload/submit error อื่นนอกจาก customer-not-found: web-portal แสดง warning จาก error message และให้ผู้ใช้ปิด modal เพื่อกลับหน้า knowledge-test
 - Ongoing application block: submit คืน HTTP `400` พร้อม application-not-allowed error
 - Profile/contact/capture/master version/database/DMS failure: submit ไม่สำเร็จ; transaction ที่ยังไม่ commit ไม่ควรถือว่า knowledge ถูกบันทึกแล้ว
 - `order-consumer` และ `asset-consumer` ใช้ transaction ตอน upsert; source ที่ตรวจไม่ยืนยัน retry/dead-letter behavior
@@ -135,6 +144,7 @@ Current product/order code มี read path ที่ใช้ knowledge result 
 ## Final outcomes
 
 - Back-office ได้ customer list/detail พร้อม status และ request eligibility ตาม backend rule
+- web-portal แสดง Customer Status ใน list; closed account และ ongoing activity ถูกแสดงเป็น warning ตาม response ก่อนเริ่ม submit
 - Successful submit ได้ current digital knowledge record, history และ completed `knowledge-test` application
 - `order-consumer` และ `asset-consumer` มี read model หลัง consume event สำเร็จ
 - Downstream operation สามารถอ่าน knowledge result เพื่อตรวจ requirement ตาม flow ที่รองรับ; การผ่าน test ไม่ได้ override status/permission rule ของ operation อื่น
@@ -171,5 +181,8 @@ Current product/order code มี read path ที่ใช้ knowledge result 
 - `src/app/(knowledge-test-flow)/knowledge-test/hooks/useCustomerKnowledgeTestList.ts`: list request/status mapping
 - `src/app/(knowledge-test-flow)/knowledge-test/components/customer-knowledge-test-list-table.tsx`: Customer Status display
 - `src/app/(knowledge-test-flow)/hooks/useDigitalKnowledgeTest.ts`: detail/submit client contract
+- `src/app/(knowledge-test-flow)/components/digital-knowledge-test-upload.tsx`: upload, closed/pending warning และ success outcome
+- `src/app/(knowledge-test-flow)/hooks/useDigitalKnowledgeTest.ts`: detail/submit client contract และ body-code mapping
 - `src/app/api/customer/knowledge-test/route.ts`: list BFF
 - `src/app/api/customer/[userId]/knowledge-test/route.ts`: detail/submit BFF
+- `src/app/api/document/upload-file/route.ts`: temporary KNT upload route ที่ client เรียก

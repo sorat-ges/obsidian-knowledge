@@ -2,12 +2,12 @@
 title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
-services: [onboarding-service, web-portal]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, retake-re-kyc, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, รายการลูกค้า KYC, สถานะลูกค้า KYC, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน]
+services: [onboarding-service, web-portal, xspring-mobile-app]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, รายการลูกค้า KYC, สถานะลูกค้า KYC, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-08-28
+lastUpdated: 2026-08-29
 documentType: flow
 ---
 
@@ -16,6 +16,8 @@ documentType: flow
 อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน รวมถึง read model ที่ KYC approval ใช้ดู capture, suitability, default investment bank account และ forgery verification
 
 `web-portal` เป็น supporting client/BFF: route request-retake v2 ส่ง `current_status` ต่อไปยัง `onboarding-service`, route bank-account proxy ส่ง GET ต่อไปยัง investment-bank-account endpoint และ KYC approval ใช้ client trigger/status mapping สำหรับ forgery โดยไม่มี business-rule override ใน client ใช้ Backend เป็น source of truth สำหรับ state, validation และผลลัพธ์
+
+`xspring-mobile-app` มี supporting re-KYC gate ก่อนเข้า operation บางประเภท: client ใช้ force-state และ operation type เพื่อเลือกว่าจะเปิด action หรือแสดง re-KYC/contact modal แต่ไม่ได้เปลี่ยน backend state หรือ backend validation
 
 ## Trigger and preconditions
 
@@ -34,6 +36,7 @@ documentType: flow
 | :--- | :--- |
 | `onboarding-service` | Business owner และ executor; validate state, เปลี่ยน application/registration, เทียบและอัปเดต KYC data |
 | `web-portal` | Supporting trigger/BFF; ส่ง `current_status` ใน request-retake และ proxy read request ไปยัง Backend โดยไม่เป็น owner ของ state หรือ validation |
+| `xspring-mobile-app` | Supporting client gate; ส่ง operation type ให้ re-KYC block logic และแสดง modal ก่อนเข้า order flow โดยไม่เป็น owner ของ re-KYC state |
 | DOPA | ยืนยันข้อมูลบัตรประชาชน; `onboarding-service` ตีความผลและตัดสิน state ถัดไป |
 | AppMan | แหล่งผล front-card สำหรับช่องทาง `APPMAN` |
 | AdvanceAI | แหล่ง OCR/liveness และภาพสำหรับช่องทาง `ADVANCE_AI` |
@@ -60,6 +63,21 @@ documentType: flow
 **Executing service: `onboarding-service`**
 
 Backend คืน `is_show_button_retake` เป็น nullable boolean: `nil` คือซ่อน, `false` คือแสดงแต่ disabled และ `true` คือเปิดให้กด สำหรับ application ใหม่ยังอิง feature flag, channel, `to-review` และ DOPA result; re-KYC ใช้ `re_kyc_type` override ตาม preconditions ข้างต้น
+
+### Supporting client gate during forced re-KYC
+
+**Owner service: `onboarding-service` สำหรับ re-KYC state**
+
+**Executing service: `xspring-mobile-app` สำหรับ client pre-gate**
+
+เมื่อ mobile อ่าน force re-KYC state (`force-not-started`, `force-in-progress`, `force-review` หรือ `force-retake`) แล้วเรียก `blockIfReKycForced`:
+
+- `OrderType.sell` และ `OrderTabType.sell` ของ Mutual Fund ผ่าน client gate ได้
+- `DigitalPortalOrderType.withdraw` และ `DigitalPortalOrderType.swap` ผ่าน client gate ได้
+- buy, deposit และ switch ยังถูก block และแสดง re-KYC modal ตาม state
+- branch `rejected`, `invalidStatus` หรือ `nameChanged` ยังคง block ทุก operation
+
+นี่เป็น client-side navigation/action gate เท่านั้น; `onboarding-service` และ operation backend ยังคงเป็นผู้ยืนยัน state, permission และ validation สุดท้าย
 
 ### 3. Employee requests retake
 
