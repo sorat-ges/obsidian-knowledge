@@ -2,8 +2,8 @@
 title: Subscription and Eligibility
 description: Flow จองซื้อ Offering หรือ ICO ที่รวม eligibility, validation, status lifecycle และการแก้ไข/ยกเลิกคำสั่งจาก web portal
 capability: Offering
-services: [order-service, order-consumer, web-portal]
-aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, sales report PDF, PDF sales report, ICO order edit, ICO order cancellation, ICO account freeze cancellation, system cancel ICO order, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, ดาวน์โหลดรายงานยอดขาย PDF, จองซื้อ, ตรวจสิทธิ์จองซื้อ, ยกเลิกคำสั่ง ICO เมื่อบัญชีถูกระงับ, บัญชี ICO ถูก freeze]
+services: [order-service, order-consumer, web-portal, xspring-mobile-app]
+aliases: [offering subscription, ICO subscription, order offering, eligibility, allocation, sales report, ICO sales report, sales report PDF, PDF sales report, ICO order edit, ICO order cancellation, ICO account freeze cancellation, mobile subscription account freeze, system cancel ICO order, แก้ไขคำสั่ง ICO, ยกเลิกคำสั่ง ICO, ดาวน์โหลดรายงานยอดขาย ICO, ดาวน์โหลดรายงานยอดขาย PDF, จองซื้อ, ตรวจสิทธิ์จองซื้อ, ยกเลิกคำสั่ง ICO เมื่อบัญชีถูกระงับ, บัญชี ICO ถูก freeze]
 errorCodes: [CodeTradingSwapAmountTooLow, ErrOrderVerifiedFail, "204", "400", "401", "404", "500", "60002"]
 status: active
 lastUpdated: 2026-09-04
@@ -53,6 +53,14 @@ Account-product check ของ `web-portal` เป็น supporting client gate
 `GET /api/v1/customer/investment-account/{account_code}` คืน customer information พร้อม `product` จาก `order-service`. ก่อน render placement form, web ตรวจ product ให้ตรงกับ flow: `ProductICO` สำหรับ ICO หรือ `ProductLBDU` สำหรับ generic fund placement ถ้าไม่ตรงจะแสดง warning `Customer Account Not Found` และพากลับรายการ placement
 
 นี่เป็น routing/UX guard ของ client ไม่ใช่หลักฐานว่า client เป็นผู้อนุมัติ eligibility; create/submit backend ยังคงตรวจ account status, product และเงื่อนไข order อีกครั้ง
+
+### Mobile subscription account-status guard
+
+**Owner service: `order-service` สำหรับ placement validation**
+
+**Executing client: `xspring-mobile-app` สำหรับ subscription CTA gate**
+
+ใน project detail ของ mobile หลังผ่าน re-KYC gate แล้ว `showContactSubscriptionDialog` จะอ่าน Digital Asset customer-account list ถ้าพบ status `suspended` หรือ `freeze` จะเปิด contact bottom sheet และหยุด navigation ไป `subscriptionPlaceOrder`; ถ้าไม่พบจึงเดินต่อผ่าน login/user-status check การตรวจนี้เป็น client-side navigation guard เท่านั้น และไม่แทน backend ที่อนุญาต ICO placement เฉพาะ `active`
 
 ### 1. Load offering conditions and establish eligibility
 
@@ -208,6 +216,7 @@ Validation errors ถูกส่งกลับเป็น HTTP `400`, missing
 - Payment methods ที่ source ระบุคือ ATS, Bank Transfer, Bill Payment/QR และ CHEQUE
 - Digital Asset status gate ของ ICO placement อนุญาตเฉพาะ `active`; `60002` ใช้กับ status `suspended`, `closed` และ `freeze`
 - Placement detail ต้องใช้ account product ให้ตรงกับ flow; product mismatch ถูกหยุดที่ web ก่อนเริ่มกรอก order แต่ไม่แทน backend validation
+- Mobile subscription CTA block เมื่อ Digital Asset account เป็น `suspended` หรือ `freeze` เป็น supporting UX rule; backend ยังคงเป็น source of truth ของ placement validation
 - Pending ICO order ที่เป็น `order-request` ถูก system-cancel เมื่อ account status ไม่ใช่ `active`
 - สถานะที่เข้าข่าย refund ได้แก่ `rejected`, `prepare-reject`, `refunded`, `prepare-refund` และ `allotted-refunding`
 
@@ -305,3 +314,8 @@ Payment `PayToSA` ถูกเปลี่ยนเป็น `cancelled` ใน 
 - `src/app/features/sales-report/services/sales-report-service.ts`: status filter และ download trigger
 - `src/app/api/order-offering/projects/route.ts`: project-list BFF
 - `src/app/api/report/sales-report/[projectId]/route.ts`: sales-report BFF, binary response และ no-data mapping
+
+`xspring-mobile-app` supporting reference:
+
+- `lib/domains/project/project_detail/widgets/project_bottom_section.dart`: subscription CTA status guard
+- `lib/models/account/account_list_model.dart`: Digital Asset suspended/freeze account detection

@@ -2,12 +2,12 @@
 title: Mutual Fund Switching
 description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจ holiday และ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
-services: [order-service, order-consumer]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, customer account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
+services: [order-service, order-consumer, xspring-mobile-app]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
 integrations: [FundConnext]
 errorCodes: ["500", "60002", "60005", "60007"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-04
 documentType: flow
 ---
 
@@ -15,7 +15,7 @@ documentType: flow
 
 อธิบาย Mutual Fund Switching ของ `order-service` ตั้งแต่ค้นหาคู่กองทุน, ตรวจ account status และเงื่อนไขก่อนสร้างคำสั่ง, สร้าง `order-request`, ส่งคำสั่งไป `FundConnext`, การรอ allotment, การยกเลิกโดย customer และ system cancellation เมื่อ account ไม่ใช่ `active`
 
-Backend เป็น source of truth ของ validation, state และการเรียก `FundConnext` ใน Flow นี้ ส่วน client trigger และ payload ของ `xspring-mobile-app` ยังยืนยันไม่ได้ในรอบนี้เพราะ repository มี uncommitted changes จึงไม่เขียน client behavior เป็นข้อเท็จจริง
+Backend เป็น source of truth ของ validation, state และการเรียก `FundConnext` ใน Flow นี้ ส่วน `xspring-mobile-app` เป็น supporting client ที่มี pre-action guard สำหรับ account status และแสดง contact-operation warning; guard นี้ไม่แทน backend validation
 
 ## Trigger and preconditions
 
@@ -28,6 +28,14 @@ Backend เป็น source of truth ของ validation, state และกา
 - customer account ต้องเป็น `active`; `suspended`, `closed` และ `freeze` ถูกปฏิเสธที่ handler ด้วย `ErrorCustomerSuspend` (`60002`) และข้อความ `customer account is suspended`
 - source product ต้องไม่มี `TaxType`; target product ห้ามเป็น `LTF`
 - amount/unit ต้องผ่าน source portfolio, target portfolio และ mark-to-market validation
+
+### Mobile account-status guard
+
+**Owner service: `order-service`**
+
+**Executing client: `xspring-mobile-app` สำหรับ pre-action guard เท่านั้น**
+
+Mobile ตรวจ account status ก่อนเปิด/เตรียม buy, switch และ sell form โดย `freeze` block ทั้งสาม action ส่วน `suspended` block buy และ switch แต่ปล่อย sell ผ่าน client gate แล้วแสดง `PleaseContactOperationWidget` เมื่อถูก block `FundPortalController` ใช้กฎเดียวกันก่อนนำทางจาก mutual-fund portal และแสดง contact bottom sheet ก่อนตรวจ maintenance การ guard นี้เป็น UX/read-state behavior; backend ยังคงบังคับ account status `active` สำหรับการสร้าง switch order
 
 ## Participating services
 
@@ -146,6 +154,7 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - `AllUnit` ใช้จำนวน unit ที่เหลือของ source portfolio และตั้ง `SellAllUnitFlag` เป็น `true` ใน request ไป `FundConnext`
 - Customer cancellation ไม่ได้ใช้ generic buy/sell cancellation predicate; switch มี predicate ของตัวเองที่ต้องเป็น `waiting-allot`, มี transaction และยังไม่พ้น cutoff
 - MF switch เป็น inbound operation: account status `suspended`, `closed` และ `freeze` ไม่อนุญาตให้สร้างคำสั่ง
+- Mobile guard ของ `xspring-mobile-app` สอดคล้องกับ operation direction: freeze block buy/switch/sell และ suspended block buy/switch แต่ไม่ block sell ที่ client; backend เป็นผู้ตัดสินสุดท้าย
 - Account status event ที่ downstream ได้รับทำให้ `order-service` พยายามยกเลิก pending switch order สำหรับทั้ง `suspended`, `closed` และ `freeze` ตาม predicate ของ switch
 
 ### Unresolved cutoff inconsistency
@@ -213,3 +222,9 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 `order-consumer`:
 
 - `order-consumer/pkg/customer-account/service.go`: `CustomerSync` และการเรียก system cancellation trigger
+
+`xspring-mobile-app` supporting reference:
+
+- `lib/utils/data_source.dart`: `verifyCustomerAccountDisAllowOrder`
+- `lib/domains/fund_portal/controller.dart`: selected-account guard ก่อนเปิด buy/sell/switch
+- `lib/view/order/widgets/buy_form_widget.dart`, `lib/view/order/widgets/switch_form_widget.dart`, `lib/domains/fund_order/sell/sell_order_form.dart`: blocked-form rendering

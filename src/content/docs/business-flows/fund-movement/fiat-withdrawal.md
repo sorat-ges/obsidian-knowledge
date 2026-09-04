@@ -4,10 +4,10 @@ description: Flow ถอนเงินบาทตั้งแต่ตรว�
 capability: Fund Movement
 services: [order-service, order-consumer, payment-gateway, asset-service, asset-consumer]
 integrations: [bank]
-aliases: [fiat withdrawal, withdraw fiat, withdraw THB, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze]
+aliases: [fiat withdrawal, withdraw fiat, withdraw THB, suspended account bank account, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze]
 errorCodes: ["60002"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-04
 documentType: flow
 ---
 
@@ -21,6 +21,7 @@ documentType: flow
 
 - ลูกค้าเลือกบัญชีธนาคารและระบุ `inputAmount`
 - Digital Asset account status ต้องอนุญาต operation `withdraw`: `active` และ `suspended` ทำได้ ส่วน `closed` และ `freeze` ถูก block ด้วย `60002` (`ErrorCustomerSuspend`)
+- ใน White Glove Digital Trading, bank-account read สำหรับ product Digital Asset และ account type `REDEMPTION` ใช้ customer-account status `active` หรือ `suspended`; suspended account จึงยังอ่าน/เลือกบัญชีธนาคารสำหรับ withdrawal ได้ การ read eligibility นี้ไม่ขยายสิทธิ์ไปยัง `closed` หรือ `freeze`
 - บัญชีธนาคารต้องเป็นชื่อเดียวกับเจ้าของบัญชีเทรด
 - จำนวนถอนต้องไม่ต่ำกว่าค่าใน `GetWithdrawFiatConfig`
 - Available balance ต้องครอบคลุม `inputAmount`; fee เป็นส่วนที่หักออกจากจำนวนนี้ ไม่ได้นำไปบวกเป็นยอดที่ต้องมีก้อนใหม่
@@ -48,6 +49,12 @@ documentType: flow
 1. ตรวจจำนวนขั้นต่ำ บัญชีธนาคาร และความเป็นเจ้าของบัญชี
 2. อ่าน available balance จาก portfolio
 3. ปฏิเสธคำขอเมื่อยอดไม่ครอบคลุม `inputAmount`; Order Fee และ Bank Fee คำนวณจากและหักภายในจำนวนนี้
+
+### Digital Asset withdrawal bank-account read
+
+**Owner and executing service: `order-service`**
+
+สำหรับ White Glove Digital Trading, `GetBankAccountsForDigitalTrading` อ่าน investment bank accounts ผ่าน customer account โดยกรอง product `DigitalAsset`, bank-account type `REDEMPTION` และ customer-account status เป็น `active` หรือ `suspended` ดังนั้น suspended account ยังมี read path สำหรับบัญชีธนาคารที่จะใช้ถอนเงินได้ ขณะที่ operation status gate และ pending-order cancellation ยังคงใช้กฎแยกตาม operation
 
 ### 2. Calculate withdrawal fees
 
@@ -117,6 +124,7 @@ documentType: flow
 - ถ้าอ่าน fee จากฐานข้อมูลล้มเหลว ให้บล็อกการถอนและคืน error
 - Available balance ต้องเพียงพอก่อนสร้างคำสั่ง
 - Status gate เป็น operation-specific: `suspended` ยังถอนเงินได้ แต่ `closed`/`freeze` ไม่ให้สร้างหรือยืนยัน operation ที่ handler ตรวจ
+- White Glove Digital Trading bank-account read ยอมรับ customer-account status `active`/`suspended` สำหรับ `REDEMPTION` + Digital Asset; เป็น read rule ไม่ใช่การอนุญาต operation อื่น
 - Pending fiat withdrawal ถูก system-cancel เมื่อ account status เป็น `closed` หรือ `freeze`
 
 ## State transitions
@@ -156,6 +164,8 @@ source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBM
 
 - `pkg/order_fiat/service.go`
 - `pkg/customer/suspend_service.go` — เลือกและยกเลิก pending fiat withdrawal เมื่อ `closed` หรือ `freeze`
+- `pkg/customer/service.go`: `GetInvestmentBankAccountsByCustomerAccount` สำหรับ Digital Asset `REDEMPTION` bank-account read
+- `storages/postgres/customerrepository/customer_investment_bank_account_repository.go`: customer-account status predicate `active`/`suspended`
 - `order-consumer/pkg/customer-account/service.go` — trigger `/api/v1/customer/suspend/cancel-orders` จาก `CustomerSync`
 - `GetWithdrawFeeForBankAndTransferAmount`
 - `GetTransactionFeeWithCondition`

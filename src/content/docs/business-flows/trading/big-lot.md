@@ -2,8 +2,8 @@
 title: Big Lot
 description: Flow ซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove ตั้งแต่เลือก order book, คำนวณ fee, สร้าง order, hold balance, ส่ง Remarketer และ settle ledger
 capability: Trading
-services: [order-service, order-consumer]
-aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_LOT, big lot account freeze, suspended big lot sell, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, Big Lot เมื่อระงับบัญชี]
+services: [order-service, order-consumer, web-portal]
+aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, Big Lot เมื่อระงับบัญชี]
 integrations: [Remarketer, kafka]
 errorCodes: ["60002", "80002", "80006"]
 status: active
@@ -43,15 +43,19 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 
 ## End-to-end sequence
 
-### White Glove customer and account selection
+### White Glove customer and account context
 
 **Owner and executing service: `order-service`**
 
-`GET /api/v1/white-glove/customers` ใช้สำหรับเลือก customer/account ก่อนเข้า product หรือ order flow โดย query ปัจจุบันไม่จำกัดผลไว้เฉพาะ `active`/`suspended`: identification ต้องไม่เป็น `onboarding`, `rejected` หรือ `closed` และ digital-asset account ที่ใช้ต่อ flow ต้องไม่เป็น `closed`
+`GET /api/v1/white-glove/customers` ใช้สำหรับเลือก customer ก่อนเข้า product หรือ order flow โดย query ปัจจุบันตัด identification ที่เป็น `onboarding`, `rejected` หรือ `closed` และต้องมี Digital Asset account ที่ status ไม่ใช่ `closed`
+
+หลังเลือก customer แล้ว `GET /api/v1/white-glove/{identification_id}/customer/accounts` เป็นคนละ read path สำหรับ trading context: `order-service` อ่าน Digital Asset accounts โดยไม่มี status predicate, เลือก dealer-tier account ที่ผูกกับ IC license เมื่อเข้าเงื่อนไข หรือเลือก account แรกเมื่อเป็น retail/operator path แล้วคืน `account_id`, `account_no`, `product`, `name`, `status` และ `require_knowledge_digital` การไม่มี status predicate หมายความว่า response นี้อาจสะท้อนสถานะที่ create path จะ block ได้ จึงไม่ใช่ trading eligibility decision
+
+`require_knowledge_digital` จะเป็น `true` เมื่อ identification status เป็น `active` และ digital knowledge test ยังไม่ถูกยอมรับ ส่วน `web-portal` ใช้ `status` และ flag นี้คำนวณ action gate ต่อ
 
 การที่ customer ผ่าน picker ไม่ได้แปลว่า BUY/SELL ผ่านเสมอ; product list และ create endpoint ยังตรวจ account status ตาม side โดย `active` รองรับทั้งสอง side, `suspended` รองรับ SELL เท่านั้น และ `closed`/`freeze` ถูก block
 
-ใน `web-portal` หน้า Big Lot อาจ disable การเริ่ม action เมื่อ customer ต้องทำ Digital Knowledge Test (`requireKnowledgeDigital`) หรืออยู่ใน freeze (`isFreezeCustomer`) การ gate นี้เป็น client behavior ที่ช่วยสะท้อน customer overview และไม่แทนการตรวจ account status/permission/eligibility ใน `order-service`
+ใน `web-portal` hook กลางคำนวณ action gate ดังนี้: `deposit` และ `swapBuy` block เมื่อ suspended หรือเมื่อ knowledge/freeze gate ทำงาน; `withdraw`, `swapSell`, `bigLot` และ `transfer` block เมื่อ knowledge/freeze gate ทำงาน สำหรับหน้า Big Lot จึง block จาก `requireKnowledgeDigital` หรือ freeze เท่านั้น และ suspended อย่างเดียวอาจยังผ่าน client gate ก่อนให้ backend ตรวจ side-specific rule อีกครั้ง การ gate ทั้งหมดเป็น client behavior และไม่แทนการตรวจ account status/permission/eligibility ใน `order-service`
 
 ### 1. Load eligible products
 
@@ -174,7 +178,7 @@ Webhook เป็นจุดยืนยันผล trade จริง; previe
 
 - `volume_size = bulk` เป็นตัวกำหนด Big Lot channel และ bypass rules
 - Big Lot ยังบังคับ investor class, swap pair, product-on-shelf และ document-expiry validation
-- White Glove customer picker เป็น read/selection policy ที่ตัด `onboarding`, `rejected` และ `closed` ตาม query ปัจจุบัน; ห้ามขยายเป็น trading eligibility โดยไม่ผ่าน create-path validation
+- White Glove customer picker เป็น read/selection policy ที่ตัด identification `onboarding`, `rejected`, `closed` และ Digital Asset account `closed`; trading-detail account endpoint เป็น all-status read ที่คืน status/knowledge context และห้ามขยายเป็น trading eligibility โดยไม่ผ่าน create-path validation
 - Big Lot client gate ของ `web-portal` ที่ block Digital Knowledge required หรือ freeze เป็น supporting UX rule; backend `order-service` ยังเป็น source of truth สำหรับการสร้าง order
 - Valid bulk path ข้าม minimum check จึงไม่ควรคืน `80005`
 - Valid bulk path ข้าม `checkRoute` จึงไม่ควรคืน `80003` หรือ `80004` จาก pre-create route validation
@@ -241,9 +245,11 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 
 - `routes/route.go`: White Glove routes และ API-key permissions
 - `handler/white_glove_handler.go`: product/order-book/calculate/create handlers และ error mapping
+- `handler/white_glove_dto.go`: `WhiteGloveTradingCustomerAccountResponse`
 - `handler/order_trade_dto.go`: create payload mapping และ Big Lot display size
 - `pkg/crypto_product/service.go`: product eligibility และ balance response
 - `pkg/customer/service.go`: White Glove customer/account selection และ account detail lookup
+- `pkg/white_glove/service.go`: trading customer-account selection และ `require_knowledge_digital` calculation
 - `storages/postgres/customerrepository/customer_account_repository.go`: not-closed customer/account predicates
 - `pkg/order_trade/orderbook.go`: Remarketer Big Lot order-book transformation
 - `pkg/order_trade/service.go`: `CanSwap` bulk bypass และ `BigLotSwapCalculate`
@@ -258,6 +264,9 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 
 `web-portal` supporting reference:
 
+- `src/app/api/white-glove/[identificationId]/customer/accounts/route.ts`: BFF สำหรับ trading customer-account context
+- `src/app/features/white-glove/hooks/useOrderCustomerAccount.ts`: status/knowledge/freeze action mapping
+- `src/app/(digital-asset-order-flow)/white-glove/[customerId]/big-lot/container.tsx`: Big Lot client gate
 - `src/app/features/white-glove/hooks/big-lot/use-big-lot-form.ts`
 - `src/app/features/white-glove/services/big-lot/orderbook/big-lot.ts`
 - `src/app/features/white-glove/components/big-lot/preview-biglot-order-modal.tsx`

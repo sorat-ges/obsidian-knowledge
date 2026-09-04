@@ -89,7 +89,7 @@ Backend คืน `is_show_button_retake` เป็น nullable boolean: `nil` �
 
 Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแสดง active masked accounts และเรียก `POST /api/v1/customer/accept-bank-grace-period` พร้อม `flow_type` เมื่อผู้ใช้ยอมรับ grace period; Backend บันทึก acceptance ใน change-request log แล้วสร้าง bank-account history/next status การแสดง bank account ใน review ใช้ `has_accepted_bank_account_grace_period` จาก Backend
 
-`web-portal` แสดง `bank_expiry_date` ใน customer detail เมื่อมีค่า แต่ source ที่ตรวจยังไม่ยืนยัน calculation 90 วันหรือ executor สำหรับลบบัญชีเมื่อ expiry จึงไม่ถือเป็น state transition ของ re-KYC
+`web-portal` แสดง `bank_expiry_date` ใน customer detail เมื่อมีค่า และ KYC approval bank-account column จะแสดง `WarningToast` เมื่อพบธนาคารที่มี expiry date แต่ source ที่ตรวจยังไม่ยืนยัน calculation 90 วันหรือ executor สำหรับลบบัญชีเมื่อ expiry จึงไม่ถือเป็น state transition ของ re-KYC
 
 ### 3. Employee requests retake
 
@@ -212,6 +212,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Investment bank account read model แสดงเฉพาะ default account และแบ่งผลตาม XAM/XD company; business owner และ executor ยังคงเป็น `onboarding-service`
 - Default bank account ไม่ทำให้ re-KYC ข้าม bank step เมื่อ `name_changed = true`; ต้องผ่าน grace-period acceptance ก่อน registration เดินต่อ
 - `has_accepted_bank_account_grace_period` ใช้ควบคุมการแสดง bank accounts ใน review response; mobile/web เป็น supporting clients ไม่ใช่ owner ของ state
+- KYC approval ใช้ expiry date ใน bank-account read model เพื่อแสดง warning ต่อเจ้าหน้าที่; เป็น supporting UI/read behavior ไม่ใช่หลักฐานของ expiry calculation หรือการลบบัญชี
 
 ## State transitions
 
@@ -301,6 +302,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 
 `web-portal`:
 
+- `src/app/features/kyc-approval/components/bank-account-section/bank-account-column.tsx`: map expiry date และแสดง `WarningToast`
 - `src/app/api/kyc-approval/forgery/route.ts`: manual forgery BFF
 - `src/app/features/kyc-approval/services/forgery-verification.ts`: manual forgery client request
 - `src/app/features/customer-new/components/forgery-verification/index.tsx`: customer detail forgery reason display

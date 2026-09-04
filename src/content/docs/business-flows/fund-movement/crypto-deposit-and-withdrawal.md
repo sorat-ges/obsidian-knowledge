@@ -18,7 +18,7 @@ documentType: flow
 - Deposit แบบ auto-complete กับแบบบังคับให้ยืนยัน sender information ผ่าน `FEATURE_TOGGLE_DEPOSIT_CRYPTO_SENDER_REVIEW`
 - Withdrawal จาก XSpring App/Trading Web ที่ส่งต่อไป Fireblocks หลังสร้าง order กับ White Glove ที่ hold ยอดและรอ customer ยืนยันทางอีเมลก่อน
 
-สำหรับ White Glove deposit, `web-portal` ใช้ `disableTradingAction.deposit` จาก customer overview เพื่อ disable ปุ่ม Accept เมื่อ customer ถูกระงับ, ต้องทำ Digital Knowledge Test หรืออยู่ใน freeze; นี่เป็น client gate ที่สะท้อน Backend state ไม่ใช่การยืนยันว่า web เป็นผู้ตรวจ sender information หรือเปลี่ยน order/ledger state
+สำหรับ White Glove deposit, `web-portal` ใช้ `disableTradingAction.deposit` จาก trading customer-account context เพื่อ disable ปุ่ม Accept เมื่อ customer ถูกระงับ, ต้องทำ Digital Knowledge Test หรืออยู่ใน freeze; นี่เป็น client gate ที่สะท้อน Backend state ไม่ใช่การยืนยันว่า web เป็นผู้ตรวจ sender information หรือเปลี่ยน order/ledger state
 
 ## Trigger and preconditions
 
@@ -208,6 +208,6 @@ order-processing → rejected                     (non-retryable failure + refun
 - `asset-consumer/pkg/customer-logical-entry/service.go` — apply logical-ledger event เข้า portfolio
 - `xspring-mobile-app/lib/domains/digital_portal/order_history/order_detail/controller.dart` — mobile sender confirmation และ `409` recovery
 - `web-portal/src/app/features/white-glove/components/deposit/crypto/order-detail/index.tsx` — White Glove sender-confirmation UI
-- `web-portal/src/app/features/white-glove/hooks/useOverviewInfo.ts` — deposit/withdraw/swap action-disable mapping จาก customer overview
+- `web-portal/src/app/features/white-glove/hooks/useOrderCustomerAccount.ts` — deposit/withdraw/swap action-disable mapping จาก trading customer-account context
 - `web-portal/src/app/features/white-glove/services/withdraw-crypto.ts` — White Glove withdrawal create/email/cancel client
 - Tables: `order_deposit_crypto`, `order_withdraw_crypto`, `order_action_flow`, `ledger_transactions`, `product_digital_asset_extension`

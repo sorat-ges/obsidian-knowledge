@@ -2,12 +2,12 @@
 title: Swap Market Order
 description: Flow การซื้อขาย Swap แบบ Market ตั้งแต่ขอราคา เลือก route สร้างคำสั่ง ส่ง Remarketer จน ledger และ portfolio สะท้อนผล
 capability: Trading
-services: [order-service, order-consumer, asset-service, asset-consumer]
+services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, digital asset account freeze, suspended swap sell, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, Swap เมื่อระงับบัญชี]
+aliases: [swap, market order, market swap, instant swap, best route, digital asset account freeze, suspended swap sell, suspended swap buy warning, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, Swap เมื่อระงับบัญชี]
 errorCodes: ["60002", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-04
 documentType: flow
 ---
 
@@ -27,6 +27,14 @@ Market inquiry เป็น quote สำหรับใช้สร้างค�
 - จำนวน BUY ขั้นต่ำมาจาก digital asset transaction config; จำนวน SELL ขั้นต่ำแปลงจาก config ด้วย market price และปัดตาม decimal digit
 - ก่อนสร้างคำสั่ง backend ตรวจ investor class, คู่สินทรัพย์, product/on-shelf, เอกสารอ้างอิงที่เกี่ยวข้อง, available balance และ route ที่เลือกอีกครั้ง
 - Flow นี้ต้องมี route สำหรับ Market; Limit Order ใช้กฎต่างออกไปที่ [Swap Limit Order](/business-flows/trading/swap-limit-order/)
+
+### Mobile suspended-account warning
+
+**Owner service: `order-service`**
+
+**Executing client: `xspring-mobile-app` สำหรับ warning และ pre-action feedback เท่านั้น**
+
+Mobile อ่าน Digital Asset account status ระหว่างเตรียม Swap และแสดง `AccountSuspended` dialog เมื่อ account เป็น `suspended` และ side เป็น BUY รวมถึงเมื่อผู้ใช้เปลี่ยนกลับไป BUY; input ยังแสดงข้อความ `Buy order unavailable.` สำหรับ suspended BUY การแจ้งเตือนนี้เป็น client behavior ส่วน backend ยังคงเป็นผู้ตัดสินว่า suspended SELL ผ่านได้ และ suspended BUY/closed/freeze ถูก block
 
 ## Participating services
 
@@ -139,6 +147,7 @@ Backend re-query Remarketer แล้วตรวจว่า route ชื่อ
 - Available balance ถูกตรวจทั้งก่อนสร้าง order และก่อน hold โดย `order-consumer`
 - Market order ไม่มี customer-cancel path; cancel predicate ฝั่ง backendอนุญาตเฉพาะ `order_type=limit`
 - Account status gate เป็น backend rule: `suspended` ยังสร้าง Market SELL ได้ แต่สร้าง BUY ไม่ได้; `closed`/`freeze` ถูก block ด้วย HTTP `400`, `60002` (`ErrorCustomerSuspend`)
+- Mobile suspended-BUY dialog และ `Buy order unavailable.` เป็น supporting warning ไม่ใช่ execution result หรือ backend authorization
 - Fee inquiry และ fee จาก execution ใช้คนละจังหวะ ยอดสุดท้ายต้องยึด execution transaction ดู [Trading Fees and Campaigns](/shared-rules/trading-fees-and-campaigns/)
 
 ## State transitions
@@ -209,3 +218,9 @@ Trading Web map code ที่รู้จักไป error modal และ ref
 - `web-portal/src/app/features/white-glove/components/swap/swap-preview-modal/index.tsx`
 - `web-portal/src/app/api/white-glove/[identificationId]/order-trade/inquiry/route.ts`
 - `web-portal/src/app/api/white-glove/[identificationId]/order-trade/swap/route.ts`
+
+`xspring-mobile-app` supporting reference:
+
+- `lib/domains/digital_portal/swap/controller.dart`: suspended-account warning on initial BUY and side change
+- `lib/domains/digital_portal/swap/widgets/swap_from_to_input.dart`: `Buy order unavailable.` warning
+- `lib/domains/digital_portal/swap/widgets/swap_error_dialog.dart`: account-suspended dialog
