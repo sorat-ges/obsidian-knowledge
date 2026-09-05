@@ -1,12 +1,12 @@
 ---
 title: Onboarding Status and Suitability
-description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รองรับข้อมูล V1/V2 และยืนยันผลเพื่อเดิน registration ต่อ
+description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, เริ่ม onboarding, change-request log, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, เริ่ม onboarding, change-request log, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-04
+lastUpdated: 2026-09-05
 documentType: flow
 ---
 
@@ -103,6 +103,8 @@ Onboarding/re-KYC status ใช้กฎ bank step เดียวกัน: `ba
 
 เส้นทาง background update นี้ไม่เรียก `CheckAndSaveCustomerWatchlist` ซ้ำอีกต่อไป จึงไม่ทำ legacy parallel save ควบคู่กับ `UpsertWatchlistReport`; endpoint `save-watchlist` ของ KYC และ offline onboarding ที่ยังเรียก legacy service เป็นคนละ trigger
 
+การบันทึก `background` จะอ่าน `customer_background.vulnerable_detail` เดิมก่อน แล้ว merge กับข้อมูลจาก request: `YearsOld60` คำนวณใหม่จากวันเกิดเมื่อมีค่า, `Disability` ใช้ `IsInvestmentDecision` ของ request และ `NoInvestmentKnowledge` ที่มีอยู่เดิมจะไม่ถูกล้างเพียงเพราะบันทึก background ซ้ำ จากนั้นระบบ marshal detail ที่รวมแล้วและคำนวณ `VulnerableFlag` จาก detail ชุดเดียวกัน
+
 ### 4. Submit suitability answers
 
 **Owner service: `onboarding-service`**
@@ -137,12 +139,13 @@ Response คืน ID ของ suitability record, description จาก risk-l
 `PATCH /api/v2/suitability/confirm` เลือก application type `new` สำหรับ flow ทั่วไป หรือ `re-kyc` เมื่อ `flow_type = re-kyc`, โหลด account-opening intent และ current CDD score จากนั้น:
 
 1. อ่าน suitability answer ของบัญชีที่เปิด
-2. อัปเดต `NoInvestmentKnowledge` และ `VulnerableFlag` ใน customer background
-3. refresh watchlist report; failure ถูก log แต่ไม่หยุด Flow
+2. คำนวณและบันทึก `NoInvestmentKnowledge` จากคำตอบ suitability แล้วคง field vulnerable detail อื่นที่อ่านได้จาก customer background
+3. คำนวณ `VulnerableFlag` ใหม่จาก `YearsOld60`, `NoInvestmentKnowledge` และ `Disability`
+4. refresh watchlist report; failure ถูก log แต่ไม่หยุด Flow
    - สำหรับ flow ที่ไม่ใช่ retake ระบบใช้ stored DOPA result เป็น filter เฉพาะเมื่อ `DopaFlag = "Passed"`; ค่า `Error`, `nil` หรือ status อื่นจะไม่ถูก filter และจะปล่อยให้ watchlist calculation ใช้ allowed types ของ registration status
    - เมื่อ `flowType.IsRetake()` เป็นจริง ระบบไม่ใช้ stored watchlist flags เป็น filter ใน path นี้
-4. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
-5. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
+5. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
+6. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
 
 ### 7. Read suitability for KYC approval
 
@@ -169,6 +172,9 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Default bank account ที่ไม่มีชื่อเปลี่ยนทำให้ status response ไม่แสดง bank-account step; ถ้าชื่อบัญชีเปลี่ยน (`name_changed`) bank-account step ยัง required แม้มี default account
 - Bank grace-period acceptance เป็น transaction ของ `onboarding-service` ที่บันทึก acceptance และสร้าง bank-account history ก่อนเดิน registration ต่อ; mobile เป็นเพียง client trigger
 - `GET /api/v1/customer/bank-accounts` คืน active masked bank accounts สำหรับ bank step; `POST /api/v1/customer/accept-bank-grace-period` รับ `flow_type` เพื่อยืนยันการรับทราบ
+- `VulnerableDetail` เป็น composite ของ `YearsOld60`, `NoInvestmentKnowledge` และ `Disability`; `VulnerableFlag` เป็น `true` เมื่อ field ที่มีค่าใด ๆ เป็น `true`, เป็น `false` เมื่อ field ที่มีค่าเป็น `false` ทั้งหมด และเป็น `nil` เฉพาะเมื่อทั้งสาม field ไม่มีค่า
+- Background update merge `VulnerableDetail` เดิมก่อนเขียน โดย refresh เฉพาะ age/disability จาก request และคง `NoInvestmentKnowledge` ที่มีอยู่เดิมไว้
+- Suitability confirm เขียน `NoInvestmentKnowledge` แล้วใช้ composite detail เดิมคำนวณ `VulnerableFlag` ใหม่; partial JSON ที่ขาดบาง field ไม่ทำให้การคำนวณ dereference nil
 - `bank_expiry_date` ที่ web แสดงเป็น read-model/warning contract; source รอบนี้ยังไม่ยืนยัน 90-day calculation หรือ bank-removal executor
 - Customer signup ใหม่ต้องสร้าง change-request log พร้อม `has_default_bank_account = false` ก่อน transaction สร้าง customer จะ commit
 - Multiple-answer suitability ใช้ helper เลือกคะแนนสูงสุดแบบ unique ก่อนรวมคะแนน
@@ -211,6 +217,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Bank account list, application lookup หรือ grace-period acceptance ล้มเหลว: ไม่ควรถือว่า bank step ผ่าน; source ไม่ยืนยัน retry หรือ rollback ของ external client state
 - Backend expiry read คืนค่าได้ แต่ source ที่ตรวจยังไม่พบ executor ลบบัญชีตาม expiry และไม่ยืนยันว่าข้อความ 90 วันของ client เป็น calculation rule
 - Background personal-information update ตอบสำเร็จหลัง primary write; ถ้า asynchronous `UpsertWatchlistReport` ล้มเหลวระบบ log error ภายหลัง และ source ยังไม่ยืนยัน retry policy หรือการ rollback primary write
+- `handleBackgroundStep` ไม่ propagate error จากการอ่าน existing background หรือการ unmarshal `VulnerableDetail`; ถ้าอ่าน/parse เดิมล้มเหลว source ปัจจุบันยังเดินต่อด้วย detail ที่อ่านได้และพยายาม upsert จึงไม่ควรสรุปว่า field เดิมจะถูก preserve ในกรณี dependency/JSON error
 - watchlist refresh error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
 - KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
@@ -220,6 +227,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Suitability score/risk level ถูกบันทึกในตาราง Traditional หรือ Digital ตาม account-opening intent
 - หลัง confirm, customer background vulnerability ถูกอัปเดตและ registration เดินพ้น suitability step
 - หลัง update background, ระบบจะพยายาม persist `watchlist_report` ของ personal/background-risk/vulnerable-investor แบบ asynchronous; HTTP 200 ของ primary update ไม่ได้ยืนยันว่า report refresh เสร็จแล้ว
+- หลัง update background หรือ confirm suitability, `customer_background.VulnerableFlag` สะท้อน composite vulnerable detail ที่ current backend คำนวณได้
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
 - ลูกค้าที่มี default bank account แต่ชื่อบัญชีเปลี่ยนต้องผ่าน bank-account/grace-period step ก่อน registration จะเดินต่อ; ลูกค้าที่ไม่มี name change ยังข้าม step ได้เมื่อมี default account
 - KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ที่มี version id ได้
@@ -245,6 +253,10 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `pkg/kyc/watchlist.go`: stored DOPA flag filtering และ watchlist refresh orchestration
 - `pkg/kyc/helper.go`: `filterPassedWatchlistTypes`
 - `pkg/kyc/kyc-service.go`: legacy watchlist save และ pre-create ของ customer/spouse background risk
+- `internal/models/customer-background-db-model.go`: unmarshal และ composite calculation ของ `VulnerableDetail`
+- `utils/age.go`: การคำนวณ `YearsOld60` จากอายุปัจจุบัน
+- `pkg/customer/customer-process/customer-process-service.go`: merge vulnerable detail ระหว่าง background update
+- `pkg/suitability/suitability-service.go`: update `NoInvestmentKnowledge` และ `VulnerableFlag` ตอน confirm suitability
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
 - `onboarding-service/pkg/customer/customer-suitability/service.go`: v1 fallback, latest evaluation selection และ question/answer mapping
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: company-specific suitability read model และ risk fallback

@@ -7,7 +7,7 @@ aliases: [mutual fund sell cancellation, cancel MF sell order, cancel sell order
 integrations: [FundConnext]
 errorCodes: ["404", "500", "60002", "60004"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-05
 documentType: flow
 ---
 
@@ -15,7 +15,7 @@ documentType: flow
 
 อธิบาย customer cancellation ของคำสั่งขาย Mutual Fund ผ่าน `order-service` รวม cancel predicate, การเรียก `FundConnext.CancelOrder`, การเปลี่ยน state, การยกเลิก payment records และ system cancellation เมื่อ account เป็น `closed` หรือ `freeze`
 
-หน้านี้ไม่ครอบคลุม ICO, digital-asset order หรือ switch order ซึ่งมี cancellation predicate แยกกัน และไม่สรุป frontend behavior เพราะ `xspring-mobile-app` มี uncommitted changes ในรอบที่ตรวจ
+หน้านี้ไม่ครอบคลุม ICO, digital-asset order หรือ switch order ซึ่งมี cancellation predicate แยกกัน และไม่สรุป frontend behavior ของ cancellation endpoint เพราะ `order-service` เป็น owner ของ cancellation policy; mobile change ล่าสุดที่เกี่ยวข้องกับ sell เป็นการ refresh holiday calendar ของ sell form ไม่ใช่ cancellation contract
 
 ## Trigger and preconditions
 

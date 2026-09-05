@@ -3,11 +3,11 @@ title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
-aliases: [KYC expiry, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, CDD expiry, suitability expiry, KYC หมดอายุ, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+aliases: [KYC expiry, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, CDD expiry, suitability expiry, KYC rejection email, rejection email BCC, อีเมล reject KYC, KYC หมดอายุ, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002"]
 status: active
-lastUpdated: 2026-08-28
+lastUpdated: 2026-09-05
 documentType: flow
 ---
 
@@ -149,6 +149,8 @@ Reason mapping:
 
 Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `AutoRejectByLED`, `AutoRejectByAMLOAndLED`, `AutoRejectByDisability`, `AutoRejectByMuleAccount`, `XDCustomerAccountReason`, `XAMCustomerMigratedHasSuspendedAccount` และ `IdentityVerificationAppmanUnderMinAge`; however under-min-age มี early return ใน post-rejection path จึงไม่ควรสรุปว่าจะ publish `CustomerSync` จาก path นี้
 
+ใน rejection email path ของ `onboarding-service`, customer email เป็น `To` ตาม application channel และ recipient ภายใน/ผู้เกี่ยวข้องที่ resolve ได้จะอยู่ใน `Bcc`: สำหรับ web ที่ใช้ customer email จริง ระบบใส่ prospect employee email เป็น BCC เพิ่ม; สำหรับ migrated customer ที่มี Digital Asset account รายชื่อ RM จาก IC license, `EMAIL_XD_CC` และ `EMAIL_ACM` ถูก deduplicate แล้วส่งเป็น BCC เช่นกัน ส่วน dummy existing-customer email ของ web จะส่งไป `prospect.EmpEmail` เป็น `To` ตาม current implementation
+
 ### 9. Propagate status to downstream services
 
 **Owner service: `onboarding-service`**
@@ -192,7 +194,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | `web-portal` | `EnumIdentificationStatus.FREEZE` map เป็น label `Freeze`; `InvestmentAccountStatus` รองรับ `Freeze` และ White Glove แยก `isSuspended` จาก `isFreezeAccount`, disable main trading action เมื่อ freeze/knowledge test required และ disable deposit เมื่อ suspended | `web-portal` เป็น supporting client/BFF; backend ยังเป็น owner |
 | `trading-web` | current status enum/UI ที่ตรวจใน repository ยังเน้น active/suspended; ไม่พบการเปลี่ยน Freeze UI ใน commit range นี้ | `trading-web` เป็น supporting client และอาจล้าหลัง backend contract |
 | `FundConnext` | existing-customer rejection ที่มี XAM account มี type `re-kyc-rejected`; KYC expiry `Suspended by System` path ที่ตรวจไม่พบการส่ง Freeze/Suspended callback | `onboarding-service` เรียก integration; downstream FCN behavior ต้องยืนยันกับเจ้าของ integration |
-| Email/notification | rejection/re-KYC path ที่ตรวจพบส่ง customer notification/email และบาง onboarding rejection ส่ง AML email; ไม่พบ Freeze-specific recipients/template สำหรับ AML+CU และ RM/WS/ACM | `onboarding-service` เป็น executor ของ current email path |
+| Email/notification | rejection/re-KYC path ที่ตรวจพบส่ง customer notification/email และบาง onboarding rejection ส่ง AML email; shared application email path ใช้ customer เป็น `To` และส่ง prospect/RM/extra rejection recipients เป็น `Bcc` ตาม channel/config; ไม่พบ Freeze-specific recipients/template สำหรับ AML+CU และ RM/WS/ACM | `onboarding-service` เป็น executor ของ current email path |
 
 ### Unresolved implementation boundaries
 
@@ -214,6 +216,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - Expiry record เดิมถูก guard ไม่ให้คำนวณวันใหม่ทั่วไป
 - Reason description อ่านจาก master reason; code มาจาก re-KYC type mapping: `SUP-001` force-expired, `SUP-004` ID, `SUP-005` CDD และ `SUP-006` suitability
 - KYC rejection ของ existing/migrated customer หรือ `re-kyc` ใช้ `SUP-007` (`KYC_REJECTED`); manual/non-auto reject ทำให้ identification เป็น `active` และ accounts เป็น `suspended`, ส่วน auto-reject case ทำให้ทั้งคู่เป็น `freeze`
+- Rejection email ใช้ `Bcc` สำหรับ prospect/RM และ extra recipients ที่มาจาก migrated Digital Asset account; ชื่อ parameter เดิม `ccEmail` ใน service ไม่ได้แปลว่า transport ปัจจุบันใช้ CC
 - `order-service` ใช้ account status แยกตาม operation: MF sell และ digital-asset withdrawal/swap sell ยังผ่านเมื่อ `suspended`; MF buy/switch และ digital-asset deposit/ICO/swap buy ไม่ผ่าน และ `closed`/`freeze` ไม่ผ่านทุก operation ที่ helper นี้ตรวจ
 - `order-consumer` เรียก system cancellation เมื่อ `CustomerSync` มี account status ที่ไม่ใช่ `active`; order-service cancel เฉพาะ pending order ที่เข้า predicate และเลือก side ตาม status
 - `bank-account-setting` และ `new-bank-account-request` ถูกข้ามใน cancel helper; cancellation แบบเฉพาะทางรองรับ upgrade investor class และ withdrawal-level upgrade
@@ -283,6 +286,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `pkg/customer/application/customer-application-repo/customer-application-repository.go`: current re-KYC application lookup และ suspension candidates
 - `pkg/customer/customer-account/customer-account-repo/customer-account-repository.go`: active-account-only update พร้อม reason/status date
 - `pkg/customer/application/reject_application.go`: rejection branching, existing-customer suspension, `SUP-007`, notification และ `CustomerSync`
+- `pkg/customer/application-email/email-application-service.go`: application email recipient mapping และ BCC behavior
 - `internal/constants/enum/xpg-customer-status.go`: customer identification status enum
 - `internal/constants/enum/customer_account.go`: customer account status enum
 - `pkg/customer/customer-process/process-delete.go`: scoped registration-history deletion และ restore entry point
