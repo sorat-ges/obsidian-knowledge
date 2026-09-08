@@ -3,16 +3,16 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, เริ่ม onboarding, change-request log, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, review-information, name_changed, has_default_bank_account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, เรียงบัญชีธนาคาร]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-05
+lastUpdated: 2026-09-08
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึง bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่
+อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึง bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่ พร้อม flags ของ bank-account context ใน `review-information` response
 
 Source รอบนี้ยืนยัน behavior จาก Backend เป็นหลัก; `web-portal` และ `xspring-mobile-app` เป็น supporting client สำหรับ bank-account read, grace-period acceptance และ user-visible warning โดยไม่ override state หรือ validation ของ Backend
 
@@ -68,6 +68,8 @@ Source รอบนี้ยืนยัน behavior จาก Backend เป็
 Onboarding/re-KYC status ใช้กฎ bank step เดียวกัน: `bank-account` ต้องทำเมื่อไม่มี default bank account หรือเมื่อมี default bank account แต่ `name_changed = true`; เมื่อมี default account และชื่อไม่เปลี่ยนจึงข้าม step ได้
 
 เมื่อเข้า bank step mobile เรียก `GET /api/v1/customer/bank-accounts` เพื่ออ่าน active bank accounts ที่ mask แล้ว และสำหรับกรณีชื่อบัญชีเปลี่ยนจะเปิดหน้ารับทราบ grace period แล้วเรียก `POST /api/v1/customer/accept-bank-grace-period` พร้อม `{ "flow_type": ... }` หลังผู้ใช้กดยืนยัน
+
+Bank-account read path กรองเฉพาะรายการที่ `status = active` และ `is_deleted = false` จากนั้นเรียง `default_red` มาก่อน, `created_at` ใหม่กว่ามาก่อน, แล้ว `bank_code` และ `bank_account_no` จากน้อยไปมาก การเรียงนี้ใช้ทั้งรายการ masked สำหรับลูกค้าและรายการ back-office `/api/v1/customer/{identification_id}/bank-account-list`; เป็นลำดับของ read response ไม่ใช่การคำนวณ default account ใหม่
 
 `onboarding-service` โหลด application/change-request log ของ flow นั้น, บันทึก `bank_account_grace_period_accepted = true`, เรียก `UpdateNextStatusAndCreateHistory` สำหรับ `bank-account` และถ้า registration อยู่ใน `completed-draft` path จึงเรียก completion logic ต่อ การกดยอมรับจาก mobile ไม่ได้เปลี่ยน account status โดยตรง
 
@@ -163,6 +165,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 
 การอ่านคำตอบก็มี compatibility path: KYC service อ่าน answer จาก legacy table ก่อน และเมื่อไม่พบหรือ payload ว่างจึงใช้คำถาม/คำตอบจากตาราง v2; ถ้าคำตอบ v2 ทั้ง Traditional และ Digital เป็น `nil`, suitability service ใช้ answer จาก V1 เป็นทั้งสองชุดเพื่อ map กับ master question การอ่านทั้งหมดเป็น read path และไม่เปลี่ยน registration state
 
+`GET /api/v1/customer/review-information` ส่ง `name_changed` และ `has_default_bank_account` เพิ่มจาก `has_accepted_bank_account_grace_period` โดยค่าถูกส่งต่อจาก change-request log ของ application ที่ service เลือกอ่าน การเพิ่ม fields นี้เป็น read-only context และไม่เปลี่ยน registration state; mobile ปัจจุบันใช้ `pendingApplications[].requested` จาก onboarding-status สำหรับเลือก bank step และยังไม่ได้ parse fields ใหม่จาก review model
+
 ## Business rules
 
 - Backend claim เป็นแหล่ง `identification_id`; request ไม่เลือก customer เอง
@@ -171,7 +175,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Application type `re-kyc` ใช้ `retake-re-kyc` ตอนเริ่ม retake; application type อื่นใช้ `retake`
 - Default bank account ที่ไม่มีชื่อเปลี่ยนทำให้ status response ไม่แสดง bank-account step; ถ้าชื่อบัญชีเปลี่ยน (`name_changed`) bank-account step ยัง required แม้มี default account
 - Bank grace-period acceptance เป็น transaction ของ `onboarding-service` ที่บันทึก acceptance และสร้าง bank-account history ก่อนเดิน registration ต่อ; mobile เป็นเพียง client trigger
-- `GET /api/v1/customer/bank-accounts` คืน active masked bank accounts สำหรับ bank step; `POST /api/v1/customer/accept-bank-grace-period` รับ `flow_type` เพื่อยืนยันการรับทราบ
+- `GET /api/v1/customer/bank-accounts` คืนเฉพาะ bank account ที่ `active` และไม่ถูก soft-delete (`is_deleted = false`) ในลำดับ default ก่อน, ใหม่ก่อน, bank code/account number ตามลำดับ; response ของลูกค้าถูก mask และ `POST /api/v1/customer/accept-bank-grace-period` รับ `flow_type` เพื่อยืนยันการรับทราบ
+- `GET /api/v1/customer/review-information` คืน `name_changed` และ `has_default_bank_account` เป็น nullable flags จาก change-request log; fields นี้เป็น read context ไม่ใช่ state transition
 - `VulnerableDetail` เป็น composite ของ `YearsOld60`, `NoInvestmentKnowledge` และ `Disability`; `VulnerableFlag` เป็น `true` เมื่อ field ที่มีค่าใด ๆ เป็น `true`, เป็น `false` เมื่อ field ที่มีค่าเป็น `false` ทั้งหมด และเป็น `nil` เฉพาะเมื่อทั้งสาม field ไม่มีค่า
 - Background update merge `VulnerableDetail` เดิมก่อนเขียน โดย refresh เฉพาะ age/disability จาก request และคง `NoInvestmentKnowledge` ที่มีอยู่เดิมไว้
 - Suitability confirm เขียน `NoInvestmentKnowledge` แล้วใช้ composite detail เดิมคำนวณ `VulnerableFlag` ใหม่; partial JSON ที่ขาดบาง field ไม่ทำให้การคำนวณ dereference nil
@@ -204,6 +209,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | Accept bank grace period | บันทึก acceptance → `bank-account` history/next status; `completed-draft` อาจเข้า completion logic |
 | Start new onboarding | สร้าง `customer_change_request_log` พร้อม `has_default_bank_account = false` ภายใน customer-creation transaction |
 | KYC approval reads suitability/answers | ไม่แก้ state; ใช้ v2 หรือ fallback V1 เพื่อสร้าง read model |
+| Read `review-information` | ไม่แก้ state; คืน bank-account context flags จาก change-request log |
 
 ## Error and recovery behavior
 
@@ -230,6 +236,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - หลัง update background หรือ confirm suitability, `customer_background.VulnerableFlag` สะท้อน composite vulnerable detail ที่ current backend คำนวณได้
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
 - ลูกค้าที่มี default bank account แต่ชื่อบัญชีเปลี่ยนต้องผ่าน bank-account/grace-period step ก่อน registration จะเดินต่อ; ลูกค้าที่ไม่มี name change ยังข้าม step ได้เมื่อมี default account
+- Bank-account read response ไม่คืนรายการ inactive หรือ soft-deleted และมี deterministic ordering ที่ default/created time/bank identifiers
+- KYC/customer review read response มี `name_changed`, `has_default_bank_account` และ `has_accepted_bank_account_grace_period` เพื่อให้ client เห็น context ของ bank step โดยไม่ย้าย ownership ของ state ไปที่ client
 - KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ที่มี version id ได้
 
 ## Related shared rules
@@ -264,6 +272,11 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: registration status write path ที่เรียก `UpsertTx`
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: `createIdentificationTx` และ `createCustomerChangeRequestLog` สำหรับ initial onboarding context
 - `onboarding-service/pkg/customer/customer-bank-account/service.go`: bank-account list, `AcepptGracePeriod` และ investment-bank-account read
+- `onboarding-service/pkg/customer/customer-bank-account/customer-bank-account-repo/repository.go`: active/non-deleted bank-account filter และ response ordering
+- `onboarding-service/pkg/kyc/kyc-service.go`: review-information bank-account context flags
+- `onboarding-service/handler/customer-dto.go`: `review-information` response mapping ของ `name_changed` และ `has_default_bank_account`
 - `onboarding-service/pkg/customer/registrationcomplete/service.go`: `UpdateBankAccountsExpiry` เมื่อ registration completion พบ name change
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: investment-bank-account BFF
+- `xspring-mobile-app/lib/models/onboard/review_customer_information.dart`: review-information response model
+- `xspring-mobile-app/lib/domains/app_main_page/customer_status/controller.dart`: pending-application flags ที่ใช้เลือก bank step
 - `xspring-mobile-app/lib/domains/ekyc/bank_account/accept_back_account_name_change/`: bank name-change acceptance flow

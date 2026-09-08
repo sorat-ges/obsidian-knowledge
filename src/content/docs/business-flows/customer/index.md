@@ -5,7 +5,7 @@ capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
 aliases: [customer onboarding, suitability, KYC retake, retake-re-kyc, re-KYC, KYC expiry, account suspension, account freeze, knowledge test, digital knowledge test, power of attorney customer, cancel orders on freeze, onboarding reminder, reminder email, เปิดบัญชี, ถ่ายบัตรใหม่, แบบประเมินความเสี่ยง, แบบทดสอบความรู้, แบบทดสอบความรู้ด้านสินทรัพย์ดิจิทัล, ลูกค้า POA, ทบทวน KYC, อีเมลเตือนเปิดบัญชี, ระงับบัญชี, Freeze บัญชี]
 status: active
-lastUpdated: 2026-08-28
+lastUpdated: 2026-09-08
 documentType: flow
 ---
 
@@ -26,7 +26,7 @@ Flow หลัก:
 - `asset-consumer` — sync สถานะ customer/account ไปยัง asset read model
 - `web-portal` — supporting client ที่ map identification `freeze` เป็น label
 
-Frontend repositories ที่เกี่ยวข้องมี uncommitted changes ในรอบ sync นี้ จึงไม่ได้ใช้ยืนยัน client trigger, route หรือข้อความที่ผู้ใช้เห็น
+`web-portal` และ `xspring-mobile-app` เป็น supporting clients สำหรับ client trigger, route, payload และข้อความที่ผู้ใช้เห็น; `onboarding-service` และ downstream services ยังคงเป็น source of truth สำหรับ validation, state และ asynchronous behavior
 
 ## กฎที่เกี่ยวข้อง
 

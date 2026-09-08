@@ -3,17 +3,17 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, รายการลูกค้า KYC, สถานะลูกค้า KYC, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, name_changed, has_default_bank_account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, บัญชีธนาคารที่ใช้งานอยู่, เรียงบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-09-04
+lastUpdated: 2026-09-08
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน รวมถึง bank-account step เมื่อชื่อบัญชีเปลี่ยน และ read model ที่ KYC approval ใช้ดู capture, suitability, default investment bank account และ forgery verification
+อธิบาย production path ที่เจ้าหน้าที่ KYC ขอให้ลูกค้า retake การยืนยันตัวตน ตั้งแต่ Backend ตัดสินใจแสดง action, เปลี่ยน application เป็น `to-retake`, เตรียม registration history, รับผล DOPA หลังลูกค้าถ่ายบัตรใหม่ และเลือกว่าจะกลับเข้า review ทันทีหรือให้ลูกค้าตรวจข้อมูลที่เปลี่ยน รวมถึง bank-account step เมื่อชื่อบัญชีเปลี่ยน และ read model ที่ KYC approval ใช้ดู capture, suitability, default investment bank account, review-information flags และ forgery verification
 
 `web-portal` เป็น supporting client/BFF: route request-retake v2 ส่ง `current_status` ต่อไปยัง `onboarding-service`, route bank-account proxy ส่ง GET ต่อไปยัง investment-bank-account endpoint และ KYC approval ใช้ client trigger/status mapping สำหรับ forgery โดยไม่มี business-rule override ใน client ใช้ Backend เป็น source of truth สำหรับ state, validation และผลลัพธ์
 
@@ -88,6 +88,12 @@ Backend คืน `is_show_button_retake` เป็น nullable boolean: `nil` �
 ใน re-KYC ถ้ามี default bank account แต่ Backend ระบุ `name_changed = true`, status path ยังบังคับ `bank-account` step แทนการถือว่า default account ทำให้ step เสร็จแล้ว ถ้าไม่มี default account ก็ต้องทำ bank step ตามกฎเดิม
 
 Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแสดง active masked accounts และเรียก `POST /api/v1/customer/accept-bank-grace-period` พร้อม `flow_type` เมื่อผู้ใช้ยอมรับ grace period; Backend บันทึก acceptance ใน change-request log แล้วสร้าง bank-account history/next status การแสดง bank account ใน review ใช้ `has_accepted_bank_account_grace_period` จาก Backend
+
+รายการ bank account ที่ใช้ใน KYC approval/customer bank read path ต้องเป็น `status = active` และ `is_deleted = false`; Backend เรียง default account ก่อน ตามด้วย `created_at` ใหม่กว่า, `bank_code` และ `bank_account_no` จากน้อยไปมาก ส่วน mobile ได้เลขบัญชีแบบ masked การเรียงนี้เป็น read-response contract และไม่เปลี่ยน application หรือ registration state
+
+`GET /api/v1/customer/review-information` ส่ง `name_changed` และ `has_default_bank_account` เพิ่มจาก grace-period flag โดย `onboarding-service` อ่านค่าจาก change-request log ของ application ที่เลือกไว้ ค่าเหล่านี้ใช้เป็น context ให้ client ตัดสินใจแสดงข้อมูล/step และไม่ได้ย้าย state ownership ออกจาก Backend
+
+ในหน้า `new-bank-request` ของ `web-portal`, raw backend status `to-review` ถูก map เป็น label และสี `to-review-new-bank-request` เฉพาะ UI; application status ฝั่ง Backend ยังคงเป็น `to-review` และไม่มี transition ใหม่จาก mapping นี้
 
 `web-portal` แสดง `bank_expiry_date` ใน customer detail เมื่อมีค่า และ KYC approval bank-account column จะแสดง `WarningToast` เมื่อพบธนาคารที่มี expiry date แต่ source ที่ตรวจยังไม่ยืนยัน calculation 90 วันหรือ executor สำหรับลบบัญชีเมื่อ expiry จึงไม่ถือเป็น state transition ของ re-KYC
 
@@ -210,6 +216,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Stored watchlist report ใน KYC approval ไม่จำเป็นต้องมีครบทั้ง personal, background และ vulnerable-investor; missing group ถูกแสดงเป็น object ว่าง
 - Application ที่เป็น `cancelled-by-system` ใช้ `OldCaptureId` เป็น source ของ customer detail เมื่อ KYC approval อ่าน completed-flow data
 - Investment bank account read model แสดงเฉพาะ default account และแบ่งผลตาม XAM/XD company; business owner และ executor ยังคงเป็น `onboarding-service`
+- KYC approval/customer bank read path กรอง active และ non-deleted accounts แล้วเรียง default → newest created → bank code → account number; inactive/soft-deleted capture entries ไม่ถูกส่งเป็น bank item
+- `review-information` response ส่ง `name_changed` และ `has_default_bank_account` เป็น nullable context จาก change-request log; `onboarding-service` ยังคงเป็น owner ของ bank-step state
 - Default bank account ไม่ทำให้ re-KYC ข้าม bank step เมื่อ `name_changed = true`; ต้องผ่าน grace-period acceptance ก่อน registration เดินต่อ
 - `has_accepted_bank_account_grace_period` ใช้ควบคุมการแสดง bank accounts ใน review response; mobile/web เป็น supporting clients ไม่ใช่ owner ของ state
 - KYC approval ใช้ expiry date ใน bank-account read model เพื่อแสดง warning ต่อเจ้าหน้าที่; เป็น supporting UI/read behavior ไม่ใช่หลักฐานของ expiry calculation หรือการลบบัญชี
@@ -227,6 +235,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | KYC approval reads customer list | ไม่เปลี่ยน application | คืน customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base query และ request filter |
 | KYC approval reads stored capture | ไม่เปลี่ยน application | คืน `watchlist_report` เท่าที่มี stored report |
 | KYC approval reads suitability/bank account | ไม่เปลี่ยน application | คืน v2/V1 suitability และ default investment bank account ที่ map ได้ |
+| KYC approval/customer reads bank list | ไม่เปลี่ยน application | คืนเฉพาะ active/non-deleted bank accounts ตามลำดับ default/created time/bank identifiers |
+| Customer reads `review-information` | ไม่เปลี่ยน application | คืน `name_changed`, `has_default_bank_account` และ grace-period context จาก change-request log |
 | Re-KYC status มี default bank แต่ `name_changed = true` | ไม่เปลี่ยน application โดยตรง | registration ต้องผ่าน `bank-account`; acceptance แล้วจึงเดิน next status |
 
 ขั้น request ของ re-KYC เขียน flow type `retake-re-kyc` แต่ DOPA completion ปัจจุบันสร้าง status/history ด้วย `retake` และ success helper ตั้ง flow เป็น `onboarding`; ต้องยืนยัน intended state chain กับเจ้าของ `onboarding-service` ก่อนอธิบายผลของ re-KYC retake หลัง DOPA เป็นข้อเท็จจริงเพิ่มเติม
@@ -285,8 +295,13 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/ekyc/ekyc-verification/service.go`: AdvanceAI profile/address comparison
 - `pkg/customer/kyc_approver/helper.go`: re-KYC expiry timestamp normalization
 - `pkg/customer/customer-bank-account/service.go`: bank-account read, grace-period acceptance และ bank history transition
+- `pkg/customer/customer-bank-account/customer-bank-account-repo/repository.go`: active/non-deleted bank-account filter และ deterministic ordering
+- `pkg/kyc/kyc-service.go`: review-information flags และ bank-account read composition
+- `handler/customer-dto.go`: `review-information` response fields
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: bank-account BFF และ expiry field
+- `web-portal/src/app/(customer-flow)/new-bank-request/[applicationId]/container.tsx`: map backend `to-review` เป็น UI-only new-bank-request review status
 - `xspring-mobile-app/lib/domains/ekyc/bank_account/accept_back_account_name_change/`: bank name-change acceptance flow
+- `xspring-mobile-app/lib/models/onboard/review_customer_information.dart`: review-information response model
 - `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
 - `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response
 - `onboarding-service/pkg/customer/kyc_approver/customer-service.go`: KYC customer list scope, capture selection และ default investment-bank account output

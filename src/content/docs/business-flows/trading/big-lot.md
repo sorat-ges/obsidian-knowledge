@@ -3,11 +3,11 @@ title: Big Lot
 description: Flow ซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove ตั้งแต่เลือก order book, คำนวณ fee, สร้าง order, hold balance, ส่ง Remarketer และ settle ledger
 capability: Trading
 services: [order-service, order-consumer, web-portal]
-aliases: [big lot, biglot, bulk order, white glove, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, Big Lot เมื่อระงับบัญชี]
+aliases: [big lot, biglot, bulk order, white glove, customer status, customer_status, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, สถานะลูกค้า, Big Lot เมื่อระงับบัญชี]
 integrations: [Remarketer, kafka]
 errorCodes: ["60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-09-04
+lastUpdated: 2026-09-08
 documentType: flow
 ---
 
@@ -48,6 +48,8 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 **Owner and executing service: `order-service`**
 
 `GET /api/v1/white-glove/customers` ใช้สำหรับเลือก customer ก่อนเข้า product หรือ order flow โดย query ปัจจุบันตัด identification ที่เป็น `onboarding`, `rejected` หรือ `closed` และต้องมี Digital Asset account ที่ status ไม่ใช่ `closed`
+
+`web-portal` แสดง `customer_status` จาก response เดียวกันเป็น Customer Status badge; ถ้าค่าไม่มีจะ map เป็น `-` การแสดงผลนี้เป็น supporting UI และไม่เพิ่ม/ลด customer eligibility หรือแทน status gate ของ `order-service`
 
 หลังเลือก customer แล้ว `GET /api/v1/white-glove/{identification_id}/customer/accounts` เป็นคนละ read path สำหรับ trading context: `order-service` อ่าน Digital Asset accounts โดยไม่มี status predicate, เลือก dealer-tier account ที่ผูกกับ IC license เมื่อเข้าเงื่อนไข หรือเลือก account แรกเมื่อเป็น retail/operator path แล้วคืน `account_id`, `account_no`, `product`, `name`, `status` และ `require_knowledge_digital` การไม่มี status predicate หมายความว่า response นี้อาจสะท้อนสถานะที่ create path จะ block ได้ จึงไม่ใช่ trading eligibility decision
 
@@ -179,6 +181,7 @@ Webhook เป็นจุดยืนยันผล trade จริง; previe
 - `volume_size = bulk` เป็นตัวกำหนด Big Lot channel และ bypass rules
 - Big Lot ยังบังคับ investor class, swap pair, product-on-shelf และ document-expiry validation
 - White Glove customer picker เป็น read/selection policy ที่ตัด identification `onboarding`, `rejected`, `closed` และ Digital Asset account `closed`; trading-detail account endpoint เป็น all-status read ที่คืน status/knowledge context และห้ามขยายเป็น trading eligibility โดยไม่ผ่าน create-path validation
+- White Glove customer list แสดง `customer_status` เป็น supporting badge และไม่เปลี่ยน selection/creation eligibility ของ Backend
 - Big Lot client gate ของ `web-portal` ที่ block Digital Knowledge required หรือ freeze เป็น supporting UX rule; backend `order-service` ยังเป็น source of truth สำหรับการสร้าง order
 - Valid bulk path ข้าม minimum check จึงไม่ควรคืน `80005`
 - Valid bulk path ข้าม `checkRoute` จึงไม่ควรคืน `80003` หรือ `80004` จาก pre-create route validation
@@ -266,6 +269,9 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 
 - `src/app/api/white-glove/[identificationId]/customer/accounts/route.ts`: BFF สำหรับ trading customer-account context
 - `src/app/features/white-glove/hooks/useOrderCustomerAccount.ts`: status/knowledge/freeze action mapping
+- `src/app/(digital-asset-order-flow)/white-glove/container.tsx`: White Glove customer-list container
+- `src/app/features/white-glove/components/white-glove-list-table/index.tsx`: Customer Status badge
+- `src/app/features/white-glove/types/white-glove-order-list.ts`: `customer_status` response mapping
 - `src/app/(digital-asset-order-flow)/white-glove/[customerId]/big-lot/container.tsx`: Big Lot client gate
 - `src/app/features/white-glove/hooks/big-lot/use-big-lot-form.ts`
 - `src/app/features/white-glove/services/big-lot/orderbook/big-lot.ts`
