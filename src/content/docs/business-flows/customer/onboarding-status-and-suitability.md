@@ -3,16 +3,16 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, review-information, name_changed, has_default_bank_account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, เรียงบัญชีธนาคาร]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-08
+lastUpdated: 2026-09-09
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึง bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่ พร้อม flags ของ bank-account context ใน `review-information` response
+อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึงการคงข้อมูลระหว่าง personal-information sub-step, bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่ พร้อม flags ของ bank-account context ใน `review-information` response
 
 Source รอบนี้ยืนยัน behavior จาก Backend เป็นหลัก; `web-portal` และ `xspring-mobile-app` เป็น supporting client สำหรับ bank-account read, grace-period acceptance และ user-visible warning โดยไม่ override state หรือ validation ของ Backend
 
@@ -105,7 +105,9 @@ Bank-account read path กรองเฉพาะรายการที่ `s
 
 เส้นทาง background update นี้ไม่เรียก `CheckAndSaveCustomerWatchlist` ซ้ำอีกต่อไป จึงไม่ทำ legacy parallel save ควบคู่กับ `UpsertWatchlistReport`; endpoint `save-watchlist` ของ KYC และ offline onboarding ที่ยังเรียก legacy service เป็นคนละ trigger
 
-การบันทึก `background` จะอ่าน `customer_background.vulnerable_detail` เดิมก่อน แล้ว merge กับข้อมูลจาก request: `YearsOld60` คำนวณใหม่จากวันเกิดเมื่อมีค่า, `Disability` ใช้ `IsInvestmentDecision` ของ request และ `NoInvestmentKnowledge` ที่มีอยู่เดิมจะไม่ถูกล้างเพียงเพราะบันทึก background ซ้ำ จากนั้นระบบ marshal detail ที่รวมแล้วและคำนวณ `VulnerableFlag` จาก detail ชุดเดียวกัน
+การบันทึก `work-information` และ `background` จะอ่าน `customer_background` เดิมก่อน แล้ว overlay field ที่ step ปัจจุบันเป็นเจ้าของลงบน row เดิม จึงไม่ rebuild เป็น row ว่างที่ล้างข้อมูลของอีก personal-information sub-step; ทั้งสอง step ยังอัปเดต `UpdatedAt`/`UpdatedBy` ตาม request ปัจจุบัน
+
+สำหรับ `background` ระบบจะอ่าน `customer_background.vulnerable_detail` เดิมก่อน แล้ว merge กับข้อมูลจาก request: `YearsOld60` คำนวณใหม่จากวันเกิดเมื่อมีค่า, `Disability` ใช้ `IsInvestmentDecision` ของ request และ `NoInvestmentKnowledge` ที่มีอยู่เดิมจะไม่ถูกล้างเพียงเพราะบันทึก background ซ้ำ จากนั้นระบบ marshal detail ที่รวมแล้วและคำนวณ `VulnerableFlag` จาก detail ชุดเดียวกัน
 
 ### 4. Submit suitability answers
 
@@ -165,7 +167,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 
 การอ่านคำตอบก็มี compatibility path: KYC service อ่าน answer จาก legacy table ก่อน และเมื่อไม่พบหรือ payload ว่างจึงใช้คำถาม/คำตอบจากตาราง v2; ถ้าคำตอบ v2 ทั้ง Traditional และ Digital เป็น `nil`, suitability service ใช้ answer จาก V1 เป็นทั้งสองชุดเพื่อ map กับ master question การอ่านทั้งหมดเป็น read path และไม่เปลี่ยน registration state
 
-`GET /api/v1/customer/review-information` ส่ง `name_changed` และ `has_default_bank_account` เพิ่มจาก `has_accepted_bank_account_grace_period` โดยค่าถูกส่งต่อจาก change-request log ของ application ที่ service เลือกอ่าน การเพิ่ม fields นี้เป็น read-only context และไม่เปลี่ยน registration state; mobile ปัจจุบันใช้ `pendingApplications[].requested` จาก onboarding-status สำหรับเลือก bank step และยังไม่ได้ parse fields ใหม่จาก review model
+`GET /api/v1/customer/review-information` ส่ง `name_changed`, `has_default_bank_account` และ `has_submitted_bank_account` เพิ่มจาก `has_accepted_bank_account_grace_period` โดยค่าถูกส่งต่อจาก change-request log ของ application ที่ service เลือกอ่าน การเพิ่ม fields นี้เป็น read-only context และไม่เปลี่ยน registration state; mobile parse fields เหล่านี้ใน review model แล้ว additional-account review ใช้ `has_submitted_bank_account` เพื่อเลือก normal bank-account display ส่วน re-KYC review ใช้ `has_default_bank_account`, grace-period และ `name_changed` เพื่อเลือก name-change warning
 
 ## Business rules
 
@@ -176,7 +178,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Default bank account ที่ไม่มีชื่อเปลี่ยนทำให้ status response ไม่แสดง bank-account step; ถ้าชื่อบัญชีเปลี่ยน (`name_changed`) bank-account step ยัง required แม้มี default account
 - Bank grace-period acceptance เป็น transaction ของ `onboarding-service` ที่บันทึก acceptance และสร้าง bank-account history ก่อนเดิน registration ต่อ; mobile เป็นเพียง client trigger
 - `GET /api/v1/customer/bank-accounts` คืนเฉพาะ bank account ที่ `active` และไม่ถูก soft-delete (`is_deleted = false`) ในลำดับ default ก่อน, ใหม่ก่อน, bank code/account number ตามลำดับ; response ของลูกค้าถูก mask และ `POST /api/v1/customer/accept-bank-grace-period` รับ `flow_type` เพื่อยืนยันการรับทราบ
-- `GET /api/v1/customer/review-information` คืน `name_changed` และ `has_default_bank_account` เป็น nullable flags จาก change-request log; fields นี้เป็น read context ไม่ใช่ state transition
+- `GET /api/v1/customer/review-information` คืน `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period flag เป็น nullable values จาก change-request log; fields นี้เป็น read context ไม่ใช่ state transition และ `has_submitted_bank_account` สะท้อนว่าการสร้าง bank account เคยตั้ง flag สำเร็จ
 - `VulnerableDetail` เป็น composite ของ `YearsOld60`, `NoInvestmentKnowledge` และ `Disability`; `VulnerableFlag` เป็น `true` เมื่อ field ที่มีค่าใด ๆ เป็น `true`, เป็น `false` เมื่อ field ที่มีค่าเป็น `false` ทั้งหมด และเป็น `nil` เฉพาะเมื่อทั้งสาม field ไม่มีค่า
 - Background update merge `VulnerableDetail` เดิมก่อนเขียน โดย refresh เฉพาะ age/disability จาก request และคง `NoInvestmentKnowledge` ที่มีอยู่เดิมไว้
 - Suitability confirm เขียน `NoInvestmentKnowledge` แล้วใช้ composite detail เดิมคำนวณ `VulnerableFlag` ใหม่; partial JSON ที่ขาดบาง field ไม่ทำให้การคำนวณ dereference nil
@@ -188,6 +190,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - v2 confirm ใช้ current CDD score และไม่เรียก CDD score recalculation ใน production path นี้
 - Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
 - หลังบันทึก personal-information step `background`, current customer path ใช้ `UpsertWatchlistReport` เพียงครั้งเดียวใน asynchronous handler; ไม่เรียก legacy `CheckAndSaveCustomerWatchlist` ซ้ำใน trigger เดียวกัน
+- Work/background personal-information updates อ่าน row `customer_background` เดิมแล้ว overlay ข้อมูลของ step ปัจจุบัน เพื่อไม่ล้าง field ที่อีก sub-step บันทึกไว้
 - ใน legacy `CheckAndSaveCustomerWatchlist` path ระบบ pre-create `customer_background_risk` ของ `customer` และ `spouse` ก่อน parallel checks และใช้ `personalType` ที่ร้องขอเมื่อสร้าง PEP/AMLO record เพื่อป้องกัน duplicate record จาก concurrent insert
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
@@ -202,14 +205,15 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | :--- | :--- |
 | Submit suitability | create/update Traditional หรือ Digital suitability record; ยังไม่ขยับ registration |
 | Confirm suitability | `suitability-test` → next registration sub-status พร้อม history |
-| Update personal background | ไม่เปลี่ยน application/registration state จาก trigger นี้; เริ่ม asynchronous watchlist report refresh |
+| Update personal work/background | ไม่เปลี่ยน application/registration state จาก trigger นี้; preserve field ของ `customer_background` ที่อยู่นอก step ปัจจุบัน และ background เริ่ม asynchronous watchlist report refresh |
 | Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
 | Read onboarding status | ไม่แก้ state; derive `draft`/`completed` จาก history |
 | Bank step required เพราะไม่มี default account หรือชื่อบัญชีเปลี่ยน | status คง/เดินไป `bank-account` ตาม required-step rule |
 | Accept bank grace period | บันทึก acceptance → `bank-account` history/next status; `completed-draft` อาจเข้า completion logic |
 | Start new onboarding | สร้าง `customer_change_request_log` พร้อม `has_default_bank_account = false` ภายใน customer-creation transaction |
 | KYC approval reads suitability/answers | ไม่แก้ state; ใช้ v2 หรือ fallback V1 เพื่อสร้าง read model |
-| Read `review-information` | ไม่แก้ state; คืน bank-account context flags จาก change-request log |
+| Create customer bank account | ไม่เปลี่ยน application โดยตรง; พยายามตั้ง `has_submitted_bank_account = true` ใน change-request log หลังสร้าง bank row |
+| Read `review-information` | ไม่แก้ state; คืน `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period context จาก change-request log |
 
 ## Error and recovery behavior
 
@@ -223,7 +227,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Bank account list, application lookup หรือ grace-period acceptance ล้มเหลว: ไม่ควรถือว่า bank step ผ่าน; source ไม่ยืนยัน retry หรือ rollback ของ external client state
 - Backend expiry read คืนค่าได้ แต่ source ที่ตรวจยังไม่พบ executor ลบบัญชีตาม expiry และไม่ยืนยันว่าข้อความ 90 วันของ client เป็น calculation rule
 - Background personal-information update ตอบสำเร็จหลัง primary write; ถ้า asynchronous `UpsertWatchlistReport` ล้มเหลวระบบ log error ภายหลัง และ source ยังไม่ยืนยัน retry policy หรือการ rollback primary write
-- `handleBackgroundStep` ไม่ propagate error จากการอ่าน existing background หรือการ unmarshal `VulnerableDetail`; ถ้าอ่าน/parse เดิมล้มเหลว source ปัจจุบันยังเดินต่อด้วย detail ที่อ่านได้และพยายาม upsert จึงไม่ควรสรุปว่า field เดิมจะถูก preserve ในกรณี dependency/JSON error
+- `handleWorkStep` และ `handleBackgroundStep` ไม่ propagate error จากการอ่าน existing background; `handleBackgroundStep` ยังไม่ propagate error จากการ unmarshal `VulnerableDetail` ถ้าอ่าน/parse เดิมล้มเหลว source ปัจจุบันยังเดินต่อด้วยข้อมูลที่มีและพยายาม upsert จึงไม่ควรสรุปว่า field เดิมจะถูก preserve ในกรณี dependency/JSON error
+- การตั้ง `has_submitted_bank_account` เกิดหลัง bank row ถูกสร้าง; ถ้า change-request log update ล้มเหลว service log error และยังดำเนิน bank-account flow ต่อ โดย `review-information` อาจยังคืนค่าเป็น nil
 - watchlist refresh error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
 - KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
@@ -235,9 +240,9 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - หลัง update background, ระบบจะพยายาม persist `watchlist_report` ของ personal/background-risk/vulnerable-investor แบบ asynchronous; HTTP 200 ของ primary update ไม่ได้ยืนยันว่า report refresh เสร็จแล้ว
 - หลัง update background หรือ confirm suitability, `customer_background.VulnerableFlag` สะท้อน composite vulnerable detail ที่ current backend คำนวณได้
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
-- ลูกค้าที่มี default bank account แต่ชื่อบัญชีเปลี่ยนต้องผ่าน bank-account/grace-period step ก่อน registration จะเดินต่อ; ลูกค้าที่ไม่มี name change ยังข้าม step ได้เมื่อมี default account
+- ลูกค้าที่มี default bank account แต่ชื่อบัญชีเปลี่ยนต้องผ่าน bank-account/grace-period step ก่อน registration จะเดินต่อ; ลูกค้าที่ไม่มี name change ยังข้าม step ได้เมื่อมี default account และ retake background path จะเรียก completion ตาม `name_changed` decision
 - Bank-account read response ไม่คืนรายการ inactive หรือ soft-deleted และมี deterministic ordering ที่ default/created time/bank identifiers
-- KYC/customer review read response มี `name_changed`, `has_default_bank_account` และ `has_accepted_bank_account_grace_period` เพื่อให้ client เห็น context ของ bank step โดยไม่ย้าย ownership ของ state ไปที่ client
+- KYC/customer review read response มี `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ `has_accepted_bank_account_grace_period` เพื่อให้ client เห็น context ของ bank step โดยไม่ย้าย ownership ของ state ไปที่ client
 - KYC approval แสดง risk, evaluation date, channel และคำตอบจาก v2 ได้ และยังอ่าน customer รุ่นเก่าผ่าน V1 fallback ที่มี version id ได้
 
 ## Related shared rules
@@ -263,7 +268,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `pkg/kyc/kyc-service.go`: legacy watchlist save และ pre-create ของ customer/spouse background risk
 - `internal/models/customer-background-db-model.go`: unmarshal และ composite calculation ของ `VulnerableDetail`
 - `utils/age.go`: การคำนวณ `YearsOld60` จากอายุปัจจุบัน
-- `pkg/customer/customer-process/customer-process-service.go`: merge vulnerable detail ระหว่าง background update
+- `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields ระหว่าง work/background update และ retake completion decision
 - `pkg/suitability/suitability-service.go`: update `NoInvestmentKnowledge` และ `VulnerableFlag` ตอน confirm suitability
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
 - `onboarding-service/pkg/customer/customer-suitability/service.go`: v1 fallback, latest evaluation selection และ question/answer mapping
@@ -271,12 +276,15 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `onboarding-service/pkg/kyc/kyc-service.go`: legacy answer/risk-result fallback ไปยัง v2 suitability
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: registration status write path ที่เรียก `UpsertTx`
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: `createIdentificationTx` และ `createCustomerChangeRequestLog` สำหรับ initial onboarding context
-- `onboarding-service/pkg/customer/customer-bank-account/service.go`: bank-account list, `AcepptGracePeriod` และ investment-bank-account read
+- `onboarding-service/pkg/customer/customer-bank-account/service.go`: bank-account list, `has_submitted_bank_account` flag, `AcepptGracePeriod` และ investment-bank-account read
 - `onboarding-service/pkg/customer/customer-bank-account/customer-bank-account-repo/repository.go`: active/non-deleted bank-account filter และ response ordering
 - `onboarding-service/pkg/kyc/kyc-service.go`: review-information bank-account context flags
-- `onboarding-service/handler/customer-dto.go`: `review-information` response mapping ของ `name_changed` และ `has_default_bank_account`
+- `onboarding-service/handler/customer-dto.go`: `review-information` response mapping ของ `name_changed`, `has_default_bank_account` และ `has_submitted_bank_account`
 - `onboarding-service/pkg/customer/registrationcomplete/service.go`: `UpdateBankAccountsExpiry` เมื่อ registration completion พบ name change
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: investment-bank-account BFF
 - `xspring-mobile-app/lib/models/onboard/review_customer_information.dart`: review-information response model
 - `xspring-mobile-app/lib/domains/app_main_page/customer_status/controller.dart`: pending-application flags ที่ใช้เลือก bank step
 - `xspring-mobile-app/lib/domains/ekyc/bank_account/accept_back_account_name_change/`: bank name-change acceptance flow
+- `xspring-mobile-app/lib/domains/ekyc/open_account/additional_account/review/widget/review_your_information_widget.dart`: normal bank display vs name-change warning
+- `xspring-mobile-app/lib/domains/re_kyc/review_re_kyc/screen.dart`: re-KYC name-change warning condition
+- `xspring-mobile-app/lib/widgets/bank_account/bank_account_name_change_warning_section.dart`: shared warning presentation
