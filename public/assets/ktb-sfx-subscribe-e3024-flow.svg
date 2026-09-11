@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="870" viewBox="0 0 1200 870" role="img" aria-labelledby="title desc">
+  <title id="title">Flow การเชื่อมต่อ KTB SFX และจุดที่ติด E3024</title>
+  <desc id="desc">OAuth, WebSocket และ STOMP CONNECT สำเร็จ แต่ STOMP SUBSCRIBE ถูกปฏิเสธเนื่องจาก channel subscription limit เต็ม</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#a7b0be"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#ff6b6b"/>
+    </marker>
+    <style>
+      .bg { fill: #111827; }
+      .lane { fill: #1f2937; stroke: #64748b; stroke-width: 2; }
+      .lane-title { fill: #f8fafc; font: 600 23px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .life { stroke: #64748b; stroke-width: 2; stroke-dasharray: 7 7; }
+      .arrow { stroke: #a7b0be; stroke-width: 3; marker-end: url(#arrow); }
+      .arrow-red { stroke: #ff6b6b; stroke-width: 4; marker-end: url(#arrow-red); }
+      .label { fill: #f8fafc; font: 500 21px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .detail { fill: #cbd5e1; font: 400 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .ok { fill: #34d399; font: 600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .error-box { fill: #3b1d28; stroke: #ff6b6b; stroke-width: 3; }
+      .error-title { fill: #fecaca; font: 700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .error-text { fill: #f8fafc; font: 500 19px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .summary { fill: #172033; stroke: #60a5fa; stroke-width: 2; }
+      .summary-title { fill: #93c5fd; font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .summary-text { fill: #f8fafc; font: 500 19px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="870" rx="18"/>
+  <text x="600" y="48" class="lane-title">KTB SFX WebSocket - จุดที่ติดจริง</text>
+
+  <rect class="lane" x="70" y="78" width="270" height="72" rx="10"/>
+  <rect class="lane" x="465" y="78" width="270" height="72" rx="10"/>
+  <rect class="lane" x="860" y="78" width="270" height="72" rx="10"/>
+  <text class="lane-title" x="205" y="122">XSpring Client</text>
+  <text class="lane-title" x="600" y="122">KTB OAuth</text>
+  <text class="lane-title" x="995" y="122">KTB WebSocket/STOMP</text>
+
+  <line class="life" x1="205" y1="150" x2="205" y2="745"/>
+  <line class="life" x1="600" y1="150" x2="600" y2="270"/>
+  <line class="life" x1="995" y1="150" x2="995" y2="745"/>
+
+  <line class="arrow" x1="205" y1="195" x2="600" y2="195"/>
+  <text class="label" x="402" y="185">1. ขอ OAuth access token</text>
+  <line class="arrow" x1="600" y1="245" x2="205" y2="245"/>
+  <text class="ok" x="402" y="236">ผ่าน: ได้รับ access token</text>
+
+  <line class="arrow" x1="205" y1="320" x2="995" y2="320"/>
+  <text class="label" x="600" y="302">2. WebSocket Upgrade</text>
+  <text class="detail" x="600" y="342">Token + Channel: XSPRING_API</text>
+  <line class="arrow" x1="995" y1="382" x2="205" y2="382"/>
+  <text class="ok" x="600" y="373">ผ่าน: WebSocket connection สำเร็จ</text>
+
+  <text class="label" x="600" y="416">3. STOMP CONNECT</text>
+  <text class="detail" x="600" y="442">Token + Channel + Authorization + customerCode</text>
+  <text class="detail" x="600" y="465">accept-version + heart-beat + host + login + passcode</text>
+  <line class="arrow" x1="205" y1="480" x2="995" y2="480"/>
+  <line class="arrow" x1="995" y1="535" x2="205" y2="535"/>
+  <text class="ok" x="600" y="524">ผ่าน: CONNECTED version 1.2</text>
+
+  <text class="label" x="600" y="580">4. STOMP SUBSCRIBE</text>
+  <line class="arrow-red" x1="205" y1="600" x2="995" y2="600"/>
+  <text class="detail" x="600" y="623">destination + id + subscribeRequest</text>
+
+  <rect class="error-box" x="430" y="650" width="700" height="94" rx="12"/>
+  <line class="arrow-red" x1="995" y1="650" x2="995" y2="635"/>
+  <text class="error-title" x="780" y="687">ติดตรงนี้: KTB ตอบ STOMP ERROR</text>
+  <text class="error-text" x="780" y="718">E3024 - Channel มี Subscription ถึงจำนวนสูงสุดแล้ว</text>
+
+  <rect class="summary" x="70" y="775" width="1060" height="68" rx="10"/>
+  <text class="summary-title" x="600" y="802">สรุป</text>
+  <text class="summary-text" x="600" y="830">เชื่อมต่อ WebSocket และ STOMP สำเร็จ แต่สร้าง Subscription ใหม่ไม่ได้</text>
+</svg>

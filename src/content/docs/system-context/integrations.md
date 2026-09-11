@@ -17,6 +17,7 @@ documentType: system-context
 | **Remarketer** | Trading & Liquidity | Smart Order Routing (SOR) และการ Execute คำสั่งเทรด |
 | **Fireblocks** | Asset Custody | ดูแล Vault, ตรวจสอบ Blockchain Transaction และ Withdrawal |
 | **Payment Gateway** | Fiat Transfer | จัดการการถอนเงินบาท (SCB/KBank) และแจ้งสถานะ |
+| **KTB SmartFX** | FX Rate Streaming | ส่งอัตรา FX ผ่าน STOMP over WebSocket และควบคุม subscription quota ต่อ integration identity |
 | **Thai Bulk** | OTP Service | ส่งรหัส OTP ผ่าน SMS/Email เพื่อยืนยันตัวตน |
 | **Credential Centric** | Identity & KYC | ยืนยันตัวตนและข้อมูลโปรไฟล์ลูกค้า |
 | **Huawei OBS** | Object Storage | เก็บไฟล์ Yield Payment Plan ที่ `product-service` validate และอ้างอิงด้วย object key |
@@ -30,3 +31,7 @@ documentType: system-context
 1. ทดสอบ Webhook Callback และตรวจสอบ Logs ของ Idempotency Key
 2. จำลองสถานะ Partner ล่ม (e.g., Timeout) และยืนยันผลลัพธ์ของ Circuit Breaker
 3. ตรวจสอบการส่ง OTP และยืนยันสถานะความสำเร็จจาก Partner Logs
+
+## เอกสารที่เกี่ยวข้อง
+
+- [การเชื่อมต่อ KTB SFX WebSocket และการวิเคราะห์ E3024](/system-context/ktb-sfx-websocket/)
