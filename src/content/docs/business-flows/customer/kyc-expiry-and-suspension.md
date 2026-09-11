@@ -1,13 +1,13 @@
 ---
 title: KYC Expiry and Account Suspension
-description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
+description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
-aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, KYC rejection email, rejection email BCC, อีเมล reject KYC, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, อีเมล reject KYC, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002"]
 status: active
-lastUpdated: 2026-09-10
+lastUpdated: 2026-09-11
 documentType: flow
 ---
 
@@ -24,9 +24,10 @@ documentType: flow
 - Background job ต้องได้ distributed lock ก่อนเริ่มรอบ
 - Phase 1 expiry calculation ใช้ identification ที่ `status` ไม่ใช่ `closed`, `onboarding` หรือ `rejected`, `is_deleted = false` และ `xspring_customer_type = individual`; status อื่นที่ไม่ถูก exclude ยังเป็น candidate ได้
 - Phase suspension อ่านลูกค้าที่ identification status เป็น `active` และมี customer account status `active` อย่างน้อยหนึ่งรายการ
-- Initial calculation ต้องมี customer profile และ account บริษัท XAM หรือ XD
+- Legacy initial calculation ต้องมี customer profile และ account บริษัท XAM หรือ XD; CDD-only branch ต้องมี profile และอ่าน CDD ได้ โดยไม่ใช้ account/suitability เป็น input ที่ตัดสิน candidate
 - CDD candidate ใช้ latest CDD date/risk level
 - Suitability candidate ใช้ evaluation date ของ Traditional สำหรับ XAM และ Digital สำหรับ XD
+- ถ้า `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด ระบบใช้ CDD-only expiry branch; ค่า unset หรือ parse เป็น false จะใช้ legacy branch ที่รวม ID card, CDD และ suitability
 - Phase suspension ใช้ `ReKYCPeriod`, current expiry, application eligibility และ master reason description
 - KYC approval rejection ของ existing/migrated customer หรือ `re-kyc` ต้องมี `RejectCase` เพื่อแยก auto-reject กับ manual reject; new onboarding ใช้ rejection path ของลูกค้าใหม่
 
@@ -58,9 +59,9 @@ Job `CalculateKycExpiryBackgroundJob` ป้องกันงานซ้อน
 
 **Executing service: `onboarding-service`**
 
-ก่อน preload ระบบเลือก candidate ด้วย `GetListWithExistsCustomer()` ตาม predicate ของ identification repository แล้วจึง preload profile, background KYC, latest CDD, account companies และ suitability Traditional/Digital เป็น chunk สำหรับลูกค้าที่ต้องประเมิน expiry
+ก่อน preload ระบบเลือก candidate ด้วย `GetListWithExistsCustomer()` ตาม predicate ของ identification repository แล้วจึง preload profile, background KYC, latest CDD, account companies และ suitability Traditional/Digital เป็น chunk สำหรับลูกค้าที่ต้องประเมิน expiry โดย calculation branch จะเลือกตาม `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY`
 
-ถ้า customer มี expiry เดิม ระบบไม่คำนวณวันใหม่ทั่วไป แต่ยังเปลี่ยน `re_kyc_type` เป็น `id-card-expired` เมื่อบัตรหมดอายุ หรือจาก `suitability-expired` เป็น `cdd-expired` เมื่อ CDD หมดอายุก่อน
+ใน legacy branch ถ้า customer มี expiry เดิม ระบบไม่คำนวณวันใหม่ทั่วไป แต่ยังเปลี่ยน `re_kyc_type` เป็น `id-card-expired` เมื่อบัตรหมดอายุ หรือจาก `suitability-expired` เป็น `cdd-expired` เมื่อ CDD หมดอายุก่อน ใน CDD-only branch จะตรวจเฉพาะการเปลี่ยน `suitability-expired` เป็น `cdd-expired` เมื่อ CDD หมดอายุ และไม่เขียน expiry ใหม่ให้ re-KYC type อื่น
 
 ### 3. Calculate initial KYC expiry
 
@@ -75,6 +76,8 @@ Job `CalculateKycExpiryBackgroundJob` ป้องกันงานซ้อน
 - Suitability: `evaluation_date + 2 ปี` ของ XAM/Traditional และ/หรือ XD/Digital → `suitability-expired`
 
 ถ้าข้อมูล CDD หรือ suitability ที่จำเป็นหาย candidate นั้นใช้ “เมื่อวาน” ทำให้ถูกมองว่าหมดอายุแล้ว หากลูกค้าไม่มี account XAM/XD จะข้าม record แทนการเดา company rule
+
+เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY = true` ระบบใช้เฉพาะ CDD เป็น initial candidate: CDD risk level 3 ใช้ `cdd_date + 1 ปี`, risk อื่นใช้ `+2 ปี`, และข้อมูล CDD ที่ขาดใช้ “เมื่อวาน” พร้อม `re_kyc_type = cdd-expired`; ID card, account company และ suitability ไม่ถูกนำมาร่วมเลือกวันใน branch นี้
 
 ### 4. Persist evaluation results
 
@@ -213,6 +216,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - KYC expiry ใช้ candidate ที่เร็วที่สุด ไม่ใช่เลือกตามลำดับ ID/CDD/suitability
 - CDD risk level 3 หมดอายุใน 1 ปี; risk level อื่นใน 2 ปี
 - Suitability Traditional/Digital หมดอายุ 2 ปีหลัง evaluation date
+- เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด initial expiry ใช้ CDD เท่านั้น และ existing record จะเปลี่ยน type เฉพาะ `suitability-expired` → `cdd-expired` เมื่อ CDD หมดอายุ
 - ลูกค้ามีทั้ง XAM และ XD ต้องมี evaluation date ของทั้งสองฝั่ง; ฝั่งใดหายทำให้ suitability candidate เป็นเมื่อวาน
 - Missing CDD date/risk level ทำให้ CDD candidate เป็นเมื่อวาน
 - Expiry record เดิมถูก guard ไม่ให้คำนวณวันใหม่ทั่วไป
@@ -233,6 +237,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | Entity | Transition |
 | :--- | :--- |
 | Customer background KYC | no expiry → earliest calculated expiry + re-KYC type |
+| Customer background KYC (CDD-only flag) | no expiry → CDD expiry + `cdd-expired`; existing `suitability-expired` → `cdd-expired` เมื่อ CDD หมดอายุ |
 | Existing KYC type | `suitability-expired` → `cdd-expired` เมื่อ CDD หมดอายุ; any non-force/non-ID type → `id-card-expired` เมื่อบัตรหมด |
 | Customer account | `active` → `suspended` พร้อม `SUP-001`/`004`/`005`/`006` และ `status_date` ของการเปลี่ยนสถานะ |
 | Existing/migrated or re-KYC rejection | `rejected` application → identification `active` + account `suspended` เมื่อ manual/non-auto หรือ identification `freeze` + account `freeze` เมื่อ auto-reject; ใช้ `SUP-007` |
@@ -282,6 +287,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 
 - `handler/customer-re-kyc-handler.go`: background-job trigger
 - `pkg/customer/re-kyc/service.go`: job orchestration และ expiry calculation
+- `pkg/feature/constants.go`, `pkg/feature/feature.go`: `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` และ feature-toggle parsing
 - `pkg/customer/identification/identification-repo/identification-repository.go`: `GetListWithExistsCustomer` candidate predicate สำหรับ Phase 1
 - `pkg/customer/kyc-expiry/service.go`: CDD/suitability expiry periods
 - `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application และ cancellation processing

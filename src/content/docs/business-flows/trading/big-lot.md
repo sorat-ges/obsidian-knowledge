@@ -3,11 +3,11 @@ title: Big Lot
 description: Flow ซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove ตั้งแต่เลือก order book, คำนวณ fee, สร้าง order, hold balance, ส่ง Remarketer และ settle ledger
 capability: Trading
 services: [order-service, order-consumer, web-portal]
-aliases: [big lot, biglot, bulk order, white glove, customer status, customer_status, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, สถานะลูกค้า, Big Lot เมื่อระงับบัญชี]
+aliases: [big lot, biglot, bulk order, white glove, customer status, customer_status, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, KTB FX rate, big lot FX rate, spot rate, fx-rate, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, สถานะลูกค้า, Big Lot เมื่อระงับบัญชี]
 integrations: [Remarketer, kafka]
-errorCodes: ["60002", "80002", "80006"]
+errorCodes: ["400", "401", "500", "60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-09-08
+lastUpdated: 2026-09-11
 documentType: flow
 ---
 
@@ -36,6 +36,7 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 | :--- | :--- |
 | `order-service` | Business owner; expose product/order-book/calculate/create APIs, validate eligibility, persist order, publish event, process Remarketer webhook และ settle ledger |
 | `order-consumer` | Executing service ของ asynchronous create; recheck balance, move asset to `HOLD_IN_ORDER`, place order to Remarketer และเปลี่ยน order เป็น `processing` หรือ `rejected` |
+| `web-portal` | Supporting BFF/UI ของ customer context และ KTB FX rate panel; ไม่เป็น owner ของ order/rate business rule |
 | Remarketer | ให้ Big Lot order book, รับคำสั่ง trade และส่ง callback สถานะ/ผลการ match |
 | kafka | ส่ง `CreateOrderSwap` จาก `order-service` ไป `order-consumer` และส่ง logical-ledger movement ไป downstream |
 
@@ -58,6 +59,18 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 การที่ customer ผ่าน picker ไม่ได้แปลว่า BUY/SELL ผ่านเสมอ; product list และ create endpoint ยังตรวจ account status ตาม side โดย `active` รองรับทั้งสอง side, `suspended` รองรับ SELL เท่านั้น และ `closed`/`freeze` ถูก block
 
 ใน `web-portal` hook กลางคำนวณ action gate ดังนี้: `deposit` และ `swapBuy` block เมื่อ suspended หรือเมื่อ knowledge/freeze gate ทำงาน; `withdraw`, `swapSell`, `bigLot` และ `transfer` block เมื่อ knowledge/freeze gate ทำงาน สำหรับหน้า Big Lot จึง block จาก `requireKnowledgeDigital` หรือ freeze เท่านั้น และ suspended อย่างเดียวอาจยังผ่าน client gate ก่อนให้ backend ตรวจ side-specific rule อีกครั้ง การ gate ทั้งหมดเป็น client behavior และไม่แทนการตรวจ account status/permission/eligibility ใน `order-service`
+
+### Supporting KTB FX rate panel
+
+**Owner and executing service: `order-service`**
+
+**Supporting BFF/UI: `web-portal`**
+
+`GET /api/v1/white-glove/big-lot/fx-rate` ใช้ employee bearer authentication และ API-key permission `P0334` เพื่อคืน KTB USD/THB spot rate ใน `data.spot_rate.buy` และ `data.spot_rate.sell` โดย format เป็นทศนิยม 3 ตำแหน่ง พร้อม `data.configuration.refresh_interval_seconds` สำหรับ client polling
+
+`order-service` อ่าน USD mark-to-market record แล้ว map `OriginalNavBuy()` เป็น buy และ `OriginalNavPU()` เป็น sell; query `action=manual` อนุญาตเฉพาะค่า `manual` และเมื่อใช้ค่านี้ระบบบันทึก audit log สำเร็จ/ล้มเหลวด้วยรายละเอียดการ refresh KTB FX rate
+
+`web-portal` BFF `GET /api/white-glove/big-lot/fx-rate` proxy ไปยัง `ORDER_API_URL/api/v1/white-glove/big-lot/fx-rate` และส่งต่อเฉพาะ `action=manual`; Big Lot UI แสดง panel ก่อน order-book tabs, refresh อัตโนมัติตาม response, ใช้ default 60 วินาทีเมื่อค่าไม่ถูกต้อง และ clamp ขั้นต่ำ 5 วินาที พร้อมปุ่ม manual refresh การแสดง spot rate เป็น supporting UI และไม่เปลี่ยน fee, price หรือ order-execution contract ของ Big Lot
 
 ### 1. Load eligible products
 
@@ -253,6 +266,10 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - `pkg/crypto_product/service.go`: product eligibility และ balance response
 - `pkg/customer/service.go`: White Glove customer/account selection และ account detail lookup
 - `pkg/white_glove/service.go`: trading customer-account selection และ `require_knowledge_digital` calculation
+- `pkg/white_glove/service.go`: KTB FX rate lookup จาก USD mark-to-market
+- `handler/white_glove_dto.go`: `WhiteGloveBigLotFXRateResponse` และ 3-decimal spot-rate mapping
+- `handler/white_glove_handler.go`: FX rate endpoint, `action=manual`, permission response และ refresh configuration
+- `internal/config/config.go`: default Big Lot FX polling interval
 - `storages/postgres/customerrepository/customer_account_repository.go`: not-closed customer/account predicates
 - `pkg/order_trade/orderbook.go`: Remarketer Big Lot order-book transformation
 - `pkg/order_trade/service.go`: `CanSwap` bulk bypass และ `BigLotSwapCalculate`
@@ -276,3 +293,7 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - `src/app/features/white-glove/hooks/big-lot/use-big-lot-form.ts`
 - `src/app/features/white-glove/services/big-lot/orderbook/big-lot.ts`
 - `src/app/features/white-glove/components/big-lot/preview-biglot-order-modal.tsx`
+- `src/app/api/white-glove/big-lot/fx-rate/route.ts`: FX rate BFF proxy
+- `src/app/features/white-glove/services/big-lot/fx-rate.ts`: response transform, manual query และ refresh fallback
+- `src/app/features/white-glove/hooks/big-lot/use-big-lot-fx-rate.ts`: polling and manual refresh behavior
+- `src/app/features/white-glove/components/big-lot/fx-rate-panel/index.tsx`: KTB buy/sell UI

@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-09-09
+lastUpdated: 2026-09-11
 documentType: flow
 ---
 
@@ -100,6 +100,22 @@ Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแส�
 ในหน้า `new-bank-request` ของ `web-portal`, raw backend status `to-review` ถูก map เป็น label และสี `to-review-new-bank-request` เฉพาะ UI; application status ฝั่ง Backend ยังคงเป็น `to-review` และไม่มี transition ใหม่จาก mapping นี้
 
 `web-portal` แสดง `bank_expiry_date` ใน customer detail เมื่อมีค่า และ KYC approval bank-account column จะแสดง `WarningToast` เมื่อพบธนาคารที่มี expiry date แต่ source ที่ตรวจยังไม่ยืนยัน calculation 90 วันหรือ executor สำหรับลบบัญชีเมื่อ expiry จึงไม่ถือเป็น state transition ของ re-KYC
+
+### Customer starts re-KYC with selected steps
+
+**Owner and executing service: `onboarding-service`**
+
+**Supporting trigger: `xspring-mobile-app`**
+
+`POST /api/v1/customer/re-kyc` รับ body แบบ optional `{ "re_kyc_step": ["identity-verification", "personal-information", "suitability-test", "bank-account"] }` โดย Backend ตรวจว่าแต่ละค่าต้องเป็น parent registration status ที่อนุญาต หากไม่ส่ง body หรือส่ง array ว่าง จะใช้ legacy type-based history ตาม `re_kyc_type`
+
+เมื่อส่ง selected steps ระบบเก็บค่า `re_kyc_steps` ใน change-request log, seed registration history ของ sub-step ที่ไม่ได้เลือกเป็น completed และเว้น `review-re-kyc` กับ `completed-draft` ออกจาก seed history ส่วน initial status/sub-status ใช้ step แรกตามลำดับที่ request ส่งมาและ sub-status แรกของ step นั้น หาก `IsBankStepRequired()` เป็นจริง ระบบ append `bank-account` ตาม rule ของ default bank/name change
+
+`GET /api/v1/customer/re-kyc` คืน `flow_type`, `re_kyc_date`, `is_force` และ `steps[]` ที่บอก parent step กับสถานะ completion; ค่า `required_steps`, `status` และ `sub_status` ใน response ยังมีไว้เพื่อ compatibility เดิม Personal Information รวม `nationality`, `fatca`, `personal`, `address`, `work-information` และ `background` เป็น required sub-status set
+
+`POST /api/v1/customer/nationality` รับ `flow_type` เพิ่มจาก payload เดิม เมื่อ mobile ส่ง flow ปัจจุบันเป็น `re-kyc`, `onboarding-service` จะ update next status/history ใน `FlowReKYC`; หากไม่มี flow type ระบบใช้ onboarding flow เป็นค่าเริ่มต้น
+
+อย่างไรก็ตาม mobile step-selection UI ปัจจุบันมีเพียงเมื่อ `hasReKycCddTriggeredOnlyFeatureToggleOn()` เปิดและสถานะยังไม่เริ่ม แต่ `getReKycOption()` ยังเป็น mock และ `startReKyc()` เรียก POST โดยไม่ใส่ `re_kyc_step` ดังนั้น selected steps ยังไม่ถูกส่งแบบ end-to-end และการเริ่มจาก mobile ปัจจุบันยังตกกลับไปใช้ legacy request behavior
 
 ### 3. Employee requests retake
 
@@ -212,6 +228,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Manual forgery verification เป็น backend write path ของ `onboarding-service`; manual `pass` เก็บ memo และ reviewer แต่ไม่เขียน `forgery_reason`
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
+- Backend รองรับ step-based re-KYC ผ่าน `re_kyc_step`; request ว่างยังคง legacy type-based behavior และ mobile selection UI ยังไม่ส่งค่าที่เลือกใน current implementation
+- เมื่อ re-KYC nationality ถูกบันทึกด้วย `flow_type = re-kyc`, registration history/status ใช้ `FlowReKYC`; mobile เป็นเพียงผู้ส่ง flow context
 - Initial retake transaction ลบ `customer_laser_code` และ `customer_image_verification` ก่อนเก็บ completed history ของ step ที่ไม่ต้องทำซ้ำ แล้วพาลูกค้ากลับไปเริ่มที่ front-card scan
 - Profile-match rule ของ AdvanceAI เน้นเลขบัตรและชื่อไทย ขณะที่ address-match rule ตรวจรายละเอียดที่อยู่ครบมากขึ้น
 - การมี profile/address change ไม่ใช่ DOPA failure; เป็นผล `2009` ที่พา Flow ไปให้ลูกค้าตรวจข้อมูล
@@ -235,6 +253,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | DOPA completion และ forgery feature เปิด | ไม่เปลี่ยน DOPA/application state | background KYC → `forgery_flag` `pass`/`reject`/`error` แบบ asynchronous |
 | KYC reviewer manual verifies rejected forgery | ไม่เปลี่ยน application | background KYC `reject` → `pass` พร้อม reviewer/memo |
 | Employee requests retake | `to-review` → `to-retake` | → `identity-verification/front-card-scan` |
+| Customer creates re-KYC with selected steps | ไม่เปลี่ยน application โดยตรง | selected parent step แรก → sub-status แรก; unselected sub-steps ถูก seed เป็น completed และ `steps[]` คืนสถานะต่อ client |
+| Customer saves nationality in re-KYC | ไม่เปลี่ยน application โดยตรง | nationality completion → next status/history ใน `FlowReKYC` |
 | DOPA success; profile/address match | `to-retake` → `to-review` | → `completed-draft/application-completed-draft` |
 | DOPA success; data changed | คงอยู่ใน retake path จนลูกค้าตรวจข้อมูลต่อ | → `personal-information/personal` |
 | DOPA error/expired condition | ไม่มี completion transition ใน path นี้ | ไม่เดิน profile-comparison transition |
@@ -257,6 +277,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - KYC customer-list query ใช้ base status exclusion ที่กว้างกว่าเดิม; หาก UI ต้องการซ่อน `closed`, `inactive` หรือ `freeze` ต้องส่ง/ยืนยัน request status filter เพิ่มเติม ไม่ควรอนุมานจาก base query
 - Claim ไม่ถูกชนิด: HTTP 401
 - Request body ไม่ถูกต้อง: HTTP 400, code `4001` (`INVALID_REQUEST`)
+- `re_kyc_step` ที่ไม่ใช่ parent step ที่อนุญาต: HTTP 400 พร้อม `invalid re_kyc_step`; array ว่างไม่ใช่ error และใช้ legacy behavior
 - `current_status` ไม่ตรงกับ application ปัจจุบัน: HTTP 200, code `1000` (`INVALID_APPLICATION_STATUS`); client ต้อง refresh state ก่อน retry
 - DOPA data changed: code `2009` เป็น business outcome สำหรับ review ข้อมูล ไม่ใช่ transport failure
 - DOPA error/expired branch: code `6600`; source ไม่ยืนยัน automated retry ใน path นี้
@@ -312,6 +333,14 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields และ retake completion decision จาก `NameChanged`
 - `pkg/customer/customer-bank-account/service.go`: create bank account, `has_submitted_bank_account` flag และ grace-period acceptance
 - `handler/customer-dto.go`: `review-information` response fields รวม `has_submitted_bank_account`
+- `handler/customer-re-kyc-handler.go`: optional `re_kyc_step` request และ `steps[]` status response
+- `handler/customer_re_kyc.dto.go`: re-KYC status response fields และ deprecated compatibility fields
+- `internal/constants/enum/xpg-customer-registartion-status.go`: allowed `ReKYCSteps` และ required sub-status mapping
+- `internal/domain/customer-resigtration-status.go`: step-based/type-based history builder และ initial status
+- `internal/domain/customer_change_request_log.go`: persisted `re_kyc_steps` และ bank-step rule
+- `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: selected step status response
+- `internal/models/customer-model.go`: nationality request `flow_type`
+- `handler/customer-handler.go`: nationality flow context และ next-status/history update
 - `pkg/kyc/kyc-service.go`: compose review-information flags จาก change-request log
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: bank-account BFF และ expiry field
 - `web-portal/src/app/(customer-flow)/new-bank-request/[applicationId]/container.tsx`: map backend `to-review` เป็น UI-only new-bank-request review status
