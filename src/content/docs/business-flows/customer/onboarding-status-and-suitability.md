@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-09
+lastUpdated: 2026-09-15
 documentType: flow
 ---
 
@@ -126,6 +126,16 @@ Bank-account read path กรองเฉพาะรายการที่ `s
 
 ถ้า `IsXAMOpen` เป็นจริงจะบันทึก `customer_suitability_traditional`; ถ้าไม่ใช่และ `IsXDOpen` เป็นจริงจึงบันทึก `customer_suitability_digital` หากไม่พบทั้งสองแบบ request ล้มเหลว
 
+#### CDD product-service risk calculation
+
+ใน `CalculateCDDScore` ระบบคำนวณ product-service risk จาก account-opening intent ล่าสุดของ application/change-request log แยกจาก suitability score แล้ว persist ลง CDD risk/detail:
+
+- เปิด XAM อย่างเดียว: ใช้ config `ProductXAMRiskScore`, `risk_choice = 4.2`, detail `MF, PF` และ `product_service_risk_data` เป็น `{ dealer: false, da_broker: false, ico_portal: false, mf: true, pf: true }`
+- เปิด XD อย่างเดียว: ใช้ config `ProductXDRiskScore`, `risk_choice = 4.3`, detail `DA Broker/Dealer/ICO Portal และ MF, PF` และ flags เป็น `{ dealer: true, da_broker: true, ico_portal: true, mf: false, pf: false }`
+- เปิดทั้ง XAM และ XD: ใช้ `ProductXDRiskScore`, case `4.3`, detail เดียวกับ XD และตั้ง flags ทุกตัวเป็น `true`
+
+ระบบ upsert `product_service_risk_score`, `product_service_risk_case` และ `product_service_risk_data` ใน customer CDD risk/detail; ถ้าอ่าน latest application หรือ change-request account-opening intent ไม่ได้ การคำนวณ CDD จะคืน error แทนการเดา product mix
+
 ### 5. Return calculated result
 
 **Owner service: `onboarding-service`**
@@ -196,6 +206,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
 - KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่/เป็น record-not-found และ V1 มี `SuitabilityVersionID` ที่ใช้ได้
 - ในการ map answer จาก v2 หากมี Traditional answers จะเลือกชุดนั้นก่อน Digital answers; หากทั้งสองชุดว่างจะคืน answer ว่างโดยไม่แต่งข้อมูลเพิ่ม
+- Product-service risk เป็น component ของ CDD calculation ไม่ใช่ suitability score; product mix XAM/XD เป็นตัวเลือก score/case/data ที่ถูก persist ใน CDD risk/detail
 
 ## State transitions
 
@@ -204,6 +215,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | Trigger | State effect |
 | :--- | :--- |
 | Submit suitability | create/update Traditional หรือ Digital suitability record; ยังไม่ขยับ registration |
+| Calculate CDD score | upsert aggregate CDD risk พร้อม product-service risk score/case/data; ไม่ขยับ registration |
 | Confirm suitability | `suitability-test` → next registration sub-status พร้อม history |
 | Update personal work/background | ไม่เปลี่ยน application/registration state จาก trigger นี้; preserve field ของ `customer_background` ที่อยู่นอก step ปัจจุบัน และ background เริ่ม asynchronous watchlist report refresh |
 | Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
@@ -271,6 +283,9 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields ระหว่าง work/background update และ retake completion decision
 - `pkg/suitability/suitability-service.go`: update `NoInvestmentKnowledge` และ `VulnerableFlag` ตอน confirm suitability
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
+- `pkg/cdd-score/cdd-score-service.go`: `CalculateCDDScore`, product-service risk calculation และ persistence
+- `internal/config/config.go`: `ProductXAMRiskScore` และ `ProductXDRiskScore`
+- `internal/models/customer-cdd-risk-db.go`: CDD risk/detail fields สำหรับ product-service risk
 - `onboarding-service/pkg/customer/customer-suitability/service.go`: v1 fallback, latest evaluation selection และ question/answer mapping
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: company-specific suitability read model และ risk fallback
 - `onboarding-service/pkg/kyc/kyc-service.go`: legacy answer/risk-result fallback ไปยัง v2 suitability

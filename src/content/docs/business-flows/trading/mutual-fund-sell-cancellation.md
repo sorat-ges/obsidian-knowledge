@@ -2,12 +2,12 @@
 title: Mutual Fund Sell Order Cancellation
 description: Flow ยกเลิกคำสั่งขายกองทุนรวมโดย customer ตั้งแต่ตรวจ cutoff และ effective date จนถึงยกเลิก FundConnext และ payment records
 capability: Trading
-services: [order-service, order-consumer]
-aliases: [mutual fund sell cancellation, cancel MF sell order, cancel sell order, system cancel sell on freeze, closed account sell cancellation, ยกเลิกคำสั่งขายกองทุน, ยกเลิกคำสั่งขายกองทุนรวม, ยกเลิกคำสั่งขายเมื่อ Freeze, cancel mutual fund order]
+services: [order-service, order-consumer, xspring-mobile-app]
+aliases: [mutual fund sell cancellation, cancel MF sell order, cancel sell order, system cancel sell on freeze, closed account sell cancellation, holding-period penalty, check-holding-period, sell penalty warning, ยกเลิกคำสั่งขายกองทุน, ยกเลิกคำสั่งขายกองทุนรวม, ยกเลิกคำสั่งขายเมื่อ Freeze, แจ้งเตือนค่าปรับขายกองทุน, ตรวจสอบระยะเวลาถือครอง, cancel mutual fund order]
 integrations: [FundConnext]
-errorCodes: ["404", "500", "60002", "60004"]
+errorCodes: ["400", "401", "404", "500", "60002", "60004"]
 status: active
-lastUpdated: 2026-09-05
+lastUpdated: 2026-09-15
 documentType: flow
 ---
 
@@ -15,7 +15,7 @@ documentType: flow
 
 อธิบาย customer cancellation ของคำสั่งขาย Mutual Fund ผ่าน `order-service` รวม cancel predicate, การเรียก `FundConnext.CancelOrder`, การเปลี่ยน state, การยกเลิก payment records และ system cancellation เมื่อ account เป็น `closed` หรือ `freeze`
 
-หน้านี้ไม่ครอบคลุม ICO, digital-asset order หรือ switch order ซึ่งมี cancellation predicate แยกกัน และไม่สรุป frontend behavior ของ cancellation endpoint เพราะ `order-service` เป็น owner ของ cancellation policy; mobile change ล่าสุดที่เกี่ยวข้องกับ sell เป็นการ refresh holiday calendar ของ sell form ไม่ใช่ cancellation contract
+หน้านี้ไม่ครอบคลุม ICO, digital-asset order หรือ switch order ซึ่งมี cancellation predicate แยกกัน และไม่สรุป frontend behavior ของ cancellation endpoint เพราะ `order-service` เป็น owner ของ cancellation policy; อย่างไรก็ตาม mobile sell flow มี holding-period penalty preflight ก่อน review ซึ่งเป็น warning/read-only contract แยกจาก cancellation
 
 ## Trigger and preconditions
 
@@ -26,6 +26,26 @@ documentType: flow
 - channel ของ order ต้องไม่ใช่ `WEARE_WEB`
 - status ต้องอยู่ใน `AllowStatusCancelSell`: `order-request`, `order-confirm`, `failed` หรือ `waiting-allot`
 - effective date, product cutoff และ `ResponseTransactionID` ต้องผ่านกฎตามสถานะที่อธิบายด้านล่าง
+
+## Supporting mobile sell penalty check
+
+**Owner service: `order-service`**
+
+**Executing client: `xspring-mobile-app` สำหรับการเรียก preflight และแสดงผล; `order-service` สำหรับการคำนวณ**
+
+ก่อนเปิด sell review, mobile เรียก `POST /api/v1/order/check-holding-period` (P0299) ด้วย `account_id`, `order_type = sell`, `product_id`, ค่า `order_unit` ที่มากกว่า 0, `order_unit_type` เป็น `amount`, `unit` หรือ `all_unit` และ `effective_date` รูปแบบ ISO date ที่ไม่ย้อนหลัง
+
+`order-service` อ่าน `product_mf_extension`: ถ้า `is_check_holding_periods = false` จะคืน `is_penalty = false`; ถ้าเป็น date-to-date จะค้นหา sell orders สถานะ `waiting-allot` ของ account/product เดียวกัน รวมคำขอใหม่กับยอดเดิม และแปลง amount/unit แบบผสมด้วย mark-to-market ก่อนอ่าน portfolio aging กฎ penalty เป็นดังนี้:
+
+- ไม่พบ aging record ให้ถือว่าเป็น penalty
+- แต่ละ aging deadline คือ `AllottedNAVDate + HoldingPeriods` ปี; ถ้า effective date ไม่อยู่หลัง deadline ให้ถือว่าเป็น penalty
+- ถ้ายอดคำขอครอบคลุม aging balance ทั้งหมดและ effective date อยู่หลัง deadline ของทุก aging ที่เกี่ยวข้อง จึงคืน `is_penalty = false`
+
+กรณี product ไม่ใช่ date-to-date ระบบคืน `is_penalty = true` พร้อม `message_en` และ `message_th` จาก product penalty configuration; response contract มีเพียงผลเตือนและข้อความ ไม่ได้สร้างหรือเปลี่ยน order
+
+ใน `onSellReviewOrderPressed`, mobile หยุด flow และแสดง `ErrorOccurredBottomSheet` เมื่อ request/error เกิดขึ้น, เดินต่อทันทีเมื่อ `is_penalty = false`, และแสดง localized warning bottom sheet เมื่อเป็น penalty ผู้ใช้กด Agree จึงตั้ง `hasAcceptedPenalty = true` แล้วเดินต่อ ส่วน Cancel ปิด warning และหยุด flow; เมื่อ create sell order สำเร็จ mobile ส่ง acknowledgement `accept_penalty` ไปกับคำขอสร้าง order
+
+การตรวจนี้เป็น supporting preflight/read behavior และไม่เปลี่ยน cancellation predicate, order state หรือ payment state; backend create/cancellation ยังคงเป็น source of truth
 
 ## Participating services
 
@@ -107,6 +127,8 @@ MF `suspended` ไม่เข้า sell auto-cancel branch; ระบบยั
 - Presence ของ transaction ID ทำให้ order-service ต้องยกเลิก transaction ที่ `FundConnext` ก่อน commit local status/payment cancellation
 - Status gate ของ MF sell อนุญาต `active` และ `suspended` แต่ปฏิเสธ `closed` และ `freeze` ด้วย `60002`; กฎนี้อยู่ที่ [Order State Machine](/shared-rules/order-state-machine/)
 - System cancellation ของ MF sell เกิดเฉพาะ `closed`/`freeze`; `suspended` cancel เฉพาะ pending buy/switch ไม่ใช่ sell
+- Holding-period penalty check เป็น warning ก่อน review เท่านั้น; ไม่พบ penalty ไม่ได้แปลว่า order create/cancel จะผ่าน validation อื่นทั้งหมด
+- การตอบรับ penalty ถูกส่งเป็น `accept_penalty` ใน create request หลังผู้ใช้กด Agree; การกด Cancel หรือ preflight error ไม่สร้าง order
 
 ## State transitions
 
@@ -121,6 +143,8 @@ MF `suspended` ไม่เข้า sell auto-cancel branch; ระบบยั
 | pending sell order | `CustomerSync` non-active status เป็น `closed`/`freeze` และ system predicate ผ่าน | `cancelled` |
 
 Action flow ใช้ `cancelled`; payment records ที่ service update คือ `AMCToSA` และ `SAToCustomer` เป็น cancelled
+
+Holding-period preflight → ไม่มี state transition ของ order/payment; มีเพียง warning และ acknowledgement ใน client/create request
 
 ## Error and recovery behavior
 
@@ -154,6 +178,10 @@ Action flow ใช้ `cancelled`; payment records ที่ service update ค�
 - `handler/order_handler.go`: `CancelOrder`
 - `pkg/order/service.go`: `CancelOrderByCustomer`, `CancelOrderSell`, `validateAndCancelOrderSellFundConnext`
 - `pkg/order/order_helpers.go`: `validateOrderIsCancelable`, `isSellOrderCancelable`, `cancelOrderToFundconnext`
+- `routes/route.go`: `POST /api/v1/order/check-holding-period` (P0299)
+- `handler/order_handler.go`: `ValidatePlacedOrderPenalty`
+- `handler/order_holding_period_dto.go`: holding-period request/response fields
+- `pkg/order/check_holding_period.go`: holding-period configuration, aging calculation และ penalty decision
 - `internal/constants/enum/order_enum.go`: sell cancellation allow-list and cancel status mappings
 - `internal/constants/enum/response_enum.go`: response code mapping
 - `order-service/pkg/customer/suspend_service.go`: status-specific system cancellation ของ MF sell
@@ -161,3 +189,9 @@ Action flow ใช้ `cancelled`; payment records ที่ service update ค�
 `order-consumer`:
 
 - `order-consumer/pkg/customer-account/service.go`: `CustomerSync` non-active trigger
+
+`xspring-mobile-app`:
+
+- `lib/domains/fund_order/controller.dart`: sell review preflight, warning acknowledgement และ `accept_penalty`
+- `lib/domains/fund_order/sell/service.dart`: check-holding-period request
+- `lib/domains/fund_order/models/penalty_check_model.dart`: penalty request/response model

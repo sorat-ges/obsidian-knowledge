@@ -3,11 +3,11 @@ title: Big Lot
 description: Flow ซื้อขายสินทรัพย์ล็อตใหญ่ผ่าน White Glove ตั้งแต่เลือก order book, คำนวณ fee, สร้าง order, hold balance, ส่ง Remarketer และ settle ledger
 capability: Trading
 services: [order-service, order-consumer, web-portal]
-aliases: [big lot, biglot, bulk order, white glove, customer status, customer_status, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, KTB FX rate, big lot FX rate, spot rate, fx-rate, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, สถานะลูกค้า, Big Lot เมื่อระงับบัญชี]
+aliases: [big lot, biglot, bulk order, white glove, customer status, customer_status, dealer route, WEARE_WEB_BIG_LOT, white glove trading account context, big lot account freeze, suspended big lot sell, KTB FX rate, big lot FX rate, spot rate, fx-rate, FX rate polling, manual FX refresh, ซื้อขายล็อตใหญ่, คำสั่งบิ๊กล็อต, สถานะลูกค้า, Big Lot เมื่อระงับบัญชี]
 integrations: [Remarketer, kafka]
 errorCodes: ["400", "401", "500", "60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-09-11
+lastUpdated: 2026-09-15
 documentType: flow
 ---
 
@@ -68,9 +68,9 @@ Big Lot เป็น White Glove swap ที่เจ้าหน้าที่
 
 `GET /api/v1/white-glove/big-lot/fx-rate` ใช้ employee bearer authentication และ API-key permission `P0334` เพื่อคืน KTB USD/THB spot rate ใน `data.spot_rate.buy` และ `data.spot_rate.sell` โดย format เป็นทศนิยม 3 ตำแหน่ง พร้อม `data.configuration.refresh_interval_seconds` สำหรับ client polling
 
-`order-service` อ่าน USD mark-to-market record แล้ว map `OriginalNavBuy()` เป็น buy และ `OriginalNavPU()` เป็น sell; query `action=manual` อนุญาตเฉพาะค่า `manual` และเมื่อใช้ค่านี้ระบบบันทึก audit log สำเร็จ/ล้มเหลวด้วยรายละเอียดการ refresh KTB FX rate
+`order-service` อ่าน USD mark-to-market record แล้ว map `OriginalNavBuy()` เป็น buy และ `OriginalNavPU()` เป็น sell โดย endpoint ไม่มี query/body parameter สำหรับแยก manual refresh และไม่มี manual-refresh audit log
 
-`web-portal` BFF `GET /api/white-glove/big-lot/fx-rate` proxy ไปยัง `ORDER_API_URL/api/v1/white-glove/big-lot/fx-rate` และส่งต่อเฉพาะ `action=manual`; Big Lot UI แสดง panel ก่อน order-book tabs, refresh อัตโนมัติตาม response, ใช้ default 60 วินาทีเมื่อค่าไม่ถูกต้อง และ clamp ขั้นต่ำ 5 วินาที พร้อมปุ่ม manual refresh การแสดง spot rate เป็น supporting UI และไม่เปลี่ยน fee, price หรือ order-execution contract ของ Big Lot
+`web-portal` BFF `GET /api/white-glove/big-lot/fx-rate` proxy ไปยัง `ORDER_API_URL/api/v1/white-glove/big-lot/fx-rate` โดยไม่เติม action query; Big Lot UI แสดง panel ก่อน order-book tabs, polling อัตโนมัติตาม response, ใช้ default 60 วินาทีเมื่อค่าไม่ถูกต้อง และ clamp ขั้นต่ำ 5 วินาที ส่วนปุ่ม manual refresh เรียก GET เดิมผ่าน `refetch` การแสดง spot rate เป็น supporting UI และไม่เปลี่ยน fee, price หรือ order-execution contract ของ Big Lot
 
 ### 1. Load eligible products
 
@@ -268,7 +268,7 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - `pkg/white_glove/service.go`: trading customer-account selection และ `require_knowledge_digital` calculation
 - `pkg/white_glove/service.go`: KTB FX rate lookup จาก USD mark-to-market
 - `handler/white_glove_dto.go`: `WhiteGloveBigLotFXRateResponse` และ 3-decimal spot-rate mapping
-- `handler/white_glove_handler.go`: FX rate endpoint, `action=manual`, permission response และ refresh configuration
+- `handler/white_glove_handler.go`: FX rate endpoint, permission response และ refresh configuration โดยไม่มี action query/manual audit branch
 - `internal/config/config.go`: default Big Lot FX polling interval
 - `storages/postgres/customerrepository/customer_account_repository.go`: not-closed customer/account predicates
 - `pkg/order_trade/orderbook.go`: Remarketer Big Lot order-book transformation
@@ -294,6 +294,6 @@ Terminal outcomes ที่ยืนยันคือ `filled`, `rejected` แ�
 - `src/app/features/white-glove/services/big-lot/orderbook/big-lot.ts`
 - `src/app/features/white-glove/components/big-lot/preview-biglot-order-modal.tsx`
 - `src/app/api/white-glove/big-lot/fx-rate/route.ts`: FX rate BFF proxy
-- `src/app/features/white-glove/services/big-lot/fx-rate.ts`: response transform, manual query และ refresh fallback
+- `src/app/features/white-glove/services/big-lot/fx-rate.ts`: response transform และ refresh fallback
 - `src/app/features/white-glove/hooks/big-lot/use-big-lot-fx-rate.ts`: polling and manual refresh behavior
 - `src/app/features/white-glove/components/big-lot/fx-rate-panel/index.tsx`: KTB buy/sell UI

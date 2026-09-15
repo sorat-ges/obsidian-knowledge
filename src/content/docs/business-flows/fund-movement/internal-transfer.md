@@ -3,10 +3,10 @@ title: Internal Customer Transfer
 description: Flow โอนสินทรัพย์ระหว่างบัญชีลูกค้าภายในระบบผ่าน White Glove พร้อมรักษายอดและต้นทุนเฉลี่ย
 capability: Fund Movement
 services: [order-service, asset-service, asset-consumer, web-portal]
-aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, order_transfer_configuration, โอนภายใน, โอนระหว่างบัญชีลูกค้า, คู่บัญชีโอนไม่ได้รับอนุญาต]
+aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอนภายใน, โอนระหว่างบัญชีลูกค้า, คู่บัญชีโอนไม่ได้รับอนุญาต]
 errorCodes: ["400", "401", "500"]
 status: active
-lastUpdated: 2026-09-11
+lastUpdated: 2026-09-15
 documentType: flow
 ---
 
@@ -36,7 +36,21 @@ documentType: flow
 
 ## End-to-end sequence
 
-### 1. Validate request and source portfolio
+### 1. Select eligible transfer accounts
+
+**Owner and executing service: `order-service`**
+
+**Supporting client: `web-portal`**
+
+ก่อน create path จะเปิดตัวเลือกบัญชีตาม feature ที่ใช้:
+
+- `GET /api/v1/white-glove/transfer/accounts` (P0291, feature `dealer_transfer`) คืน dealer accounts และ brokerage account; dealer accounts ไม่ถูกกรองด้วย transfer-pair configuration แต่บัญชี treasury ที่แสดงเป็น destination ถูกจำกัดด้วย active/non-deleted pair จาก brokerage identification ไปยัง treasury identification
+- `GET /api/v1/treasury/internal-transfer/accounts` (P0302, feature `treasury_transfer`) resolve treasury source ที่ configure ไว้, อ่าน active configuration rows จาก source ไปยัง destination, โหลด dealer customer accounts แล้วกรองเหลือเฉพาะ destination identification ที่อนุญาต พร้อมตัด treasury source account ออกจากผลลัพธ์
+- ถ้าไม่พบ treasury source, configuration หรือ destination ที่อนุญาต endpoint treasury คืนรายการว่าง; การ prefilter ใน read path นี้ไม่แทนการตรวจ pair ซ้ำใน create path
+
+`web-portal` ใช้ผลลัพธ์นี้เพื่อแสดง account selector เท่านั้น ส่วน `order-service` ยังคงเป็น owner ของ eligibility และ validation
+
+### 2. Validate request and source portfolio
 
 **Request owner: `order-service`**
 
@@ -48,14 +62,14 @@ documentType: flow
 4. Skip Mode ข้าม balance validation แต่บังคับ Price override ที่ถูกต้อง
 5. เลือกต้นทุน: ใช้ Price override เมื่อส่งมา มิฉะนั้นใช้ `sourcePortfolio.AverageCost` ใน Standard Mode
 
-### 2. Create transfer and hold source balance
+### 3. Create transfer and hold source balance
 
 **Owner service: `order-service`**
 
 1. สร้าง `order_transfer` สถานะ `open`
 2. สร้าง logical ledger ลด `AVAILABLE` และเพิ่ม `HOLD_IN_ORDER` ของบัญชีต้นทาง
 
-### 3. Settle source and destination
+### 4. Settle source and destination
 
 **Logical-ledger owner: `order-service`**
 
@@ -65,7 +79,7 @@ documentType: flow
 
 Apply movement เข้า source/destination portfolio และอัปเดต average cost ตาม [Ledger Event Processing](/business-flows/asset-management/ledger-processing/)
 
-### 4. Finalize and expose balances
+### 5. Finalize and expose balances
 
 **Order owner: `order-service`**
 
@@ -81,6 +95,9 @@ Apply movement เข้า source/destination portfolio และอัปเ�
 - Skip Mode เป็นข้อยกเว้นเฉพาะ account ที่ config ไว้ ไม่ใช่ behavior ปกติ
 - Skip Mode ต้องมี Price มากกว่า 0
 - ทุก source/destination identification pair ต้องมี configuration ที่ active และ `is_delete = false`; account ที่ resolve ได้ไม่ได้แปลว่า transfer pair นั้นอนุญาต
+- Dealer account selector ไม่กรอง dealer accounts ด้วย pair configuration แต่ treasury destination ใน dealer-transfer path ต้องผ่าน active pair จาก brokerage ไป treasury
+- Treasury-transfer selector ใช้เฉพาะ destination identification ที่มี active configuration จาก configured treasury source และไม่คืน source treasury account เอง
+- Read-path account filtering เป็นเพียง precondition ของ selector; create endpoint ต้อง revalidate pair และ product ทุกครั้ง
 - Standard Mode ใช้ average cost ของ source portfolio เมื่อไม่มี override
 - Hold และ settle ต้องรักษา movement สองฝั่งให้สอดคล้องตาม [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
@@ -118,6 +135,10 @@ open → failed
 ## Code references
 
 - `pkg/order_transfer/service.go`
+- `routes/route.go`: `GET /api/v1/white-glove/transfer/accounts` (P0291) และ `GET /api/v1/treasury/internal-transfer/accounts` (P0302)
+- `handler/white_glove_handler.go`: dealer-transfer account selector
+- `handler/treasury_handler.go`: treasury-transfer account selector และ pair error mapping
+- `pkg/order_transfer/service.go`: `GetDealerAccounts`, treasury destination filtering และ configured source resolution
 - `pkg/order_transfer/errors.go`: `ErrTransferPairNotAllowed` และ HTTP 400 client-error classification
 - `storages/postgres/ordercryptorepository/order_transfer_configuration_repository.go`: active/non-deleted pair lookup
 - `handler/treasury_handler.go`: map pair validation error เป็น HTTP 400
