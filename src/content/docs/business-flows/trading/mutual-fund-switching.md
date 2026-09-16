@@ -1,13 +1,13 @@
 ---
 title: Mutual Fund Switching
-description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจ holiday และ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
+description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจวันมีผลและ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
 services: [order-service, order-consumer, xspring-mobile-app]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, holiday calendar, trade calendar refresh, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, holiday calendar, trade calendar refresh, available-trade-date, trade availability, cut-off-time, switch cutoff, over cut off time, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
 integrations: [FundConnext]
-errorCodes: ["500", "60002", "60005", "60007"]
+errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007"]
 status: active
-lastUpdated: 2026-09-05
+lastUpdated: 2026-09-16
 documentType: flow
 ---
 
@@ -62,6 +62,27 @@ Backend มี `GET /api/v2/holidays/{order_type}/{fund_code}` ซึ่งค�
 
 Mobile ไม่มี holiday cache key แล้ว: ทุกครั้งที่ `getHoliday` ถูกเรียก—including การกลับเข้า tab/order flow เดิม—จะขอข้อมูลจาก server ใหม่ แล้วแทนค่า holidays, `current_date`, `effective_date` และ `is_holiday` ใน memory ถ้าได้ `errorNoTradeDateConfig` จะแสดง trade-calendar warning; ถ้า `is_holiday = true` จะแสดง fund-holiday bottom sheet; ถ้า request ล้มเหลวจะล้าง holiday list/current date และตั้ง `is_holiday = false` การ refresh นี้เป็น supporting UX และไม่แทน validation ตอน create order ของ `order-service`
 
+### Trade availability contract for order date and cutoff
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+**Supporting client: `xspring-mobile-app`**
+
+`GET /api/v1/order/available-trade-date` เป็น read-only contract สำหรับตรวจวันมีผลและเวลาตัดรอบ โดยรับ `order_type=buy|sell|switch`, `product_id` และ `target_product_id` ที่เป็น optional สำหรับ switch; ต้องใช้ `PortalClaims` และไม่สร้างหรือเปลี่ยน order state ผลสำเร็จคืน `show_modal`, `current_date`, `effective_date` และ `cut_off_time` โดยวันที่เป็น `YYYY-MM-DD` และ `cut_off_time` เป็นเวลา Thailand/Asia-Bangkok แบบไม่มี timezone offset
+
+ลำดับการตัดสินใจของ Backend คือ:
+
+- ไม่มี trade calendar ที่เปิดใช้งาน: `show_modal = trade-calendar` และไม่มี `effective_date`
+- วันปัจจุบันเป็น weekend หรือ holiday: `show_modal = holiday` และ `effective_date` เป็น working day ถัดไป
+- เป็น working day แต่เลย cutoff: `show_modal = cut-off-time` และ `effective_date` เริ่มค้นจากวันถัดไป
+- ก่อน cutoff ใน working day: ไม่แสดง modal และ `effective_date` เป็นวันปัจจุบัน
+
+Holiday มี priority เหนือ cutoff สำหรับวันเดียวกัน สำหรับ switch ที่ไม่มี `target_product_id` ระบบยังไม่คืน cutoff; เมื่อมี target แล้ว `order-service` ใช้ pair rule เดียวกับ precheck: settlement day ที่ไม่ใช่ศูนย์ใช้ source switch-out sell cutoff ส่วน settlement day เป็นศูนย์ใช้ cutoff ที่เร็วกว่า source sell และ target buy ในวันที่ target เปิดทำการ และ fallback เป็น source sell เมื่อ target ไม่มี calendar/เป็น holiday
+
+ปัจจุบัน mobile เรียก contract นี้ใน buy, sell และ switch และเรียกซ้ำเมื่อเลือก target fund เพื่อเก็บ cutoff ที่แสดง (`cutOffTimeBuy`/sell/switch) แต่ controller ยังไม่ได้ใช้ `show_modal`, `current_date` หรือ `effective_date` จาก response; modal และ effective date ยังมาจาก `GET /api/v2/holidays/{order_type}/{fund_code}` เดิม ดังนั้นนี่เป็น integration gap ที่ต้องยืนยัน rollout ไม่ควรสรุปว่า `available-trade-date` ควบคุม UX ของ mobile แล้ว
+
 ### 2. Run placement precheck
 
 **Owner service: `order-service`**
@@ -72,9 +93,11 @@ Mobile ไม่มี holiday cache key แล้ว: ทุกครั้ง�
 1. switching pair ต้องมีอยู่
 2. source และ target sale channel ต้องอนุญาตตาม effective date
 3. source switch-out holiday และ cutoff
-4. ถ้า effective date เป็นวันนี้และ `SwitchSettlementDay == 0` ให้เลือก cutoff ที่เร็วกว่าใน source sell กับ target buy
+4. ถ้า effective date เป็นวันนี้และ `SwitchSettlementDay == 0` ให้เลือก cutoff ที่เร็วกว่าใน source sell กับ target buy โดยพิจารณา target switch-in holiday ตาม helper
 
-ถ้า precheck ไม่ผ่าน handler คืน HTTP `403` พร้อมข้อความ `Error place order switching is not valid`; source ไม่ยืนยันว่า frontend แสดงข้อความนี้อย่างไร
+ถ้า precheck ไม่ผ่านเพราะ cutoff handler คืน HTTP `200` พร้อม business code `60001` และ message `Over cut off time`; กรณี validation อื่นยังคืน HTTP `403` พร้อมข้อความ `Error place order switching is not valid`
+
+ใน current `xspring-mobile-app` หน้าสับเปลี่ยนใหม่ให้ผู้ใช้เลือก target, amount/unit และ effective date แล้ว review, ยืนยัน acknowledgement ใน confirmation bottom sheet และยืนยัน PIN ก่อนเรียก create switch order เมื่อ review หรือ precheck ได้ `60001` mobile จะแสดง over-cutoff warning และล้าง effective date เพื่อให้เลือกวันถัดไป พฤติกรรมนี้เป็น supporting client journey; `order-service` ยังเป็น owner ของ cutoff และ create validation
 
 ### 3. Revalidate business rules before persistence
 
@@ -161,13 +184,18 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - Mobile guard ของ `xspring-mobile-app` สอดคล้องกับ operation direction: freeze block buy/switch/sell และ suspended block buy/switch แต่ไม่ block sell ที่ client; backend เป็นผู้ตัดสินสุดท้าย
 - Mobile เรียก holiday API ใหม่ทุกครั้งที่ tab/order flow เรียก `getHoliday`; การย้ายออกจากหน้าคำสั่งซื้อจึงเป็นจุดที่ reset bank-account cache ส่วน holiday state ไม่ถูกใช้แทน backend validation
 - Account status event ที่ downstream ได้รับทำให้ `order-service` พยายามยกเลิก pending switch order สำหรับทั้ง `suspended`, `closed` และ `freeze` ตาม predicate ของ switch
+- `GET /api/v1/order/available-trade-date` เป็น read-only availability contract; holiday, cutoff และ target-pair rule ถูกคำนวณโดย `order-service` และไม่เปลี่ยน order state
+- `60001` เป็น business response code ที่อยู่ใน HTTP `200` เมื่อ placement precheck พบว่าเลย cutoff; validation อื่นของ switching ยังใช้ HTTP `403` หรือ error mapping ของ handler
+- Mobile รุ่นปัจจุบันอ่าน cutoff จาก availability response แต่ยังใช้ holiday endpoint เดิมเป็นตัวกำหนด modal/effective date จนกว่า contract gap นี้จะได้รับการยืนยันและปิด
 
-### Unresolved cutoff inconsistency
+### Unresolved contract and cutoff inconsistencies
 
 | Code path | Behavior ที่ source ยืนยัน | สถานะ |
 | :--- | :--- | :--- |
 | `VerifyPlaceOrderSwitching` และ `resolveSwitchCutOffSourceOrder` | ตรวจ target switch-in holiday; ถ้า target holiday ให้ใช้ source sell cutoff | ต้องยืนยัน intended behavior |
 | `ValidateSwitchCutOffTime` ใน final `ValidateOrder` | ตรวจ source switch-out holiday; ถ้า settlement day เป็นศูนย์อาจเลือก target buy cutoff โดยไม่ตรวจ target holiday ใน function นี้ | ต้องยืนยัน intended behavior |
+| `available-trade-date` swagger กับ handler | swagger ระบุ product/pair not found เป็น `404` แต่ current handler map sentinel error เป็น HTTP `500` | ต้องยืนยัน public error contract |
+| `available-trade-date` response กับ mobile controller | response มี `show_modal`, `current_date`, `effective_date` แต่ mobile ใช้เฉพาะ cutoff และยังให้ holiday endpoint เดิมขับ modal/date | ต้องยืนยัน migration/rollout behavior |
 
 จนกว่าเจ้าของระบบจะยืนยัน ไม่ควรสรุปว่า target holiday จะ reject หรือ fallback แบบใดใน published integration contract
 
@@ -193,9 +221,12 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 
 - `60002` (`ErrorCustomerSuspend`): customer/account ไม่ใช่ `active` (`suspended`, `closed` หรือ `freeze`); ไม่สร้าง switch order
 - `60005` (`ErrorValidateOrder`): target/pair/date/holiday/tax หรือ validation อื่นไม่ผ่าน
-- HTTP `403`: placement precheck ไม่ผ่าน โดย handler ใช้ข้อความ `Error place order switching is not valid`
+- `60001` (`ErrorCutOffTime`): placement/review พบว่าเลย cutoff; switching create handler คืน HTTP `200` พร้อม message `Over cut off time` และ mobile ให้ผู้ใช้เลือก effective date ใหม่
+- HTTP `400`: `available-trade-date` ได้ order type หรือ UUID ของ product/target ไม่ถูกต้อง
+- HTTP `401`: `available-trade-date` ไม่มี `PortalClaims`
+- HTTP `403`: placement precheck ที่ไม่ใช่ cutoff ไม่ผ่าน โดย handler ใช้ข้อความ `Error place order switching is not valid`
 - `60007` (`ErrorValidateCancelWaitAllot`): customer cancellation ไม่ผ่าน switch cancellation predicate
-- `500` (`ErrorInternal`): product, holiday, portfolio, external integration หรือ transaction error ที่ source map เป็น internal error
+- `500` (`ErrorInternal`): product, holiday, portfolio, external integration หรือ transaction error ที่ source map เป็น internal error; product/pair not found จาก availability endpoint ก็ถูก map เป็น `500` ใน current handler แม้ swagger ระบุ `404`
 - Mobile holiday request ที่ได้ `errorNoTradeDateConfig` จะแสดง `TradeCalendarBottomSheet`; network/parse error ล้าง client calendar state และไม่เปลี่ยน backend order state
 - ถ้า FundConnext ตอบ error code ระบบเก็บ response และเปลี่ยน order เป็น `failed`; source ไม่ยืนยัน retry อัตโนมัติของ switch placement
 
@@ -217,11 +248,13 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 `order-service`:
 
 - `routes/route.go`: switching product, create และ cancel endpoints
-- `handler/product_handler.go`: `GetProductsSwitching`
+- `handler/product_handler.go`: `GetProductsSwitching`, `GetTradeAvailability`
+- `handler/product_handler_response.go`: `TradeAvailabilityResponse`
 - `handler/order_handler.go`: `CreateSwitchingOrder`, `CancelSwitchingOrder`
-- `pkg/order/service.go`: `ValidateSwitchOrder`, `ValidateSwitchCutOffTime`, `VerifyPlaceOrderSwitching`, `OrderSwitch`, `CancelSwitchOrderByCustomer`
+- `pkg/order/service.go`: `ValidateSwitchOrder`, `ValidateSwitchCutOffTime`, `VerifyPlaceOrderSwitching`, `OrderSwitch`, `CancelSwitchOrderByCustomer`, cutoff response-code parity
 - `pkg/order/order_helpers.go`: switching request creation, FundConnext approval/cancel และ cutoff helpers
-- `pkg/product/service.go`: switching product list และ displayed cutoff calculation
+- `pkg/product/service.go`: switching product list, `GetTradeAvailability`, `GetCutOffTimeByOrderType` และ displayed cutoff calculation
+- `pkg/holiday/helper.go`: holiday/workday และ switch-in/switch-out cutoff resolution
 - `internal/constants/enum/order_enum.go`: switching success/cancel state mappings
 - `order-service/pkg/customer/suspend_service.go`: system cancellation ของ pending switch หลัง non-active account status
 
@@ -236,5 +269,10 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - `lib/view/order/widgets/buy_form_widget.dart`, `lib/view/order/widgets/switch_form_widget.dart`, `lib/domains/fund_order/sell/sell_order_form.dart`: blocked-form rendering
 - `lib/view/order/order_view_model.dart`: mobile holiday fetch, buy/switch tab preparation และ lifecycle cache reset
 - `lib/domains/fund_order/sell/controller.dart`: sell holiday fetch และ bank-account cache reset
+- `lib/services/order/available_trade_date_service.dart`: `GET /api/v1/order/available-trade-date` client
+- `lib/models/order/available_trade_date_response_model.dart`: availability response parsing and cutoff display
+- `lib/domains/fund_order/controller.dart`: buy/switch availability calls and cutoff state
+- `lib/domains/fund_order/sell/controller.dart`: sell availability call and cutoff state
+- `lib/domains/fund_order/switch/screen.dart`: current switch review/confirmation/PIN journey
 - `lib/view/order_history/list_page/order_history_list_view_model.dart`: order-history access no longer short-circuits solely on `under-min-age`/`rejected` sub-status; incomplete registration checks remain
 - `lib/repository/order/order_repository.dart`: `GET /api/v2/holidays/{order_type}/{fund_code}` client contract

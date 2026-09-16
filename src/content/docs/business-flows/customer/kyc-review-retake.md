@@ -7,7 +7,7 @@ aliases: [KYC retake, request retake, KYC customer list, KYC customer status, re
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-09-15
+lastUpdated: 2026-09-16
 documentType: flow
 ---
 
@@ -116,6 +116,10 @@ Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแส�
 `POST /api/v1/customer/nationality` รับ `flow_type` เพิ่มจาก payload เดิม เมื่อ mobile ส่ง flow ปัจจุบันเป็น `re-kyc`, `onboarding-service` จะ update next status/history ใน `FlowReKYC`; หากไม่มี flow type ระบบใช้ onboarding flow เป็นค่าเริ่มต้น
 
 เมื่อ `hasReKycCddTriggeredOnlyFeatureToggleOn()` เปิดและสถานะยังไม่เริ่ม mobile จะเรียก `GET /api/v1/customer/re-kyc/option` เพื่ออ่าน `re_kyc_date`, `is_force` และ `steps[]` ที่มี `step`, `is_force` และ `expiry_date`; controller เลือกทุก step ที่ Backend คืนมาเป็นค่าเริ่มต้น และไม่ให้ยกเลิก step ที่บังคับ เมื่อผู้ใช้ยืนยันหน้า review mobile จะส่ง selected parent status ใน `re_kyc_step` ไปกับ `POST /api/v1/customer/re-kyc` และ refresh customer status หลังเริ่มสำเร็จ ถ้าไม่มี selected step/body ระบบยังใช้ legacy type-based behavior ตาม Backend
+
+รายละเอียด supporting behavior ใน mobile ปัจจุบันคือ `getOption()` แสดง global loading ระหว่างอ่าน option, เลือกทุก step ที่ Backend คืนมาเป็นค่าเริ่มต้น, ไม่ให้ toggle แถวที่ `is_force = true` และให้การแตะทั้งแถวของ step ที่ไม่ force เป็นตัว toggle selection; `expiry_date` และ `re_kyc_date` ถูก format เป็น date-only ก่อนแสดงผล การทำงานนี้เปลี่ยนเฉพาะ selection/navigation UX ไม่ได้เปลี่ยน owner ของ re-KYC state
+
+หลัง `reKycService.startReKyc(steps: steps)` สำเร็จ mobile จะ refresh customer status ก่อนนำทาง ถ้า `re-kyc-cdd-triggered-only` เปิด จะ reset stack ไป `ReKycRequiredStepScreen` แล้วเปิดหน้าถัดไปจาก `CustomerStatusController.getNextPageName()`; ถ้า toggle นี้ปิด จะไป `ReviewReKycScreen` เมื่อ sub-status ที่ refresh ได้เป็น `review-re-kyc` มิฉะนั้นไป `ReKycRequiredStepScreen` เส้นทางเหล่านี้เป็น client routing ตาม state ที่ Backend คืนมา ไม่ใช่การตัดสินหรือเขียน registration state ใน mobile
 
 ### 3. Employee requests retake
 
@@ -231,6 +235,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
 - Backend รองรับ step-based re-KYC ผ่าน `re_kyc_step`; option/status read และ mobile review flow ใช้ selected parent steps ชุดเดียวกัน ส่วน request ว่างยังคง legacy type-based behavior
+- Mobile step-selection ปัจจุบันเลือก option ทุก stepเป็นค่าเริ่มต้น, lock เฉพาะ forced step และ route หลัง start จาก customer status ที่ refresh แล้ว; onboarding-service ยังคงเป็น owner ของ selected-step history และ registration state
 - เมื่อ re-KYC nationality ถูกบันทึกด้วย `flow_type = re-kyc`, registration history/status ใช้ `FlowReKYC`; mobile เป็นเพียงผู้ส่ง flow context
 - Initial retake transaction ลบ `customer_laser_code` และ `customer_image_verification` ก่อนเก็บ completed history ของ step ที่ไม่ต้องทำซ้ำ แล้วพาลูกค้ากลับไปเริ่มที่ front-card scan
 - Profile-match rule ของ AdvanceAI เน้นเลขบัตรและชื่อไทย ขณะที่ address-match rule ตรวจรายละเอียดที่อยู่ครบมากขึ้น
@@ -355,8 +360,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `xspring-mobile-app/lib/utils/data_source.dart`: `re-kyc-cdd-triggered-only` feature-toggle read
 - `xspring-mobile-app/lib/services/re_kyc/re_kyc_service.dart`: option read และ selected-step start request
 - `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/controller.dart`: default/forced step selection
-- `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/screen.dart`: selected-step review navigation
-- `xspring-mobile-app/lib/domains/re_kyc/review_re_kyc/controller.dart`: selected-step start behavior
+- `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/screen.dart`: selected-step review navigation and row selection UI
+- `xspring-mobile-app/lib/domains/re_kyc/review_re_kyc/controller.dart`: selected-step start, status refresh และ CDD-only/normal routing
 - `xspring-mobile-app/lib/widgets/bank_account/bank_account_name_change_warning_section.dart`: shared warning presentation
 - `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
 - `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response
