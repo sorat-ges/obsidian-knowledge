@@ -3,7 +3,7 @@ title: Security & OTP Business Rules
 description: กฎ OTP cooldown อายุรหัส การยืนยัน และการแยกประเภทธุรกรรม
 tags: [logic, security, otp, rate-limit, redis]
 status: active
-lastUpdated: 2026-04-06
+lastUpdated: 2026-09-17
 documentType: shared-rule
 ---
 
@@ -29,6 +29,9 @@ documentType: shared-rule
 ระบบแยก Cooldown ตามประเภทธุรกรรม (`sequence`) ดังนี้:
 - `withdraw-fiat`: สำหรับการถอนเงินบาท
 - `withdraw-crypto`: สำหรับการถอนคริปโต
+
+### 4. OTP Verification Audit Trail
+สำหรับการยืนยัน OTP ทาง email ของ sequence ถอนเงิน `order-service` เตรียม audit action `VerifyOTP` เป็น `fail` ไว้ก่อนเรียก Thai Bulk และบันทึก audit แม้ provider ตอบ error หรือ OTP ไม่ผ่าน การบันทึกผล `success` จะเกิดหลัง update contact-verification status สำเร็จเท่านั้น หากการ update status ล้มเหลว audit จะไม่ถูกยกระดับเป็น success ส่วนความล้มเหลวของการบันทึก audit ถูก log แยกและไม่เปลี่ยนผลการยืนยันหรือ state ของ withdrawal order
 
 ## 🔄 ขั้นตอนการทำงาน (Logic Flow)
 

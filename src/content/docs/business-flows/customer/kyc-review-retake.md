@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
 status: active
-lastUpdated: 2026-09-16
+lastUpdated: 2026-09-17
 documentType: flow
 ---
 
@@ -120,6 +120,16 @@ Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแส�
 รายละเอียด supporting behavior ใน mobile ปัจจุบันคือ `getOption()` แสดง global loading ระหว่างอ่าน option, เลือกทุก step ที่ Backend คืนมาเป็นค่าเริ่มต้น, ไม่ให้ toggle แถวที่ `is_force = true` และให้การแตะทั้งแถวของ step ที่ไม่ force เป็นตัว toggle selection; `expiry_date` และ `re_kyc_date` ถูก format เป็น date-only ก่อนแสดงผล การทำงานนี้เปลี่ยนเฉพาะ selection/navigation UX ไม่ได้เปลี่ยน owner ของ re-KYC state
 
 หลัง `reKycService.startReKyc(steps: steps)` สำเร็จ mobile จะ refresh customer status ก่อนนำทาง ถ้า `re-kyc-cdd-triggered-only` เปิด จะ reset stack ไป `ReKycRequiredStepScreen` แล้วเปิดหน้าถัดไปจาก `CustomerStatusController.getNextPageName()`; ถ้า toggle นี้ปิด จะไป `ReviewReKycScreen` เมื่อ sub-status ที่ refresh ได้เป็น `review-re-kyc` มิฉะนั้นไป `ReKycRequiredStepScreen` เส้นทางเหล่านี้เป็น client routing ตาม state ที่ Backend คืนมา ไม่ใช่การตัดสินหรือเขียน registration state ใน mobile
+
+### Backend edit permissions during re-KYC review
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+เมื่อ application เป็น `re-kyc` และอยู่ใน `to-review`, `GET /api/v1/customer/review-information` จะคำนวณ `edit_data_allow.general_information` และ `edit_data_allow.address_on_id_card` จาก change-request log โดยอนุญาตเมื่อมี `identity-verification` อยู่ใน `re_kyc_steps` หรือ reason เป็น `id-card-expired`/`force-expired`; สำหรับ CDD/suitability-only ที่ไม่มี identity step จะไม่อนุญาตสองส่วนนี้ ส่วน address ปัจจุบัน/ที่ทำงาน/ที่อยู่จัดส่งและส่วนข้อมูลอื่นยังใช้ edit permission ของ review application ตามที่ Backend คืน
+
+Mobile ใช้ selected-step state เพื่อส่ง `disableAddressOnIdCardSection` ตอนนำทางไป personal-information และซ่อน/เปิด UX ของ address-on-ID-card เท่านั้น; ค่า `edit_data_allow` จาก `onboarding-service` เป็น source of truth และ client ไม่สามารถเพิ่มสิทธิ์การแก้ไขเอง
 
 ### 3. Employee requests retake
 
@@ -236,6 +246,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
 - Backend รองรับ step-based re-KYC ผ่าน `re_kyc_step`; option/status read และ mobile review flow ใช้ selected parent steps ชุดเดียวกัน ส่วน request ว่างยังคง legacy type-based behavior
 - Mobile step-selection ปัจจุบันเลือก option ทุก stepเป็นค่าเริ่มต้น, lock เฉพาะ forced step และ route หลัง start จาก customer status ที่ refresh แล้ว; onboarding-service ยังคงเป็น owner ของ selected-step history และ registration state
+- สำหรับ re-KYC ที่อยู่ `to-review`, `edit_data_allow.general_information` และ `address_on_id_card` เปิดเมื่อ selected/reason มี identity-verification หรือเป็น `id-card-expired`/`force-expired`; CDD/suitability-only ที่ไม่มี identity step ปิดสองส่วนนี้ และ mobile เป็นเพียงผู้ส่งต่อ UX guard
 - เมื่อ re-KYC nationality ถูกบันทึกด้วย `flow_type = re-kyc`, registration history/status ใช้ `FlowReKYC`; mobile เป็นเพียงผู้ส่ง flow context
 - Initial retake transaction ลบ `customer_laser_code` และ `customer_image_verification` ก่อนเก็บ completed history ของ step ที่ไม่ต้องทำซ้ำ แล้วพาลูกค้ากลับไปเริ่มที่ front-card scan
 - Profile-match rule ของ AdvanceAI เน้นเลขบัตรและชื่อไทย ขณะที่ address-match rule ตรวจรายละเอียดที่อยู่ครบมากขึ้น
@@ -325,7 +336,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `handler/webportal/kyc-handler.go`: v1 request-retake validation/error mapping
 - `handler/webportal/kyc-approver-handler.go`: v2 application-based request-retake
 - `handler/webportal/kyc-customer-handler.go`: KYC customer list endpoint และ employee permission scope
-- `pkg/kyc/helper.go`: `ValidateIsShowButtonRetake`
+- `pkg/kyc/helper.go`: `ValidateIsShowButtonRetake`, `AllowEditData` และ re-KYC identity-step/expiry permission rule
 - `pkg/kyc/kyc-service.go`: request transaction, flow type และ registration history
 - `pkg/ekyc/laserrepo/laser-repository.go`: ลบ `customer_laser_code` ตาม identification
 - `internal/storages/postgres/customerimageverificationrepo/repository.go`: ลบ `customer_image_verification` ตาม identification
@@ -362,6 +373,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/controller.dart`: default/forced step selection
 - `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/screen.dart`: selected-step review navigation and row selection UI
 - `xspring-mobile-app/lib/domains/re_kyc/review_re_kyc/controller.dart`: selected-step start, status refresh และ CDD-only/normal routing
+- `xspring-mobile-app/lib/domains/re_kyc/re_kyc_required_step/controller.dart`: selected-step guard สำหรับ `disableAddressOnIdCardSection`
 - `xspring-mobile-app/lib/widgets/bank_account/bank_account_name_change_warning_section.dart`: shared warning presentation
 - `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
 - `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response

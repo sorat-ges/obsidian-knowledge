@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-15
+lastUpdated: 2026-09-17
 documentType: flow
 ---
 
@@ -58,6 +58,8 @@ Source รอบนี้ยืนยัน behavior จาก Backend เป็
 สำหรับ customer signup ใหม่ `createIdentificationTx` สร้าง change-request log หลัง registration history ภายใน transaction เดียวกัน โดยบันทึก `has_default_bank_account = false`; record นี้จึงพร้อมให้ status และ suitability read path ใช้เป็น account-opening context ตั้งแต่เริ่ม flow
 
 การเขียน registration status ใน migrated, offline และ open-initial-account paths ใช้ `UpsertTx` ภายใน transaction: ถ้ามี record ของ `identification_id` อยู่แล้วจะ update status, sub-status, flow type, application และ soft-delete flag; ถ้าไม่พบจึง insert record ใหม่
+
+ใน offline account-opening review confirm, `onboarding-service` เปลี่ยน application เป็น `to-review` พร้อมเขียน `application.status_date` จาก `userUpdate.UpdatedAt`; submitted action-flow ใช้ `application.StatusDate()` เป็น `StartDate` และการเขียน application, action-flow, change-request log, registration status, suitability และ FATCA/CRS อยู่ใน transaction เดียวกัน
 
 ### Bank-account requirement and bank-name-change grace period
 
@@ -204,6 +206,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - ใน legacy `CheckAndSaveCustomerWatchlist` path ระบบ pre-create `customer_background_risk` ของ `customer` และ `spouse` ก่อน parallel checks และใช้ `personalType` ที่ร้องขอเมื่อสร้าง PEP/AMLO record เพื่อป้องกัน duplicate record จาก concurrent insert
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
+- Offline account-opening review confirm กำหนด `application.status_date` จากเวลาที่ reviewer update และสร้าง submitted action-flow โดยอ้างอิง `application.StatusDate()` เป็น start date; timestamp alignment นี้ไม่เปลี่ยน required-step rule
 - KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่/เป็น record-not-found และ V1 มี `SuitabilityVersionID` ที่ใช้ได้
 - ในการ map answer จาก v2 หากมี Traditional answers จะเลือกชุดนั้นก่อน Digital answers; หากทั้งสองชุดว่างจะคืน answer ว่างโดยไม่แต่งข้อมูลเพิ่ม
 - Product-service risk เป็น component ของ CDD calculation ไม่ใช่ suitability score; product mix XAM/XD เป็นตัวเลือก score/case/data ที่ถูก persist ใน CDD risk/detail
@@ -291,6 +294,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `onboarding-service/pkg/kyc/kyc-service.go`: legacy answer/risk-result fallback ไปยัง v2 suitability
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: registration status write path ที่เรียก `UpsertTx`
 - `onboarding-service/pkg/customer/customer-process/customer-process-service.go`: `createIdentificationTx` และ `createCustomerChangeRequestLog` สำหรับ initial onboarding context
+- `onboarding-service/pkg/offlineonboarding/service.go`: offline review confirm, application `StatusDate` และ submitted action-flow `StartDate`
 - `onboarding-service/pkg/customer/customer-bank-account/service.go`: bank-account list, `has_submitted_bank_account` flag, `AcepptGracePeriod` และ investment-bank-account read
 - `onboarding-service/pkg/customer/customer-bank-account/customer-bank-account-repo/repository.go`: active/non-deleted bank-account filter และ response ordering
 - `onboarding-service/pkg/kyc/kyc-service.go`: review-information bank-account context flags
