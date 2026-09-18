@@ -4,10 +4,10 @@ description: Flow ถอนเงินบาทตั้งแต่ตรว�
 capability: Fund Movement
 services: [order-service, order-consumer, payment-gateway, asset-service, asset-consumer]
 integrations: [bank]
-aliases: [fiat withdrawal, withdraw fiat, withdraw THB, suspended account bank account, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze]
+aliases: [fiat withdrawal, withdraw fiat, withdraw THB, special fee approval, withdraw fiat special fee, approval audit, suspended account bank account, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, อนุมัติค่าธรรมเนียมถอนเงิน, audit ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze]
 errorCodes: ["60002"]
 status: active
-lastUpdated: 2026-09-04
+lastUpdated: 2026-09-18
 documentType: flow
 ---
 
@@ -68,6 +68,21 @@ documentType: flow
 
 ตัวอย่างจาก source: available balance ต้องครอบคลุม `inputAmount` 1,000 บาท ไม่ใช่ 1,000 บาทบวก fee จากนั้น `1,000 - 20 + 5 = 985` บาทถูกส่งไปธนาคาร และหลังธนาคารหัก Bank Fee 5 บาท ลูกค้าได้รับ 980 บาท
 
+### Special-fee approval audit path
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+เมื่อ withdrawal อยู่ใน `waiting-fee-approve`, endpoint `POST /api/v1/white-glove/order-fiat/withdraw/special-fee-approval` รับ action `approve` หรือ `reject` จาก approval link และบันทึก audit log ของ `SpecialFeeApproval` ไม่ว่าผลการตรวจจะสำเร็จหรือล้มเหลว
+
+Current behavior ของ audit path คือ:
+
+- เมื่อ resolve order ได้ ระบบเติม `order_id` และ `customer_code` ลง audit ก่อนตรวจ order status และ latest action flow เพื่อให้ validation failure ยัง trace กลับไปยังรายการถอนเดิมได้
+- ถ้า confirmation token verify ล้มเหลว แต่ผล verify ยังมี action type และ entity ID ของ special fee ระบบจะ lookup special fee และ order แบบ best effort เพื่อเติม `order_id`/`customer_code` เช่นกัน
+- ถ้า lookup เพื่อ enrich audit ล้มเหลว ระบบคง error เดิมของ token/validation ไว้ ไม่เปลี่ยนให้ approval ผ่าน และการบันทึก audit เป็น best effort
+- Audit จะเริ่มด้วยผล `fail` และเปลี่ยนเป็น `success` หลัง decision สำเร็จและ confirmation token ถูกใช้แล้ว; metadata enrichment นี้ไม่เปลี่ยน state หรือ recovery ของ withdrawal เอง
+
 ### 3. Confirm identity and submit
 
 **Owner service: `order-service`**
@@ -126,6 +141,7 @@ documentType: flow
 - Status gate เป็น operation-specific: `suspended` ยังถอนเงินได้ แต่ `closed`/`freeze` ไม่ให้สร้างหรือยืนยัน operation ที่ handler ตรวจ
 - White Glove Digital Trading bank-account read ยอมรับ customer-account status `active`/`suspended` สำหรับ `REDEMPTION` + Digital Asset; เป็น read rule ไม่ใช่การอนุญาต operation อื่น
 - Pending fiat withdrawal ถูก system-cancel เมื่อ account status เป็น `closed` หรือ `freeze`
+- Special-fee approval ที่ token หรือ validation ไม่ผ่านยังคงเป็น failure; การหา `order_id`/`customer_code` เพื่อ audit เป็น best-effort และไม่ override error เดิม
 
 ## State transitions
 
@@ -144,6 +160,7 @@ source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBM
 - fee query ล้มเหลว: บล็อก flow ทันที
 - ไม่พบ fee configuration: ใช้ fee 0 ตาม behavior ที่ source ระบุ ไม่ใช่ error
 - source ไม่ระบุกลไก retry/refund หลังธนาคารตอบ `FAILED`; ต้องตรวจ code และ runtime path ก่อนเปลี่ยน recovery behavior
+- Special-fee approval token ที่ผิด/หมดอายุ/ไม่ตรงจะไม่ทำให้ approval สำเร็จ; audit อาจมี order/customer identifiers หาก lookup จาก token ทำได้ และหากทำไม่ได้ให้ใช้ error เดิมเป็นหลัก
 
 ## Final outcomes
 
@@ -170,3 +187,4 @@ source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBM
 - `GetWithdrawFeeForBankAndTransferAmount`
 - `GetTransactionFeeWithCondition`
 - Actions: `WithdrawFiatActionReceivedByCustomer`, `WithdrawFiatActionPayToBank`
+- `pkg/order_fiat/order_fiat_withdraw_service.go`: `ProcessWithdrawFiatSpecialFeeApproval`, `loadSpecialFeeApprovalContext`, `populateSpecialFeeAuditLogBestEffort`

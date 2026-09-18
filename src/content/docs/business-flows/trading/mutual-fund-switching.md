@@ -3,11 +3,11 @@ title: Mutual Fund Switching
 description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจวันมีผลและ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
 services: [order-service, order-consumer, xspring-mobile-app]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, cut-off-time, switch cutoff, over cut off time, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
 integrations: [FundConnext]
 errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007"]
 status: active
-lastUpdated: 2026-09-17
+lastUpdated: 2026-09-18
 documentType: flow
 ---
 
@@ -76,10 +76,12 @@ Mobile ไม่มี holiday cache key แล้ว: ทุกครั้ง�
 
 ลำดับการตัดสินใจของ Backend คือ:
 
-- ไม่มี trade calendar ที่เปิดใช้งาน: `show_modal = trade-calendar` และไม่มี `effective_date`
-- วันปัจจุบันเป็น weekend หรือ holiday: `show_modal = holiday` และ `effective_date` เป็น working day ถัดไป
+- Buy/sell และ switch ที่ยังไม่มี `target_product_id` เมื่อไม่มี trade calendar ที่เปิดใช้งาน: `show_modal = trade-calendar` และไม่มี `effective_date`
+- Buy/sell และ switch ที่ยังไม่มี `target_product_id` เมื่อวันปัจจุบันเป็น weekend หรือ holiday: `show_modal = holiday` และ `effective_date` เป็น working day ถัดไป
 - เป็น working day แต่เลย cutoff: `show_modal = cut-off-time` และ `effective_date` เริ่มค้นจากวันถัดไป
 - ก่อน cutoff ใน working day: ไม่แสดง modal และ `effective_date` เป็นวันปัจจุบัน
+
+สำหรับ switch ที่มี `target_product_id`, source code แยกผลของ source switch-out calendar ออกจาก modal ที่ client ใช้แสดง: ถ้า source calendar ไม่ได้ตั้งค่า response คืน `current_date` อย่างเดียว (`show_modal`, `effective_date` และ `cut_off_time` เป็น `nil`); ถ้าวันปัจจุบันเป็น holiday ระบบยังคำนวณ working day ถัดไปและ pair cutoff แต่ล้าง `show_modal` ไม่คืน holiday modal. นี่เป็น behavior ของ availability response เท่านั้น ไม่ได้เปลี่ยน final create validation ของ switch
 
 Holiday มี priority เหนือ cutoff สำหรับวันเดียวกัน สำหรับ switch ที่ไม่มี `target_product_id` ระบบยังไม่คืน cutoff; เมื่อมี target แล้ว `order-service` ใช้ pair rule เดียวกับ precheck: settlement day ที่ไม่ใช่ศูนย์ใช้ source switch-out sell cutoff ส่วน settlement day เป็นศูนย์ใช้ cutoff ที่เร็วกว่า source sell และ target buy ในวันที่ target เปิดทำการ และ fallback เป็น source sell เมื่อ target ไม่มี calendar/เป็น holiday
 
@@ -189,6 +191,7 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - Mobile เรียก holiday API ใหม่ทุกครั้งที่ tab/order flow เรียก `getHoliday`; การย้ายออกจากหน้าคำสั่งซื้อจึงเป็นจุดที่ reset bank-account cache ส่วน holiday state ไม่ถูกใช้แทน backend validation
 - Account status event ที่ downstream ได้รับทำให้ `order-service` พยายามยกเลิก pending switch order สำหรับทั้ง `suspended`, `closed` และ `freeze` ตาม predicate ของ switch
 - `GET /api/v1/order/available-trade-date` เป็น read-only availability contract; holiday, cutoff และ target-pair rule ถูกคำนวณโดย `order-service` และไม่เปลี่ยน order state
+- สำหรับ switch ที่มี `target_product_id`, source switch-out holiday/trade-calendar result ไม่ได้แสดง `holiday` หรือ `trade-calendar` modal ใน response; กรณีไม่มี calendar คืน `current_date` อย่างเดียว และกรณี holiday คืน effective date/pair cutoff โดย `show_modal` เป็น `nil`
 - `60001` เป็น business response code ที่อยู่ใน HTTP `200` เมื่อ placement precheck พบว่าเลย cutoff; validation อื่นของ switching ยังใช้ HTTP `403` หรือ error mapping ของ handler
 - Mobile รุ่นปัจจุบันอ่าน `show_modal`, `current_date`, `effective_date` และ cutoff จาก availability response; holiday endpoint v1 ใช้เป็น date list สำหรับ calendar เท่านั้น
 - Candidate list ที่ mobile ใช้คือ `GET /api/v2/products/{product_id}/switching-in-products`; cutoff ไม่ได้อยู่ใน response และต้องเรียก availability ซ้ำหลังเลือก target fund

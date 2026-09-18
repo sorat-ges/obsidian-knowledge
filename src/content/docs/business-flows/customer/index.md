@@ -5,7 +5,7 @@ capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
 aliases: [customer onboarding, suitability, KYC retake, retake-re-kyc, re-KYC, KYC expiry, account suspension, account freeze, knowledge test, digital knowledge test, power of attorney customer, cancel orders on freeze, onboarding reminder, reminder email, เปิดบัญชี, ถ่ายบัตรใหม่, แบบประเมินความเสี่ยง, แบบทดสอบความรู้, แบบทดสอบความรู้ด้านสินทรัพย์ดิจิทัล, ลูกค้า POA, ทบทวน KYC, อีเมลเตือนเปิดบัญชี, ระงับบัญชี, Freeze บัญชี]
 status: active
-lastUpdated: 2026-09-08
+lastUpdated: 2026-09-18
 documentType: flow
 ---
 
@@ -17,6 +17,7 @@ Flow หลัก:
 - [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) — คำนวณวันหมดอายุจากบัตรประชาชน, CDD และ suitability ก่อนระงับลูกค้า รวมถึง rejection ที่ทำให้ existing/re-KYC account เป็น `freeze`
 - [Digital Knowledge Test](/business-flows/customer/knowledge-test/) — ค้น customer ที่มี status ตาม eligibility ใหม่ อ่านรายละเอียด และบันทึกผลผ่าน employee/customer พร้อมส่ง downstream event
 - [Power of Attorney Customer Selection](/business-flows/customer/power-of-attorney/) — ค้น active digital-asset account และตรวจ customer info ก่อนทำรายการ POA
+- [Investor Class Upgrade Approval](/business-flows/customer/investor-class-upgrade/) — ลูกค้าสร้างและ submit คำขอ แล้วเจ้าหน้าที่ approve/reject พร้อม sync profile, account data และ downstream event
 
 ## Participating services
 
