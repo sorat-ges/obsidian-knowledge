@@ -3,11 +3,11 @@ title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
-aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, restore customer capture, suspended by system, Suspended by System, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, อีเมล reject KYC, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002"]
 status: active
-lastUpdated: 2026-09-15
+lastUpdated: 2026-09-19
 documentType: flow
 ---
 
@@ -139,6 +139,14 @@ Reason mapping:
 
 ถ้า auto-cancel transaction ล้มเหลว ระบบ log error และหยุดการประมวลผล suspended-KYC ต่อสำหรับ customer รายนี้; batch worker ยังทำงานกับ customer รายอื่นตามรอบเดิม
 
+### Force re-KYC notification after suspension
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+หลัง suspension transaction และ external-system handling ถ้า existing re-KYC application อยู่ในสถานะว่าง, `draft`, `completed` หรือ `cancelled` ระบบเรียก `EmailEventTypeReKycForce` เพื่อส่ง force re-KYC email และ notification ให้ customer. ก่อนส่ง `sendReKycForce` อ่าน `customer_background_kyc` ของ identification นั้น และส่ง `KycExpiryDate` ที่เก็บไว้เป็น final date ของ email; ไม่ได้ใช้เวลาปัจจุบันเป็นวันหมดอายุอีกต่อไป. การส่ง notification เกิดหลัง email helper ใน path เดียวกัน และไม่ใช่ state transition ของ application/account
+
 ### 8. Resolve a KYC rejection outcome
 
 **Owner service: `onboarding-service`**
@@ -156,6 +164,8 @@ Reason mapping:
 Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `AutoRejectByLED`, `AutoRejectByAMLOAndLED`, `AutoRejectByDisability`, `AutoRejectByMuleAccount`, `XDCustomerAccountReason`, `XAMCustomerMigratedHasSuspendedAccount` และ `IdentityVerificationAppmanUnderMinAge`; however under-min-age มี early return ใน post-rejection path จึงไม่ควรสรุปว่าจะ publish `CustomerSync` จาก path นี้
 
 ใน rejection email path ของ `onboarding-service`, customer email เป็น `To` ตาม application channel และ recipient ภายใน/ผู้เกี่ยวข้องที่ resolve ได้จะอยู่ใน `Bcc`: สำหรับ web ที่ใช้ customer email จริง ระบบใส่ prospect employee email เป็น BCC เพิ่ม; สำหรับ migrated customer ที่มี Digital Asset account รายชื่อ RM จาก IC license, `EMAIL_XD_CC` และ `EMAIL_ACM` ถูก deduplicate แล้วส่งเป็น BCC เช่นกัน ส่วน dummy existing-customer email ของ web จะส่งไป `prospect.EmpEmail` เป็น `To` ตาม current implementation
+
+เมื่อ rejection path patch `change-request-log` ของ account-opening payload, ระบบแยก metadata ตามต้นทางของการ reject: ถ้า application อยู่ `to-review` และ `rejectByReviewer = true`, reviewer ที่ทำรายการจะถูกบันทึกใน `reviewed_at`, `reviewed_by` และ `reviewed_by_name` พร้อมกับกำหนด `approved_at`/`approved_by`/`approved_by_name` เป็น AML actor ปัจจุบัน (`C00066`, `Korn Thirasat`); ถ้าไม่ใช่ reviewer rejection ระบบบันทึกผู้ทำรายการใน approved fields. Metadata นี้เป็น audit/request-log data และไม่เปลี่ยน application/identification/account state matrix ด้านบน
 
 ### 9. Propagate status to downstream services
 
@@ -230,6 +240,8 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `bank-account-setting` และ `new-bank-account-request` ถูกข้ามใน cancel helper; cancellation แบบเฉพาะทางรองรับ upgrade investor class และ withdrawal-level upgrade
 - Auto-cancel re-KYC ลบ/restore ข้อมูลใน transaction เดียวกับการยกเลิก application แต่คำนวณ KYC expiry ใหม่หลัง transaction เพื่อให้ query เห็นข้อมูลที่ restore แล้ว
 - `kyc_expiry_data` เป็น metadata ของ ID-card/suitability expiry และ warning ที่ re-KYC option/status ใช้; existing background KYC ที่ metadata ว่างหรือ invalid จะถูก backfill ระหว่าง expiry upsert
+- Force re-KYC email ใช้ `customer_background_kyc.KycExpiryDate` เป็น final date เมื่อระบบส่ง `EmailEventTypeReKycForce`; ไม่ใช้ current time เป็นวันหมดอายุของ email
+- การ patch `change-request-log` แยก reviewer rejection (`to-review`) ออกจาก rejection อื่น: reviewer ถูก stamp ใน reviewed fields และ approved fields ใช้ AML actor ปัจจุบัน ส่วน rejection อื่นใช้ staff ผู้ทำรายการใน approved fields
 - การ soft-delete registration history ของ re-KYC ระบุ `application_id`; ไม่ลบ history ของ flow อื่นของ customer ใน path นี้
 - Customer capture ที่ restore ได้รวม watchlist personal/background/vulnerable-investor reports และ histories รวมถึง suitability Traditional/Digital และ histories เมื่อ field เหล่านั้นมีใน capture
 
@@ -249,6 +261,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | Suspended application | created → `to-review` |
 | Eligible unfinished application | current status → cancellation path ตาม application type |
 | Existing re-KYC application | current status → `cancelled-by-system` เมื่อ auto-cancel condition เป็นจริง |
+| Customer change-request log account metadata | reviewer rejection จาก `to-review` → reviewer ใน `reviewed_*` และ AML actor ใน `approved_*`; rejection อื่น → acting staff ใน `approved_*` |
 | Restored customer data | customer tables → snapshot จาก capture หลัง cancellation transaction commit |
 | Downstream pending orders | `CustomerSync` non-active account → order-consumer trigger → selected order cancellation in `order-service` |
 
@@ -264,6 +277,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - Rejection path ที่ publish `CustomerSync` ถ้า `order-consumer` เรียก cancellation endpoint แล้วได้ network/HTTP error จะ log error และไม่คืน error จาก `EventCustomerSync`; ต้องตรวจ order state แยก
 - System cancellation เก็บ failure ต่อรายการและส่ง internal notification แบบ asynchronous; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จก่อนหน้า
 - auto-cancel re-KYC ล้ม: ไม่เดินต่อไปสร้าง suspended-by-system application ให้ customer รายเดียวกันใน invocation นั้น และ source ไม่ยืนยัน retry อัตโนมัติของ auto-cancel
+- Force re-KYC path อ่าน `customer_background_kyc` ไม่ได้หรือได้ record เป็น nil: ไม่ส่ง force email/notification และคืน error detail `failed to get background KYC`
 - job เขียน audit, batch log และ failure email; source ไม่ยืนยัน manual replay command
 
 ## Final outcomes
@@ -276,6 +290,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - Batch result ระบุจำนวน fetched, skipped, success และ error เพื่อใช้ติดตาม recovery
 - ถ้าเป็น existing/migrated หรือ re-KYC rejection ที่เป็น manual/non-auto: identification เป็น `active`, accounts เป็น `suspended` และใช้ `SUP-007`
 - ถ้าเป็น existing/migrated หรือ re-KYC rejection ที่เป็น auto-reject case: identification และ accounts เป็น `freeze`, ใช้ `SUP-007`, แล้ว rejection path publish `CustomerSync` เมื่อไม่เข้า early return
+- ถ้าเข้าเงื่อนไข force re-KYC notification ระบบส่ง email ที่อ้างอิง `KycExpiryDate` และ notification; ถ้าอ่าน background KYC ไม่ได้ ผลลัพธ์ของ customer รายนี้เป็น error แทนการส่งข้อความ
 - ถ้า downstream ได้รับ `CustomerSync` ครบและ cancellation predicate ผ่าน ระบบยกเลิกเฉพาะ pending order ตาม status/side matrix; event propagation ไม่เกิดใน KYC expiry path ที่ตรวจพบ
 
 ## Related shared rules
@@ -296,7 +311,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `pkg/feature/constants.go`, `pkg/feature/feature.go`: `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` และ feature-toggle parsing
 - `pkg/customer/identification/identification-repo/identification-repository.go`: `GetListWithExistsCustomer` candidate predicate สำหรับ Phase 1
 - `pkg/customer/kyc-expiry/service.go`: CDD/suitability expiry periods
-- `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application และ cancellation processing
+- `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application/cancellation processing และ `sendReKycForce` ที่อ่าน `KycExpiryDate`
 - `internal/storages/postgres/applicationrepository/application_repository.go`: active-identification และ active-account selection สำหรับ expiry suspension
 - `pkg/customer/application/customer-application-repo/customer-application-repository.go`: current re-KYC application lookup และ suspension candidates
 - `pkg/customer/customer-account/customer-account-repo/customer-account-repository.go`: active-account-only update พร้อม reason/status date
@@ -306,7 +321,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `internal/constants/enum/customer_account.go`: customer account status enum
 - `pkg/customer/customer-process/process-delete.go`: scoped registration-history deletion และ restore entry point
 - `pkg/customer/customer-process/customer-process-service.go`: capture restore mapping รวม account, suitability และ watchlist report
-- `pkg/customer/application/service.go`: `OldCaptureId` ที่ผูกกับ application ใหม่
+- `pkg/customer/application/service.go`: `OldCaptureId` ที่ผูกกับ application ใหม่, `patchDataCustomerChangeRequestLog` และ `applyApprovalPatchByStatus`
 - `pkg/customer/re-kyc/helper.go`: suspension/cancellation eligibility
 - `internal/constants/enum/rekyc_type.go`
 - `internal/constants/enum/xd-customer-account-reason.go`
