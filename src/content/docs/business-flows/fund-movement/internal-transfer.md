@@ -3,10 +3,10 @@ title: Internal Customer Transfer
 description: Flow โอนสินทรัพย์ระหว่างบัญชีลูกค้าภายในระบบผ่าน White Glove พร้อมรักษายอดและต้นทุนเฉลี่ย
 capability: Fund Movement
 services: [order-service, asset-service, asset-consumer, web-portal]
-aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอนภายใน, โอนระหว่างบัญชีลูกค้า, คู่บัญชีโอนไม่ได้รับอนุญาต]
+aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, order transfer audit, transfer audit log, OrderTransferAsset, transfer_failed, xspring_customer_code, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอนภายใน, โอนระหว่างบัญชีลูกค้า, audit การโอน, คู่บัญชีโอนไม่ได้รับอนุญาต]
 errorCodes: ["400", "401", "500"]
 status: active
-lastUpdated: 2026-09-15
+lastUpdated: 2026-09-20
 documentType: flow
 ---
 
@@ -89,6 +89,19 @@ Apply movement เข้า source/destination portfolio และอัปเ�
 
 เปิดเผย balance และ cost ที่ materialize แล้วของทั้งสองบัญชี
 
+### 6. Record transfer audit trail
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+`CreateInternalTransfer` และ `CreateDealerOrderTransfer` เตรียม audit request แล้วบันทึกผ่าน `auditLogSvc` ใน handler ก่อนคืนผลลัพธ์ให้ client การบันทึกนี้เป็น side effect สำหรับ trace request ไม่ใช่ ledger movement หรือ state transition ของ `order_transfer`
+
+- ถ้า bind body, parse UUID หรือ validation ของ handler ไม่ผ่าน ระบบบันทึก audit หนึ่งรายการเป็น `WEARE_WEB` / `OrderTransferAsset` / `Confirm` / `fail` โดยใช้ `Detail = transfer_failed` และบังคับ `customer_code` เป็นค่าว่าง
+- หลัง service resolve account แล้ว `orderTransferService` หา `xspring_customer_code` จาก source และ destination identification แล้วคืนเฉพาะ code ที่ไม่ซ้ำใน `AuditCustomerCodes`; internal transfer จึงอาจได้สองรายการ ส่วน dealer transfer ที่ใช้ customer account เดียวกันได้หนึ่งรายการ
+- สำเร็จ: บันทึก audit หนึ่งรายการต่อ code ด้วย `Result = success` และ detail `order_id: <order id>`; ไม่สำเร็จหลัง resolve code: บันทึกหนึ่งรายการต่อ code ด้วย `Result = fail` และ detail `transfer_failed`
+- การ lookup customer code ที่ล้มเหลวถูก log แล้วแทนด้วย code ว่าง โดยไม่ยกเลิก transfer; หากการบันทึก audit เองล้มเหลว handler จะ log error และไม่เปลี่ยนผลลัพธ์ของ transfer/API
+
 ## Business rules
 
 - Standard Mode ปฏิเสธเมื่อ available balance ไม่พอ
@@ -100,6 +113,8 @@ Apply movement เข้า source/destination portfolio และอัปเ�
 - Read-path account filtering เป็นเพียง precondition ของ selector; create endpoint ต้อง revalidate pair และ product ทุกครั้ง
 - Standard Mode ใช้ average cost ของ source portfolio เมื่อไม่มี override
 - Hold และ settle ต้องรักษา movement สองฝั่งให้สอดคล้องตาม [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+- Audit customer code ใช้ค่าจาก identification ที่ service resolve ได้ ไม่ใช่ค่าจาก request body และตัดค่าซ้ำก่อนสร้าง audit record
+- Audit code lookup และ audit persistence เป็น best-effort side effect; ความล้มเหลวของสองขั้นตอนนี้ไม่เปลี่ยน validation, ledger หรือผล API ของ transfer
 
 ## State transitions
 
@@ -119,12 +134,15 @@ open → failed
 - Pair ไม่อยู่ใน `order_transfer_configuration`: HTTP 400 และ message `transfer between these identifications is not allowed`; owner/executor คือ `order-service`
 - `web-portal` จับคู่ message นี้เพื่อเปิด error modal, ปิด preview และ reset asset/account/form เป็นค่าเริ่มต้นเมื่อผู้ใช้ dismiss; UI recovery นี้ไม่เปลี่ยน backend validation
 - ถ้า Phase 2 Settle ล้มเหลว ให้ revert Hold จาก `HOLD_IN_ORDER` กลับ `AVAILABLE` ของต้นทาง และจบตาม failure path
+- Handler validation หรือ service/settlement error ยังคืน error ของ transfer ตามเดิม พร้อม audit `transfer_failed`; ถ้า account code ถูก resolve แล้ว audit failure จะผูกกับ code ที่ resolve ได้ทีละรายการ
+- Audit save error ไม่ถูกส่งกลับ client และไม่ทำให้ transfer ถูกจัดเป็น failure เพิ่มเติม; มีเพียง log สำหรับตรวจสอบภายหลัง
 
 ## Final outcomes
 
 - สำเร็จ: ต้นทางลดสินทรัพย์ ปลายทางเพิ่มสินทรัพย์ด้วย cost ที่เลือก และ order จบ `completed`
 - Validation ไม่ผ่าน: ไม่สร้าง settlement
 - Settle ล้มเหลว: revert Hold และ order จบ `failed`
+- ทุก create attempt มี audit outcome อย่างน้อยหนึ่งรายการเมื่อ handler เดินถึงจุดสร้าง audit; audit success/failure ไม่ใช่ตัวแทนของ `order_transfer` state หรือ asset ledger
 
 ## Related shared rules and flows
 
@@ -138,7 +156,12 @@ open → failed
 - `routes/route.go`: `GET /api/v1/white-glove/transfer/accounts` (P0291) และ `GET /api/v1/treasury/internal-transfer/accounts` (P0302)
 - `handler/white_glove_handler.go`: dealer-transfer account selector
 - `handler/treasury_handler.go`: treasury-transfer account selector และ pair error mapping
+- `handler/treasury_handler.go`: `CreateInternalTransfer` และการสร้าง audit outcome ตาม `AuditCustomerCodes`
+- `handler/white_glove_dealer_transfer_handler.go`: `CreateDealerOrderTransfer` และการสร้าง audit outcome ตาม `AuditCustomerCodes`
+- `handler/white_glove_order_transfer_audit.go`: `OrderTransferAsset`, `transfer_failed`, `order_id` detail และ best-effort audit persistence
 - `pkg/order_transfer/service.go`: `GetDealerAccounts`, treasury destination filtering และ configured source resolution
+- `pkg/order_transfer/audit.go`: resolve distinct `xspring_customer_code` จาก source/destination account
+- `pkg/order_transfer/service_io.go`: `CreateOrderTransferOutput.AuditCustomerCodes`
 - `pkg/order_transfer/errors.go`: `ErrTransferPairNotAllowed` และ HTTP 400 client-error classification
 - `storages/postgres/ordercryptorepository/order_transfer_configuration_repository.go`: active/non-deleted pair lookup
 - `handler/treasury_handler.go`: map pair validation error เป็น HTTP 400
