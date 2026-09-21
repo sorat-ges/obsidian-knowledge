@@ -1,386 +1,382 @@
 ---
 title: White Glove Dealer USD Swap Pair Support Implementation Plan
-tags: [implementation, active, dealer, white-glove, swap, usd, coinbase, convert-api]
+tags: [implementation, active, dealer, white-glove, swap, usd, coinbase]
 status: active
-last-updated: 2026-09-19
+last-updated: 2026-09-21
 ---
 
-# 🚀 White Glove Dealer USD Swap Pair Support Implementation Plan
+# White Glove Dealer USD Swap Pair Support
 
-## 🎯 Goal & Overview
+## Goal
 
-ยกระดับระบบการซื้อขายใน Dealer Flow (White Glove) ให้รองรับการเทรดสินทรัพย์ดิจิทัลด้วยสกุลเงิน **USD** (เช่น `BTC-USD`, `ETH-USD`, `USDT-USD`, `USDC-USD`) แบบ End-to-End ครอบคลุมทั้งฝั่ง **Order Domain** (`order-service`, `order-consumer`) และ **Platform Domain** (`remarketer-core-service`, `remarketer-coinbase-adaptor-service`, `remarketer-inquiry-service`, `dealer-core-service`) พร้อมรองรับการเทรด `USDC-USD` ผ่าน Coinbase Convert API
+Dealer สามารถซื้อขายสินทรัพย์ดิจิทัลด้วย quote currency ที่ Exchange ปลายทางรองรับ เช่น `*-THB` บน Bitkub และ `*-USD` บน Coinbase และสามารถติดตาม Portfolio และ Order ผ่านระบบ Back Office (White Glove) ได้ตั้งแต่ Estimate จน Settlement เสร็จสมบูรณ์
+
+ระบบต้องรักษาหน่วยของเงินให้ถูกต้องตลอด flow โดยสำหรับคำสั่ง `*-USD` แบบ direct pair:
+
+- Customer settlement currency เป็น USD
+- Exchange quote currency เป็น USD
+- Effective FX rate เป็น `1`
+- ไม่มีการแปลงจำนวนเงิน THB ↔ USD
+- ไม่มี FX hedge เนื่องจากไม่มี FX exposure
+
+## References
+
+- Miro: [XM-18509 - Dealer รองรับการ trade คู่สกุลเงิน USD](https://miro.com/app/board/uXjVG9cYQOk=/?moveToWidget=3458764683601197805&cot=14)
+- Coinbase Convert (`USDC-USD`): XM-18789 — แยกออกจาก scope ของเอกสารนี้
+
+## Scope
+
+### In Scope
+
+- White Glove Portfolio รองรับ balance และ valuation ของ USD
+- White Glove Swap รองรับ direct USD-quoted pairs ที่ถูกเปิดใช้งานใน strategy ของ Exchange
+- Market และ Limit order หาก White Glove เปิดให้เลือก order type ดังกล่าวอยู่แล้ว
+- Route, estimate, orderbook, place order, status inquiry, settlement, ledger และ order display
+- แสดง Exchange และ Exchange fee ตามรายละเอียดใน Miro
+- แสดง THB-equivalent market value ของ USD ใน Portfolio โดยใช้ FX mark-to-market
+- Filter USD ออกจาก Deposit และ Withdraw
+- Filter Dealer orders ออกจาก Recent Trades ของ Retail ทุก channel
+- แก้ liquidity sync ให้รวม strategy ของ Retail และ Dealer
+- Coinbase adaptor ต้อง reject เมื่อจำเป็นต้องใช้ FX แต่ `fxRate` เป็น nil หรือ `0`
+
+### Out of Scope
+
+- Coinbase Convert API สำหรับ `USDC-USD` — ดำเนินการใน XM-18789
+- การเทรด pair ที่ Exchange ไม่มี direct orderbook หรือไม่มี active dealer strategy
+- การเพิ่มช่องทางฝากหรือถอน USD ให้ลูกค้า
+
+> หาก `USDC-USD` ไม่มี direct spot orderbook/active strategy ใน release นี้ ระบบต้องไม่เสนอ route และต้องตอบ No Available Sourced Exchange ไม่ใช่ fallback ไป Convert API
 
 ---
 
-## 📋 Acceptance Criteria (AC)
+## Domain Rules และ Invariants
 
-| # | ข้อกำหนด (Acceptance Criteria) | ขอบเขตของระบบที่รับผิดชอบ |
+### 1. Pair และ Route ต้องตรงกัน
+
+ทุกจุดที่ค้นหา route, market rate, orderbook หรือ validate order ต้องใช้ key อย่างน้อย:
+
+```text
+base_symbol + quote_symbol + source_exchange
+```
+
+และต้องรักษา invariant:
+
+```text
+requested quote currency
+  == selected dealer strategy quote currency
+  == selected exchange pair quote currency
+  == customer settlement currency
+```
+
+ห้ามเลือก strategy จาก `base_symbol` เพียงอย่างเดียว เพราะเมื่อมีทั้ง `BTC-THB` และ `BTC-USD` อาจ route ไปผิด pair ได้
+
+### 2. FX Semantics
+
+| Customer pair | Exchange pair | พฤติกรรมที่ถูกต้อง |
 |---|---|---|
-| **AC 1** | หน้าจอ Overview (White Glove) รองรับการแสดงผลสกุลเงิน **USD** ใน Portfolio | `order-service` (Crypto Product / Portfolio) |
-| **AC 2** | รองรับการเทรด (Swap) คู่เทรดสกุลเงิน USD ตั้งแต่ต้นจนจบธุรกรรม (End-to-End) | `order-service`, `order-consumer`, `remarketer-core`, `coinbase-adaptor` |
-| **AC 3** | Implement ครบถ้วนทั้งฝั่ง Order Domain และ Platform Domain | ทุกเซอร์วิสที่เกี่ยวข้อง |
-| **AC 4** | แสดง Orderbook ตาม Exchange ที่เลือกบนหน้าจอ White Glove | `order-service` (Orderbook Cache / Route) |
-| **AC 5** | ข้อมูล Order แสดงผลถูกต้องในทุกหน้าที่เกี่ยวข้อง (Swap Estimate, Open Orders, Order History/Detail, Trading Menu) | `order-service` (DTO, Decimal & Currency Formatting) |
-| **AC 6** | แสดง Liquidity ตามจริง 100% (Config = 100%) และรองรับสกุลเงิน USD | `remarketer-core-service` (Route & Liquidity Buffer) |
-| **AC 7** | กำหนดค่า Average Cost = `1.0` สำหรับฝั่ง Fiat ใน Swap Transaction (ทั้ง THB และ USD) | `order-service` (Swap Request & Webhook Settlement) |
-| **AC 8** | รองรับการเทรดคู่ `USDC-USD` บน Coinbase ผ่าน Convert API (`/convert/quote` & `/convert/trade/{trade_id}`) | `remarketer-coinbase-adaptor-service` (Convert Client & Flow) |
-| **AC 9** | หากไม่มี Exchange ใดรองรับคู่เหรียญที่เลือก ให้ Return Error `"No Available Sourced Exchange"` | `order-service`, `remarketer-core-service` |
-| **AC 10** | ซ่อน (Filter out) สกุลเงิน USD ออกจากเมนู Deposit และ Withdraw ของลูกค้า | `order-service` (Crypto Product Service) |
-| **AC 11** | กรอง (Filter out) Order ที่เกิดจาก Dealer ออกจาก Recent Trades ของหน้าบ้าน (Retail Channels) | `order-service` (Order Trade Transaction Repository) |
+| `BTC-USD` | `BTC-USD` | Direct USD; `FxRate = OriginalFxRate = 1`; ไม่ convert และไม่ hedge |
+| `BTC-THB` | `BTC-USD` | ต้องใช้ FX ที่ valid เพื่อแปลงหน่วย; nil/0 ต้อง reject ก่อนส่ง Exchange; hedge ตาม flow เดิม |
+| `BTC-THB` | `BTC-THB` | Direct THB; ไม่ใช้ USD FX |
+
+ห้ามใช้ fallback ที่เมื่อ `fxRate = 0` แล้วข้ามการหาร/คูณ เพราะจะทำให้ยอด THB ถูกส่งไป Exchange ในฐานะ USD
+
+### 3. Liquidity 100%
+
+“แสดง Liquidity ตามจริง 100%” หมายถึงไม่ลด liquidity ด้วย buffer
+
+- หาก config ปัจจุบันคือ `LiquidityDecreasePercent` ต้องตั้งค่าเป็น `0`
+- ห้ามตั้ง `LiquidityDecreasePercent = 100` เพราะจะทำให้ effective liquidity เป็นศูนย์
+- หากต้องการ config ที่อ่านตรงตามความหมาย ให้เพิ่ม `LiquidityDisplayPercent = 100`
+
+ค่าที่ใช้บน Estimate และค่าที่ validate ก่อน Place Order ต้องมาจากหน่วยเดียวกันและ snapshot/route เดียวกัน
+
+### 4. Average Cost ของ Fiat
+
+กำหนด `avg_cost = 1` เฉพาะ transaction/ledger leg ที่ product เป็น fiat (`THB` หรือ `USD`)
+
+- ห้ามตั้ง average cost ของ base digital asset เช่น BTC/ETH เป็น `1`
+- Digital-asset leg ต้องใช้ portfolio average-cost calculation เดิม
+- ต้องระบุใน implementation ว่า field/table ใดเป็น fiat leg และมี test แยก Buy/Sell
+
+### 5. Dealer Order Identity
+
+ให้สร้างและ persist ค่า immutable เช่น `client_type = DEALER` หรือ `order_origin = WHITE_GLOVE_DEALER` ตั้งแต่ Order Creation และส่งต่อผ่าน Kafka/Remarketer/Webhook
+
+ห้ามใช้ customer tier ปัจจุบันเพียงอย่างเดียวในการระบุว่าเป็น Dealer order เพราะ tier อาจเปลี่ยนภายหลังและทำให้ Historical/Recent Trades เปลี่ยนความหมาย
 
 ---
 
-## 🏗️ System Architecture & End-to-End Sequence
+## Acceptance Criteria
+
+| # | Acceptance Criteria | Owner หลัก |
+|---|---|---|
+| AC 1 | Overview แสดง THB และ USD Portfolio แยก currency พร้อม Available, In-order และ Total ที่ถูกต้อง | `web-portal`, `order-service` |
+| AC 2 | USD แสดง 2 decimal สำหรับ fiat amount; crypto quantity และ price ใช้ product/exchange precision ไม่ hardcode 2 decimal ทั้งหมด | `web-portal`, `order-service` |
+| AC 3 | THB-equivalent Market Value ของ USD คำนวณด้วย USD balance × USD NAV × FX mark-to-market และแสดงเวลาของ valuation/FX snapshot | `order-service`, `web-portal` |
+| AC 4 | White Glove Swap รองรับ direct USD pairs ตั้งแต่ Pair Selection, Route, Estimate, Confirm, Place Order, Status, Settlement และ Display | ทุก component ที่เกี่ยวข้อง |
+| AC 5 | Route/market rate/order validation filter ด้วย `base_symbol`, `quote_symbol` และ selected exchange; ห้ามปะปน THB/USD strategy | `remarketer-core-service` |
+| AC 6 | Dealer ต้องเลือก sourced route ก่อน Confirm และ Orderbook ต้องแสดงจาก Exchange ของ route ที่เลือก | `web-portal`, `order-service`, `remarketer-core-service` |
+| AC 7 | Orderbook cache/request key รวม base, quote และ exchange; เมื่อเปลี่ยน pair หรือ exchange ห้ามแสดง cache เดิม | `web-portal`, `order-service` |
+| AC 8 | หน้า Estimate, Success, Open Orders, Order History/Detail และ Trading แสดง base/quote, Exchange, Exchange fee, fee currency และ settlement currency ถูกต้องตาม Miro | `web-portal`, `order-service` |
+| AC 9 | ตาราง Order ใน Dealer flow เปลี่ยนคอลัมน์ `Size` เป็น `Exchange` ตาม Miro และใช้รูปแบบเดียวกันทุกหน้าที่เกี่ยวข้อง | `web-portal` |
+| AC 10 | Liquidity แสดงตามจริง 100% โดยไม่มี liquidity decrease และรองรับหน่วย USD | `remarketer-core-service` |
+| AC 11 | Direct USD order ใช้ `FxRate = OriginalFxRate = 1` ในทุก status และไม่คูณ/หาร executed data ด้วย FX | `remarketer-core-service`, `coinbase-adaptor` |
+| AC 12 | หาก flow ต้องใช้ FX conversion และ FX เป็น nil/0 ให้ reject ก่อน division หรือ Exchange API call | `coinbase-adaptor` |
+| AC 13 | Direct USD order ไม่สร้าง FX hedge; THB order ที่ route ไป USD exchange ยังคง hedge ตาม flow เดิม | `order-service` |
+| AC 14 | Fiat ledger transaction ของ THB/USD มี `avg_cost = 1`; digital-asset transaction คง average cost ที่คำนวณจาก Portfolio | `order-service` |
+| AC 15 | USD ไม่ปรากฏใน Deposit/Withdraw UI และ API ต้อง reject หากมีการเรียกโดยตรง | `web-portal`, `order-service` |
+| AC 16 | เมื่อไม่มี active strategy/Exchange ที่รองรับ pair ให้ตอบ stable error code สำหรับ No Available Sourced Exchange | `order-service`, `remarketer-core-service` |
+| AC 17 | Dealer orders ไม่ปรากฏใน Recent Trades ของ Retail ทั้ง BOF, MOB และ WEB โดยอ้างอิง immutable order origin | `order-service` |
+| AC 18 | Coinbase liquidity subscription/sync รวม active strategies จาก Retail และ Dealer พร้อม deduplicate symbol | `coinbase-adaptor` |
+| AC 19 | Dealer ไม่มี business-level minimum swap ตาม Miro แต่ยังต้อง validate exchange minimum notional, quantity increment และ price increment | `order-service`, `remarketer-core-service`, adaptor |
+| AC 20 | `USDC-USD` Convert ไม่ถูกเรียกใน release นี้; หากไม่มี direct source ให้เข้า AC 16 | ทุก component ที่เกี่ยวข้อง |
+
+---
+
+## Error Contract
+
+Frontend ต้องตัดสินใจจาก stable error code และทำ localization ที่ UI ไม่ควรผูก logic กับ display string เพียงอย่างเดียว
+
+| สถานการณ์ | Error ที่แนะนำ | Display |
+|---|---|---|
+| ไม่มี active source/strategy สำหรับ pair | `NO_AVAILABLE_SOURCED_EXCHANGE` | No Available Sourced Exchange |
+| Source รองรับ pair แต่ liquidity ไม่พอ | `INSUFFICIENT_LIQUIDITY` | Insufficient Liquidity |
+| Exchange/Remarketer ใช้งานไม่ได้ชั่วคราว | `SOURCE_TEMPORARILY_UNAVAILABLE` | Source Temporarily Unavailable |
+| FX ที่จำเป็นเป็น nil หรือ 0 | `INVALID_FX_RATE` | Unable to retrieve a valid FX rate |
+| Balance ไม่พอ | `INSUFFICIENT_BALANCE` | Insufficient Balance |
+
+Place Order ต้อง revalidate pair, selected route, source status และ liquidity อีกครั้ง ห้ามเชื่อ Estimate เก่าจาก UI โดยไม่มี expiry/re-inquiry
+
+---
+
+## End-to-End Sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Dealer as Dealer (White Glove UI)
+    actor Dealer as Dealer (White Glove)
+    participant UI as web-portal
     participant OS as order-service
-    participant Redis as Redis Cache
     participant OC as order-consumer
     participant RC as remarketer-core-service
-    participant CA as remarketer-coinbase-adaptor
-    participant CB as Coinbase API (Spot / Convert)
+    participant CA as coinbase-adaptor
+    participant CB as Coinbase Spot API
     participant RI as remarketer-inquiry-service
 
-    %% 1. Route & Orderbook
-    Dealer->>OS: GET /white-glove/swap/routes & orderbook (Exchange=Coinbase, Pair=BTC-USD)
-    OS->>RC: POST /api/v1/routes (SymbolPair=USD)
-    RC->>Redis: Read Liquidity & Orderbook (Pure USD, No FX Multiply)
-    RC-->>OS: Return Routes (100% Liquidity, Price in USD)
-    OS-->>Dealer: Display Estimate & Sourced Orderbook
+    Dealer->>UI: Select BTC-USD
+    UI->>OS: Get routes(base=BTC, quote=USD)
+    OS->>RC: Match active dealer strategy(BTC, USD)
+    RC-->>OS: Coinbase route, liquidity in USD, effective FX=1
+    OS-->>UI: Routes + stable route ID/expiry
 
-    %% 2. Place Order
-    Dealer->>OS: POST /white-glove/swap/orders (Buy BTC with 1,000 USD)
-    OS->>OS: Validate & Create Order (Avg Cost = 1.0 for USD)
-    OS->>OC: Produce Kafka Event (create_swap)
+    Dealer->>UI: Select Coinbase route
+    UI->>OS: Get orderbook(BTC, USD, Coinbase)
+    OS->>RC: Get sourced orderbook(BTC, USD, Coinbase)
+    RC-->>UI: Coinbase bids/asks in USD
 
-    %% 3. Hold & Route
-    OC->>OC: Hold Customer USD Available Ledger
-    OC->>RC: POST /api/v1/orders (Place Market Order, SymbolPair=USD)
+    Dealer->>UI: Confirm order
+    UI->>OS: Place order(pair, route ID, order type, side, quantity)
+    OS->>OS: Revalidate pair/route/liquidity and persist DEALER origin
+    OS->>OC: create_swap
+    OC->>OC: Hold customer USD or digital asset
+    OC->>RC: Place direct USD order
+    RC->>CA: produce_order with quote=USD, FX=1
+    CA->>CA: Validate direct USD; no THB conversion
+    CA->>CB: Place Spot order
 
-    %% 4. Exchange Execution
-    alt Standard Pair (BTC-USD, ETH-USD)
-        RC->>CA: Kafka: produce_order
-        CA->>CA: Check SymbolPair == USD (Bypass FX Division)
-        CA->>CB: POST /api/v3/brokerage/orders (Spot Market Order)
-    else USDC-USD Pair (Convert Flow)
-        RC->>CA: Kafka: produce_order (Symbol=USDC, Pair=USD)
-        CA->>CB: POST /api/v3/brokerage/convert/quote
-        CB-->>CA: Return quote_id & trade_id
-        CA->>CB: POST /api/v3/brokerage/convert/trade/{trade_id}
-    end
-
-    %% 5. Status & Webhook
-    CB-->>CA: Execution Result (Filled)
-    CA->>RI: Kafka: order_status_event (FxRate = 1.0, Pure USD)
-    RI->>OS: POST /webhook/remarketer (ExecutedPrice, ReceivedQuantity in USD)
-
-    %% 6. Settlement & Ledger
-    OS->>OS: Settle Customer Ledger (Credit BTC, Deduct Hold USD)
-    OS->>OS: Check !IsPairUSD() -> Suppress FX Hedge
-    OS-->>Dealer: WebSocket / Order History Updated
+    CB-->>CA: Processing/Partial/Filled/Cancelled/Rejected
+    CA->>RI: Status event; FX=1; raw USD values
+    RI->>OS: Remarketer webhook
+    OS->>OS: Idempotent settlement/unhold/refund
+    OS->>OS: Set fiat-leg avg cost=1; suppress FX hedge
+    OS-->>UI: Update Open Orders/History/Portfolio
 ```
 
 ---
 
-## ⚠️ Critical Findings & Technical Risks
+## Component Breakdown
 
-จากการตรวจสอบโค้ดจริงในระบบอย่างละเอียด พบจุดเสี่ยงระดับวิกฤต (Critical Risks) ที่ต้องแก้ไขอย่างระมัดระวัง:
+### 1. `web-portal`
 
-### 1. 🚨 Coinbase Adaptor หาร PlacedQuantity ด้วย FX Rate (~35)
-* **ตำแหน่ง:** `remarketer-coinbase-adaptor-service/pkg/placeorder/service.go` ฟังก์ชัน `convertCurrencyInput` (L755)
-* **ปัญหา:** โค้ดเดิมจะนำ `PlacedQuantity` หารด้วย `fxRate` เสมอเมื่อเป็นฝั่ง `buy` เพื่อแปลง THB $\rightarrow$ USD ก่อนส่งไป Coinbase
-* **ผลกระทบ:** หาก Dealer ส่งคำสั่งซื้อด้วย 1,000 USD ระบบจะหาร 35 เหลือส่งไป Coinbase เพียง **$28.57 USD**!
-* **แนวทางแก้ไข:** ตรวจสอบ `msg.SymbolPair == "USD"` หากเป็น USD ให้ **Bypass การหาร FX Rate โดยเด็ดขาด**
+- เปลี่ยน White Glove state จาก THB implicit default เป็น explicit `baseCurrency`, `quoteCurrency`, `selectedExchange` และ `routeId`
+- ลบ hardcoded `${symbol}-thb`, `THB` labels และ currency suffix ใน Swap/Open Orders/History/Detail/Trading
+- Orderbook query key ต้องประกอบด้วย `[base, quote, exchange]`
+- Clear/refetch Estimate และ Orderbook เมื่อ pair หรือ selected exchange เปลี่ยน
+- เพิ่ม Exchange และ Exchange fee ตาม Miro พร้อม currency ของ fee
+- เปลี่ยนคอลัมน์ `Size` เป็น `Exchange` ใน Dealer order tables ที่เกี่ยวข้อง
+- แสดง USD icon และ fiat amount 2 decimals; ใช้ metadata สำหรับ crypto/price precision
+- Portfolio ต้องรองรับหลาย fiat balances ไม่ใช่ `fiat_balance` ค่าเดียว
+- ซ่อน USD จาก Deposit/Withdraw และไม่แสดง action button บน USD Portfolio
 
-### 2. 🚨 Remarketer Core นำ Orderbook Price และ Liquidity คูณด้วย FX Rate
-* **ตำแหน่ง:** 
-  - `remarketer-core-service/pkg/route/service.go` ฟังก์ชัน `MatchOrderMarket` (L93, L222)
-  - `remarketer-core-service/pkg/order/service.go` ฟังก์ชัน `ValidateLiquidity` (L589)
-* **ปัญหา:** ระบบเดิมมองว่า Coinbase มี quote currency เป็น USD จึงต้องคูณ FX Rate (~35) เพื่อแปลงเป็นเงินบาท (THB) เสมอ
-* **ผลกระทบ:** 
-  - ราคา BTC-USD (~$60,000 USD) จะถูกคูณ 35 กลายเป็น **$2,100,000** บนหน้าจอ Swap!
-  - ยอด Liquidity USD บน Coinbase จะถูกคูณ 35 ทำให้ยอดประเมินสภาพคล่องผิดพลาดมหาศาล
-* **แนวทางแก้ไข:** หาก `route.SymbolPair == "USD"` ให้กำหนด `fxRate = 1.0` และไม่คูณ FX Rate ใน Orderbook และ Liquidity
+### 2. Master Data และ Migration
 
-### 3. 🚨 Webhook Event คูณ Executed Data ด้วย FX Rate นำไปสู่การเสกเงินลูกค้า (Disaster Risk)
-* **ตำแหน่ง:** `remarketer-coinbase-adaptor-service/pkg/inquiry_order_status/service.go` ฟังก์ชัน `buildFillStatusEvent` (L466-L538)
-* **ปัญหา:** เมื่อ Coinbase ส่งสถานะ Fill กลับมา Adaptor จะนำ `ExecutedPrice`, `ExecutedQuantity`, `ReceivedQuantity`, `ExchangeFee` คูณด้วย `FxRate` เพื่อส่งต่อให้ `order-service`
-* **ผลกระทบ:** ใน `order-service/pkg/order_trade/service_ledger.go:L1300` ฟังก์ชัน settle ledger ฝั่งขาย BTC ได้ USD จะนำ `ReceivedQuantity` ไปเข้ากระเป๋า Available USD ของลูกค้า หากโดนคูณ 35 ลูกค้าขาย 1 BTC ได้ $60,000 USD ระบบจะบันทึกเงินเข้ากระเป๋าเป็น **$2,100,000 USD**!
-* **แนวทางแก้ไข:** สำหรับคู่เทรด USD ต้องบังคับให้ `FxRate = 1.0` และคงค่า `ReceivedQuantity`, `ExecutedPrice` เป็นยอด USD จริงตามที่ Coinbase ส่งมา
+- เพิ่ม/ตรวจสอบ USD product ด้วย schema จริงของ `dw_product.product`
+- ตั้ง `decimal_digit = 2`, `tradable = true`, `depositable = false`, `withdrawable = false`
+- เปิดเฉพาะ direct trade pairs ที่มี Exchange support และ active dealer strategy
+- ใช้ columns จริงของ dealer strategy เช่น `base_symbol`, `quote_symbol`, `source_id`
+- เพิ่ม sale/product-on-shelf configuration และ USD portfolio/logical ledger สำหรับ Dealer ที่มีสิทธิ์
+- จัดทำ idempotent migration และ rollback plan; ไม่ใช้ SQL ตัวอย่างที่อ้าง column ซึ่งไม่มีใน schema
 
-### 4. 🚨 Order Service Webhook ยิง FX Hedge อัตโนมัติสำหรับรายการ USD
-* **ตำแหน่ง:** `order-service/pkg/order_trade/webhook_service.go` (L402)
-* **ปัญหา:** โค้ดเดิมมีเงื่อนไข `if flag && orderTradeExchanges[0].IsPairUSD() { ProduceOrderHedgeTransaction(...) }` เพื่อ hedge ความเสี่ยง FX ระหว่าง THB และ USD เมื่อเทรดบน Coinbase
-* **ผลกระทบ:** ใน Dealer USD Flow ลูกค้าจ่ายและรับเป็นเงิน **USD** โดยตรง และ Coinbase เทรดด้วย USD บริษัทจึง **ไม่มี FX Exposure เลย (Zero Exposure)** หากระบบยังส่ง Hedge Transaction ไป KTB จะทำให้บริษัทเกิด Position ผิดพลาดและขาดทุนจาก FX สองต่อ
-* **แนวทางแก้ไข:** เพิ่มเงื่อนไข `!orderTrade.IsPairUSD()` เพื่อปิดการส่ง Hedge เมื่อคำสั่งซื้อขายของลูกค้าเป็นคู่ USD
+### 3. `order-service`
 
-### 5. 🚨 กลไก Coinbase Convert API สำหรับคู่เหรียญ USDC-USD
-* **ตำแหน่ง:** Coinbase ไม่รองรับ Standard Orderbook Spot Trading สำหรับคู่ `USDC-USD` แต่ให้บริการผ่าน **Convert API** (`POST /api/v3/brokerage/convert/quote` และ `POST /api/v3/brokerage/convert/trade/{trade_id}`)
-* **พฤติกรรม:** Convert API เป็นการแปลงระหว่างกระเป๋า USD และ USDC ของบริษัทใน Coinbase ที่เรต 1:1 ไม่มีค่าธรรมเนียม (Zero Fee) และไม่มี Slippage
-* **กรณีไม่มีเหรียญในกระเป๋า Coinbase:**
-  - *ลูกค้าซื้อ USDC ด้วย USD:* กระเป๋า Coinbase มี 0 USDC ทำรายการได้ปกติ (Coinbase หัก USD แล้วเติม USDC ให้)
-  - *ลูกค้าขาย USDC เป็น USD:* หากกระเป๋า Coinbase มี 0 USDC ระบบจะดักที่ Remarketer Core Pre-trade Check และปฏิเสธคำสั่งทันทีด้วย `"No Available Sourced Exchange"` และหากหลุดไปถึง Coinbase จะถูก Reject ด้วย `INSUFFICIENT_FUNDS` ซึ่ง Order Service จะทำการ Unheld เหรียญคืนลูกค้าอัตโนมัติ
+- ปรับ Product/Portfolio DTO ให้คืน balances และ market values แยก currency
+- คำนวณ USD market value และ THB equivalent ตามสูตรที่ระบุใน Miro
+- Deposit/Withdraw filter ต้อง enforce ฝั่ง service/API ด้วย
+- White Glove route และ orderbook request รับ base, quote และ exchange อย่างชัดเจน
+- ห้ามอ่าน Redis key contract ซ้ำใน order-service หาก Remarketer มี API owner ของ sourced orderbook
+- Persist `client_type/order_origin` และ selected route/source บน order
+- ปรับ response DTO ให้มีอย่างน้อย `base_currency`, `quote_currency`, `settlement_currency`, `fee_currency`, `exchange_fee_currency`, `exchange`, `exchange_pair`
+- Set `avg_cost = 1` เฉพาะ fiat ledger transaction
+- Suppress hedge เฉพาะ direct customer USD → exchange USD flow
+- Recent Trades filter ด้วย immutable order origin และต้องคงเงื่อนไข time window/sort/limit เดิม
 
----
+### 4. `order-consumer`
 
-## 🛠️ รายละเอียดการแก้ไขแยกตามเซอร์วิส (Component Breakdown)
+- ใช้ quote product จาก order ไม่ derive เป็น THB
+- Hold/consume/unhold/refund ledger ให้ตรง currency สำหรับ Buy/Sell และ Partial Fill
+- Forward immutable dealer origin, base, quote, route และ source ไป Remarketer
+- ป้องกัน duplicate consumption และ negative available balance สำหรับ concurrent orders
 
----
+### 5. `remarketer-core-service`
 
-### 1. 🗄️ Database & Master Data Configuration
+- Dealer strategy repository และ service APIs ต้อง filter ด้วย base + quote และ source เมื่อเลือก route แล้ว
+- Market rate และ order validation ต้องใช้ strategy เดียวกับ Estimate
+- Direct USD ใช้ effective FX `1`; THB-to-Coinbase flow ใช้ FX conversion เดิม
+- Orderbook ต้องแยกตาม exchange และ pair; ห้ามรวม liquidity/orderbook ของคนละ quote currency
+- Liquidity display และ pre-trade validation ใช้หน่วยเดียวกัน
+- กำหนด `LiquidityDecreasePercent = 0` สำหรับ actual 100% liquidity หรือสร้าง config ที่มี semantic ชัดเจน
 
-#### 1.1 `dw_product` & `dw_sale`
-* **`dw_product.product`**: ตรวจสอบและเพิ่ม USD ในฐานะ Fiat Product:
-  ```sql
-  -- AssetGroupCode: "50" (Fiat), ProductType: "FIAT", Symbol: "USD", Code: "USD"
-  INSERT INTO dw_product.product (code, symbol, name_th, name_en, product_type, asset_group_code, is_active)
-  VALUES ('USD', 'USD', 'ดอลลาร์สหรัฐ', 'US Dollar', 'FIAT', '50', true)
-  ON CONFLICT (code) DO NOTHING;
-  ```
-* **`dw_product.product_digital_asset_extension`**: กำหนดจำนวนทศนิยมสำหรับ USD เป็น 2 ตำแหน่ง:
-  ```sql
-  INSERT INTO dw_product.product_digital_asset_extension (product_id, decimal_digit, min_trading_amount)
-  VALUES ((SELECT id FROM dw_product.product WHERE code = 'USD'), 2, 1.00)
-  ON CONFLICT (product_id) DO UPDATE SET decimal_digit = 2;
-  ```
-* **`dw_sale.digital_asset_trade_pair`**: เปิดใช้งานคู่เทรด USD สำหรับ Dealer:
-  - `BTC-USD`, `ETH-USD`, `USDT-USD`, `USDC-USD`
+### 6. `remarketer-coinbase-adaptor-service`
 
-#### 1.2 `dw_remarketer`
-* **`dw_remarketer.source_strategy_mapping_dealer`**: ผูกคู่เทรด USD เข้ากับ Source Exchange `coinbase`:
-  ```sql
-  INSERT INTO dw_remarketer.source_strategy_mapping_dealer (symbol, symbol_pair, source_id, is_ui_active, is_system_active)
-  VALUES 
-    ('BTC', 'USD', 'coinbase', true, true),
-    ('ETH', 'USD', 'coinbase', true, true),
-    ('USDT', 'USD', 'coinbase', true, true),
-    ('USDC', 'USD', 'coinbase', true, true)
-  ON CONFLICT DO NOTHING;
-  ```
+#### Place Order และ FX Guard
 
----
+- Direct USD: set `FxRate = OriginalFxRate = 1` และไม่ fetch/divide ด้วย KTB FX
+- THB customer pair routed to Coinbase: fetch FX และ reject `INVALID_FX_RATE` เมื่อ nil/0 ก่อน conversion/API call
+- Apply guard ให้ครบ Market, Limit และ V2 paths
+- ห้าม helper เปลี่ยน quote currency เป็น USD หลังจากข้าม conversion เนื่องจาก FX เป็น 0
 
-### 2. 📦 `order-service`
+#### Inquiry/Status Event
 
-#### 2.1 `pkg/crypto_product/service.go`
-* **AC 1 & AC 10: Overview Portfolio & Deposit/Withdraw Filter**
-  - ในฟังก์ชัน `GetSourceStrategy`: กำหนดให้สกุลเงิน `"USD"` พร้อมใช้งานเสมอสำหรับ Dealer:
-    ```go
-    sourceStrategy["USD"] = true
-    ```
-  - ในฟังก์ชัน `GetProductCrypto`: กรอง (Filter) เหรียญ `USD` ออกเมื่อคำสั่งเป็นประเภท Deposit หรือ Withdraw:
-    ```go
-    if (orderType == "deposit" || orderType == "withdraw") && p.Symbol == "USD" {
-        continue
-    }
-    ```
-  - ในฟังก์ชัน `GetSwapProductCrypto`: ตรวจสอบสถานะ Maintenance เฉพาะ Quote Currency ที่เกี่ยวข้อง (ไม่ผูกติดกับการเช็ค THB เสมอไป)
+- Apply USD semantics ให้ครบ Processing, Partial Fill, Filled, Cancelled และ Rejected
+- ครอบคลุมทั้ง status-event builder paths ไม่ใช่เฉพาะ `buildFillStatusEvent`
+- Preserve raw Coinbase USD price, received quantity, executed quantity และ exchange fee
+- Set fee currency/exchange fee currency ให้ชัดเจน
 
-#### 2.2 `pkg/order_trade/swap_service.go` & `webhook_service.go`
-* **AC 7: กำหนด Fiat Average Cost = 1.0**
-  - ใน `MakeSwapOrderRequest`: เมื่อสินทรัพย์เป็น Fiat (`THB` หรือ `USD` หรือ `ProductType == "FIAT"`):
-    ```go
-    if orderTrade.IsPairFiat() || orderTrade.ProductSymbol() == "THB" || orderTrade.ProductSymbol() == "USD" {
-        orderTrade.AverageCost = decimal.NewFromInt(1)
-    }
-    ```
-  - ใน `resolveOrderTradeAverageCost` (`webhook_service.go`):
-    ```go
-    if orderTrade.IsPairFiat() || orderTrade.ProductSymbol() == "THB" || orderTrade.ProductSymbol() == "USD" {
-        return decimal.NewFromInt(1), nil
-    }
-    ```
+#### Liquidity Sync Bug Fix (15/09/26)
 
-#### 2.3 `pkg/order_trade/webhook_service.go`
-* **AC 2: ปิดการส่ง FX Hedge เมื่อเป็นรายการ USD**
-  - ที่บรรทัด ~402 ในส่วน `ProduceOrderHedgeTransaction`:
-    ```go
-    // เดิม: if flag && orderTradeExchanges[0].IsPairUSD()
-    // ปรับเป็น: ทำ Hedge เฉพาะกรณีที่ Exchange เทรด USD แต่ลูกค้าเทรดด้วย THB เท่านั้น
-    if flag && orderTradeExchanges[0].IsPairUSD() && !orderTrade.IsPairUSD() {
-        produceErr := s.producer.ProduceOrderHedgeTransaction(ctx, hedgeMsg)
-        ...
-    }
-    ```
+- Union active mappings จาก Retail `source_strategy_mapping` และ Dealer `source_strategy_mapping_dealer`
+- Filter เฉพาะ Coinbase และ active strategy
+- Deduplicate base/quote currencies ที่ต้อง subscribe/sync
+- รองรับ dealer-only symbol, retail-only symbol และ symbol ที่ซ้ำกัน
+- ระบุ operational behavior เมื่อ strategy เปลี่ยน: refresh runtime/reconnect หรือ restart requirement
 
-#### 2.4 `storages/postgres/ordertraderepository/order_trade_transaction_repository.go`
-* **AC 11: กรองคำสั่งของ Dealer ออกจาก Recent Trades ของ Retail**
-  - ในฟังก์ชัน `GetRecentTrades(symbol, symbolPair)`:
-    เพิ่มการ JOIN ไปยังตาราง `order_trade` และตรวจสอบบัญชีลูกค้าที่ไม่ใช่ Dealer (`customer_tier != 10` หรือ Channel ไม่ใช่ Dealer):
-    ```sql
-    JOIN xpg_order.order_trade_information oti ON oti.id = ott.trade_information_id
-    JOIN xpg_order.order_trade ot ON ot.id = oti.order_request_id
-    WHERE ott.symbol = ? AND ott.symbol_pair = ? AND ott.status = 'FILLED'
-      AND ot.customer_account_id NOT IN (
-          SELECT id FROM dw_customer.customer_account WHERE customer_tier = 10
-      )
-    ORDER BY ott.created_at DESC LIMIT ?
-    ```
+### 7. `remarketer-inquiry-service`
 
-#### 2.5 `handler/white_glove_handler.go` & `pkg/order_trade/service.go`
-* **AC 4 & AC 9: Orderbook ตาม Exchange & Error จัดการ Route**
-  - เพิ่ม Query Parameter `exchange` และ `symbol_pair` ใน `GetWhiteGloveOrderBook`
-  - ดึงข้อมูล Orderbook จาก Redis Key `ORDERBOOK#[EXCHANGE]#[SYMBOL]-[SYMBOL_PAIR]#[SIDE]`
-  - ใน `GetWhiteGloveSwapRoutes`: หาก Remarketer คืนค่า routes ว่างเปล่า (`len(routes) == 0`):
-    ```go
-    if len(routes) == 0 {
-        return nil, apperror.NewCustomError(http.StatusBadRequest, "No Available Sourced Exchange")
-    }
-    ```
+- Remaining/minimum amount calculation ต้อง pair-aware ห้ามแปลงทุก source value เป็น THB โดยอัตโนมัติ
+- Direct USD order ต้อง compare minimum/remaining amount ใน USD
+- Dealer ไม่มี business minimum ตาม Miro แต่ exchange-level minimum และ increments ยังคงต้อง validate
+- ส่งต่อ immutable client type และ currency fields โดยไม่ derive ใหม่จาก customer tier
 
-#### 2.6 `handler/white_glove_dto.go` & DTO Formatting
-* **AC 5: ความถูกต้องของการแสดงผลข้อมูล Order**
-  - แทนที่ Hardcoded `"THB"` ในหน้า Open Orders, Order History, Order Detail ด้วย `QuoteCurrency`
-  - จัดรูปแบบทศนิยม 2 ตำแหน่งสำหรับยอดเงิน USD
+### 8. `dealer-core-service`
+
+- ตรวจสอบ call graph ว่ามีหน้าที่ใน White Glove route/orderbook/order display หรือไม่
+- หากไม่มี code/config change ให้ถอดออกจาก implementation scope แทนการระบุ owner แบบกว้าง ๆ
 
 ---
 
-### 3. 📦 `order-consumer`
+## Portfolio Display Rules จาก Miro
 
-#### 3.1 `pkg/digital-asset-order-request/swap.go`
-* **AC 2: ตรวจสอบ Balance และการ Hold เงิน USD**
-  - ในฟังก์ชัน `resolveBuyPlacedQuantity`: ตรวจสอบและดึงข้อมูล `decimal_digit = 2` สำหรับสกุลเงิน USD
-  - ในฟังก์ชัน `isSufficientBalance`: ตรวจสอบยอด Available Balance ของ USD ใน Logical Ledger
-  - ส่ง parameter `symbol_pair: "USD"` และ `client_type: "dealer"` ในการเรียก `remarketerService.Trade`
+| รายการ | Rule |
+|---|---|
+| USD stored balance | เก็บและแสดงยอด USD ตามจริง ไม่แปลงเป็น THB ใน ledger |
+| Fiat display precision | USD 2 decimal positions |
+| USD Market Value | `unit_balance × USD NAV` |
+| THB-equivalent Market Value | `unit_balance × USD NAV × USD/THB FX NAV` |
+| Visibility | แสดง asset เมื่อ unit > 0 ตาม rule เดิม; ต้องตกลงเพิ่มเติมว่าจะให้ zero-balance USD แสดงหรือไม่ |
+| Deposit/Withdraw | ไม่แสดง action และ API ไม่อนุญาต |
 
----
-
-### 4. 📦 `remarketer-core-service`
-
-#### 4.1 `pkg/route/service.go`
-* **AC 2 & AC 6: Route Calculation & 100% Actual Liquidity Display**
-  - ในฟังก์ชัน `MatchOrderMarket`:
-    ```go
-    // ตรวจสอบว่าเป็นคู่เทรด USD หรือไม่
-    isUSDPair := route.SymbolPair != nil && strings.EqualFold(*route.SymbolPair, "USD")
-    
-    // หากเป็น USD Pair และมาจาก Exchange สกุล USD (เช่น Coinbase) ให้ใช้เรต 1.0 ไม่คูณ FX
-    if isUSDPair && strings.EqualFold(route.SourceCurrency, "USD") {
-        fxRate = decimal.NewFromInt(1)
-    }
-    ```
-  - ในฟังก์ชัน `getBuyLiquidity`: ส่งคืนยอดสภาพคล่อง USD จริงตามที่ดึงได้จาก Redis โดยไม่คูณ FX Rate
-  - ปรับค่า Liquidity Buffer Config ให้รองรับการตั้งค่าเป็น `0%` เพื่อแสดงผล 100% Actual Liquidity ตามความต้องการของ Dealer
-
-#### 4.2 `pkg/order/service.go`
-* **AC 2: Liquidity Pre-trade Validation**
-  - ในฟังก์ชัน `ValidateLiquidity`:
-    ```go
-    if strings.EqualFold(input.SymbolPair, "USD") {
-        // สำหรับคู่ USD ให้เปรียบเทียบยอด Quantity กับ Balance USD โดยตรง ไม่คูณ OriginalNavBuy
-        if totalLiquidity.LessThan(input.Quantity) {
-            return false, ErrInsufficientLiquidity
-        }
-    }
-    ```
+ค่า THB equivalent เป็นข้อมูล display/valuation เท่านั้น ห้ามนำไปใช้เป็น settlement amount ของ direct USD order
 
 ---
 
-### 5. 📦 `remarketer-coinbase-adaptor-service`
+## Verification Plan
 
-#### 5.1 `pkg/placeorder/service.go`
-* **AC 2: ป้องกันการหารด้วย FX Rate สำหรับคู่ USD**
-  - ในฟังก์ชัน `convertCurrencyInput` (L755):
-    ```go
-    // อนุญาตให้แปลงเรตเฉพาะกรณีที่ส่งเข้ามาเป็น THB เท่านั้น
-    if strings.EqualFold(msg.OrderSide, "buy") && !fxRate.IsZero() && !strings.EqualFold(msg.SymbolPair, "USD") {
-        copied.PlacedQuantity = msg.PlacedQuantity.Div(fxRate).RoundDown(2)
-    }
-    ```
+### Automated Test Matrix
 
-#### 5.2 `pkg/inquiry_order_status/service.go`
-* **AC 2 & AC 3: ป้องกันการคูณ FX Rate ใน Webhook Event**
-  - ในฟังก์ชัน `buildFillStatusEvent` (L466-L538):
-    ```go
-    // หากเป็นคู่ USD ให้กำหนด FxRate เป็น 1.0 เสมอ เพื่อรักษายอด Executed Data ให้เป็น Pure USD
-    if strings.EqualFold(symbolPair, "USD") {
-        event.FxRate = decimal.NewFromInt(1)
-        event.ExecutedPrice = rawPrice
-        event.ReceivedQuantity = rawReceivedQuantity
-    }
-    ```
+| Dimension | Cases ขั้นต่ำ |
+|---|---|
+| Pair | direct `BTC-USD`, `ETH-USD`; existing `BTC-THB`; unsupported pair; `USDC-USD` without direct source |
+| Side | Buy, Sell |
+| Order type | Market, Limit (เมื่อเปิดใน White Glove) |
+| Status | Processing, Partial Fill, Filled, Cancelled, Rejected, Timeout |
+| Source | Bitkub THB, Coinbase USD, inactive source, maintenance, empty/stale orderbook |
+| FX | direct USD = 1; THB→Coinbase valid rate; nil/0 rate reject; direct USD no hedge |
+| Balance | sufficient, insufficient, concurrent orders, partial-fill refund, no negative balance |
+| Webhook | duplicate event, out-of-order event, retry/idempotency |
+| UI | Estimate, Success, Open Orders, History, Detail, Trading, Portfolio, Deposit, Withdraw |
 
-#### 5.3 `third_party/coinbase/convert.go` [NEW] & `pkg/placeorder/service.go`
-* **AC 8: Coinbase Convert API สำหรับ USDC-USD**
-  - สร้าง Client Interface และ Implementation สำหรับ Coinbase Convert API:
-    1. `CreateConvertQuote(ctx, fromAccount, toAccount, amount)`:
-       - Endpoint: `POST /api/v3/brokerage/convert/quote`
-       - คืนค่า `quote_id`, `trade_id`, `from_amount`, `to_amount`
-    2. `CommitConvertTrade(ctx, tradeID)`:
-       - Endpoint: `POST /api/v3/brokerage/convert/trade/{trade_id}`
-       - ดำเนินการยืนยันการแปลงเหรียญ
-  - ใน `pkg/placeorder/service.go`:
-    ```go
-    if (strings.EqualFold(msg.Symbol, "USDC") && strings.EqualFold(msg.SymbolPair, "USD")) ||
-       (strings.EqualFold(msg.Symbol, "USD") && strings.EqualFold(msg.SymbolPair, "USDC")) {
-        return s.executeCoinbaseConvert(ctx, msg)
-    }
-    // สกุลเงินอื่นส่งคำสั่ง Spot ปกติไปยัง Coinbase /orders
-    return s.executeCoinbaseSpotOrder(ctx, msg)
-    ```
+### Component Tests ที่ต้องมี
 
----
+#### `web-portal`
 
-## 🧪 แผนการทดสอบและการตรวจสอบ (Verification Plan)
+- เปลี่ยน `BTC-THB/Bitkub` → `BTC-USD/Coinbase` แล้ว Estimate/Orderbook ไม่ใช้ cache เดิม
+- ทุกหน้าตาม AC 8 แสดง quote/exchange/fees ถูกต้อง
+- USD ไม่ปรากฏใน Deposit/Withdraw
+- Portfolio แสดง USD และ THB-equivalent โดยไม่เปลี่ยน settlement balance
 
-### 1. Automated Tests
+#### `order-service` และ `order-consumer`
 
-#### `order-service`
-```bash
-cd /Users/soratgessakorn/Work/Projects/xas/order-service
-make test
-```
-*Test cases ที่ต้องเพิ่มและยืนยัน:*
-- `TestGetProductCrypto_FiltersUSDOnDepositWithdraw`: ตรวจสอบว่า USD ไม่ปรากฏในรายการ Deposit/Withdraw
-- `TestMakeSwapOrderRequest_FiatAverageCostIsOne`: ตรวจสอบว่า `AverageCost = 1.0` สำหรับทั้ง THB และ USD
-- `TestProcessRemarketerWebhook_USDDoesNotTriggerHedge`: ตรวจสอบว่า webhook ของ order USD ไม่ส่ง message เข้า topic hedge
-- `TestGetRecentTrades_ExcludesDealerOrders`: ตรวจสอบว่า Recent Trades ไม่คืนค่าคำสั่งที่เกิดจาก Dealer Account
-- `TestGetWhiteGloveOrderBook_ByExchangeAndUSD`: ตรวจสอบการดึง Orderbook ตาม Exchange และ Pair USD
-
-#### `order-consumer`
-```bash
-cd /Users/soratgessakorn/Work/Projects/xas/order-consumer
-make test
-```
-*Test cases ที่ต้องเพิ่มและยืนยัน:*
-- `TestProcessSwapOrder_USDBalanceHold`: ยืนยันการ Hold ยอดเงิน USD ใน Logical Ledger 2 ตำแหน่งทศนิยม
-- `TestProcessSwapOrder_DealerRouting`: ยืนยันการส่ง Request ไปยัง Remarketer ด้วย parameter ที่ถูกต้อง
+- Fiat leg avg cost เป็น 1 แต่ BTC/ETH leg ไม่เป็น 1
+- Hold/unhold/refund USD ถูกต้องสำหรับ Buy/Sell และ Partial Fill
+- Direct USD ไม่ produce hedge; THB-via-USD ยัง produce ตามเงื่อนไขเดิม
+- Recent Trades ของ BOF/MOB/WEB ไม่คืน Dealer order
+- USD Deposit/Withdraw direct API call ถูก reject
 
 #### `remarketer-core-service`
-```bash
-cd /Users/soratgessakorn/Work/Projects/xas/remarketer/remarketer-core-service
-go test -v ./pkg/route ./pkg/order
-```
-*Test cases ที่ต้องเพิ่มและยืนยัน:*
-- `TestMatchOrderMarket_USDPair_NoFXMultiplier`: ตรวจสอบว่าราคาประเมินและเรตไม่ถูกคูณด้วย 35
-- `TestValidateLiquidity_USDPair`: ตรวจสอบการ Validate ยอด Balance USD จริงบน Coinbase
+
+- Route/market rate/order validation ไม่ปะปน `BTC-THB` และ `BTC-USD`
+- Selected exchange orderbook ใช้ pair/source ถูกต้อง
+- Direct USD price และ liquidity ไม่คูณ FX
+- Actual liquidity 100% เมื่อ decrease config เป็น 0
 
 #### `remarketer-coinbase-adaptor-service`
-```bash
-cd /Users/soratgessakorn/Work/Projects/xas/remarketer/remarketer-coinbase-adaptor-service
-go test -v ./pkg/placeorder ./pkg/inquiry_order_status
-```
-*Test cases ที่ต้องเพิ่มและยืนยัน:*
-- `TestConvertCurrencyInput_USDPair_BypassDiv`: ยืนยันว่า PlacedQuantity ไม่ถูกหารด้วย FX Rate
-- `TestBuildFillStatusEvent_USDPair_FxRateOne`: ยืนยันว่า FxRate เป็น 1.0 และยอดเงินไม่ถูกคูณ 35
-- `TestExecuteCoinbaseConvert_Success`: ยืนยันการเรียก Quote & Trade สำหรับ USDC-USD
+
+- Market/Limit/V2 direct USD ไม่หารด้วย FX
+- Market/Limit/V2 THB conversion reject เมื่อ FX nil/0
+- Processing/Partial/Filled/Cancelled/Rejected events ของ direct USD มี FX=1 และ raw USD values
+- Liquidity sync รวม Retail + Dealer, deduplicate และรองรับ dealer-only symbol
+
+#### `remarketer-inquiry-service`
+
+- USD remaining/minimum comparison ไม่ถูกแปลงเป็น THB
+- Dealer business minimum ถูก bypass แต่ exchange constraints ยังคง enforce
+
+### Manual End-to-End Checklist
+
+1. Overview แสดง THB และ USD balances, Available, In-order, Market Value และ THB equivalent ถูกต้อง
+2. Deposit/Withdraw ไม่มี USD และ direct API request ถูกปฏิเสธ
+3. เลือก USD pair แล้วเห็นเฉพาะ active dealer routes ที่ quote เป็น USD
+4. เลือก Coinbase แล้ว Orderbook เป็น Coinbase `*-USD`; เปลี่ยน Exchange/pair แล้วข้อมูล refresh
+5. Estimate แสดงราคา, liquidity, fee และ exchange fee ใน currency ที่ถูกต้อง
+6. Place Buy และ Sell ทั้ง Market/Limit; ตรวจ Exchange payload ว่าใช้ยอด USD จริง
+7. ตรวจ Open Orders, Success, History/Detail และ Trading เทียบกับ field mapping ใน Miro
+8. ตรวจ Filled/Partial/Cancel/Reject ว่า ledger, hold, refund และ average cost ถูกต้อง
+9. ยืนยันว่า direct USD ไม่มี hedge event
+10. ยืนยันว่า Retail Recent Trades ทั้ง BOF/MOB/WEB ไม่แสดง Dealer fills
+11. ปิด strategy หรือเลือก unsupported pair แล้วได้ `NO_AVAILABLE_SOURCED_EXCHANGE`
+12. จำลอง FX=0 ใน THB→Coinbase flow แล้วถูก reject ก่อนเรียก Coinbase
 
 ---
 
-### 2. Manual End-to-End Verification Checklist
+## Open Decisions ก่อน Development Sign-off
 
-| ขั้นตอนการทดสอบ | สิ่งที่ต้องสังเกต / คาดหวัง |
-|---|---|
-| **1. Overview Portfolio** | ตรวจสอบหน้า Overview ของ Dealer ว่าแสดงผลกระเป๋า USD พร้อมยอดเงินและทศนิยม 2 ตำแหน่งถูกต้อง |
-| **2. Deposit/Withdraw Menus** | ตรวจสอบเมนู Deposit และ Withdraw ว่า **ไม่มี** ตัวเลือกสกุลเงิน USD แสดงขึ้นมา |
-| **3. Sourced Orderbook** | เลือกคู่ `BTC-USD` และเลือก Exchange เป็น Coinbase ยืนยันว่า Orderbook แสดง Bids/Asks ตาม Coinbase ในหน่วย USD |
-| **4. Swap Estimate & 100% Liquidity** | ตรวจสอบเรตหน้า Swap ว่าแสดงผลเป็นราคา USD (~$60,000) ไม่ใช่ราคาบาท (~2.1 ล้านบาท) และ Liquidity แสดงผล 100% |
-| **5. Order Placement (BTC-USD)** | ส่งคำสั่งซื้อ BTC ด้วย 1,000 USD ตรวจสอบใน Coinbase Adaptor Log ว่าส่งคำสั่งด้วย 1,000 USD จริง (ไม่ถูกหารเหลือ $28.57) |
-| **6. Convert Flow (USDC-USD)** | ส่งคำสั่งสลับคู่ `USDC-USD` ยืนยันว่าระบบเรียก Convert API บน Coinbase สำเร็จแบบ 1:1 ไม่มี Slippage |
-| **7. No Sourced Exchange Error** | เลือกลองเทรดคู่ที่ไม่มี Exchange รองรับ ระบบต้องตอบ Error `400 Bad Request` พร้อมข้อความ `"No Available Sourced Exchange"` |
-| **8. Settlement & Zero FX Hedge** | ตรวจสอบสถานะ Order เมื่อ Filled ว่าเงินตัด/เข้าถูกต้อง และ **ไม่มีการส่งคำสั่ง Hedge** เข้า Kafka |
-| **9. Recent Trades Privacy** | เปิดหน้า Recent Trades ของลูกค้ารายย่อย (Retail Mobile/Web) ยืนยันว่า **ไม่พบ** รายการเทรดของ Dealer |
+1. รายชื่อ direct USD pairs ที่ Exchange และ Compliance อนุมัติใน release นี้คืออะไรบ้าง
+2. Limit Order อยู่ใน scope ของ release นี้หรือไม่; หากไม่อยู่ต้องปิด UI และ API อย่างชัดเจน
+3. USD balance จะ provision ให้ Dealer เดิมผ่าน migration หรือ lazy creation
+4. เมื่อ Deposit/Withdraw USD ถูกปิด USD จะเข้า/ออก customer account ผ่าน Internal Transfer/Treasury flow ใด
+5. Portfolio จะแสดง USD row เมื่อ balance เป็นศูนย์หรือเฉพาะ `unit > 0`
+6. Dealer fills ต้องถูกกรองออกจาก Retail candle/ticker/volume ด้วยหรือเฉพาะ Recent Trades
+7. Quote/route expiry และ orderbook staleness threshold ใช้ค่าเท่าใด
+8. Exchange fee ที่แสดงมาจาก estimate หรือ first transaction ตาม note ใน Miro และต้อง update หลัง final fill อย่างไร
+
+รายการ Open Decisions ต้องปิดก่อน Final Grooming เพื่อไม่ให้แต่ละ service ตีความ currency และ order identity ต่างกัน
