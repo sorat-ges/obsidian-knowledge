@@ -3,16 +3,16 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-17
+lastUpdated: 2026-09-22
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึงการคงข้อมูลระหว่าง personal-information sub-step, bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่ พร้อม flags ของ bank-account context ใน `review-information` response
+อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึงการคงข้อมูลระหว่าง personal-information sub-step, การประกอบ payload ของ mobile สำหรับ personal/address/work/background, bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่ พร้อม flags ของ bank-account context ใน `review-information` response
 
 Source รอบนี้ยืนยัน behavior จาก Backend เป็นหลัก; `web-portal` และ `xspring-mobile-app` เป็น supporting client สำหรับ bank-account read, grace-period acceptance และ user-visible warning โดยไม่ override state หรือ validation ของ Backend
 
@@ -33,7 +33,7 @@ Source รอบนี้ยืนยัน behavior จาก Backend เป็
 | Service | Role |
 | :--- | :--- |
 | `onboarding-service` | Business owner; authenticate request, derive onboarding progress, calculate/persist suitability, refresh dependent KYC data และเดิน registration |
-| `xspring-mobile-app` | Supporting client; อ่าน bank-account requirement, แสดงบัญชีที่ mask แล้ว และส่งคำขอรับทราบ bank grace period |
+| `xspring-mobile-app` | Supporting client; ประกอบและส่ง personal-information payload ตาม step/flow, อ่าน bank-account requirement, แสดงบัญชีที่ mask แล้ว และส่งคำขอรับทราบ bank grace period |
 | `web-portal` | Supporting BFF/client; proxy investment-bank-account read และแสดง bank expiry warning ตามข้อมูลจาก Backend |
 
 ไม่มี consumer หรือ asynchronous executor service อื่นที่ source ยืนยันสำหรับ Flow นี้; mobile/web ไม่ได้เป็น owner ของ registration state
@@ -92,6 +92,25 @@ Bank-account read path กรองเฉพาะรายการที่ `s
 - suitability และ bank account ใช้ sub-status ชื่อเดียวกับ step
 
 สำหรับ application type `new` ใน flow `onboarding`, response เพิ่ม `expiry_date = application.created_at + 7 วัน` รูปแบบ `DD/MM/YYYY`; flow/type อื่นไม่คืนค่านี้
+
+### Supporting mobile personal-information payload
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+**Supporting client: `xspring-mobile-app`**
+
+Mobile เก็บข้อมูล personal information ไว้ใน local model แล้วส่ง `PUT /api/v1/customer` พร้อม `step` และ `flow_type` เมื่อผู้ใช้กด Next ของแต่ละ sub-step; Backend เป็นผู้ validate request, เขียน customer profile/background/address และเดิน registration history ต่อ
+
+พฤติกรรม client ที่เปลี่ยนในรอบนี้และมีผลต่อ request/validation ที่ผู้ใช้เห็น:
+
+- ใน address step, mobile clone address cards ก่อน `prepareRequest()` จะล้าง fields ของ address ที่อ้างอิง address อื่น เพื่อไม่ให้การปรับ outgoing payload ล้างค่าที่อยู่ใน memory ของ form เดิม
+- ใน work-information step, การเลือก occupation จะ persist `current_work.occupation` ทันที ก่อนรอ `GET /api/v1/business-type?OccupationCode={code}`; การเลือกอาชีพใหม่จะล้าง `business_type`, `business_type_other`, `job_title` และ `company_name` ที่ผูกกับอาชีพเดิม
+- ถ้า business-type response ว่าง mobile ถือว่า business type เป็น optional ใน client validation; ถ้ามี `Other` เพียงรายการเดียวจะเลือก code `180` ให้อัตโนมัติ และถ้า occupation code `25` (Buddhist Monk / Priest) มี business type code `60` จะเลือก code `60` ให้อัตโนมัติ
+- mobile แสดง/ส่งชื่อจาก master-data ที่ Backend คืนมา และส่ง `occupation`, `business_type`, `occupation_other` หรือ `business_type_other` ตามค่าที่ผู้ใช้เลือก/กรอก; `onboarding-service` ยังคงตรวจ master-data combination และเป็นผู้ persist ค่าใน `customer_background`
+
+ข้อกำหนด client เหล่านี้เป็น supporting behavior เท่านั้น ไม่ได้ override `CurrentWorkData` validation หรือการ normalize ชื่อ/combination ที่ `onboarding-service` ทำก่อนบันทึก
 
 ### 3. Update background information and refresh watchlist
 
@@ -203,6 +222,8 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
 - หลังบันทึก personal-information step `background`, current customer path ใช้ `UpsertWatchlistReport` เพียงครั้งเดียวใน asynchronous handler; ไม่เรียก legacy `CheckAndSaveCustomerWatchlist` ซ้ำใน trigger เดียวกัน
 - Work/background personal-information updates อ่าน row `customer_background` เดิมแล้ว overlay ข้อมูลของ step ปัจจุบัน เพื่อไม่ล้าง field ที่อีก sub-step บันทึกไว้
+- Mobile work-information จะล้าง business type, other text, job title และ company name เมื่อเปลี่ยน occupation ใน local payload; การ auto-select business type เป็น client convenience และ backend ยังตรวจ master-data combination ก่อน persist
+- Mobile address request ใช้ cloned cards สำหรับการล้าง fields ของ address ที่อ้างอิง address อื่น จึงไม่ควรตีความการล้าง outgoing payload เป็นการลบ address ที่เก็บใน backend
 - ใน legacy `CheckAndSaveCustomerWatchlist` path ระบบ pre-create `customer_background_risk` ของ `customer` และ `spouse` ก่อน parallel checks และใช้ `personalType` ที่ร้องขอเมื่อสร้าง PEP/AMLO record เพื่อป้องกัน duplicate record จาก concurrent insert
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
@@ -221,6 +242,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 | Calculate CDD score | upsert aggregate CDD risk พร้อม product-service risk score/case/data; ไม่ขยับ registration |
 | Confirm suitability | `suitability-test` → next registration sub-status พร้อม history |
 | Update personal work/background | ไม่เปลี่ยน application/registration state จาก trigger นี้; preserve field ของ `customer_background` ที่อยู่นอก step ปัจจุบัน และ background เริ่ม asynchronous watchlist report refresh |
+| Mobile ส่ง personal-information step | `onboarding-service` validate และ persist profile/address/background ตาม `step`; client local-state cleanup/auto-selection ไม่สร้าง state transition เอง |
 | Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
 | Read onboarding status | ไม่แก้ state; derive `draft`/`completed` จาก history |
 | Bank step required เพราะไม่มี default account หรือชื่อบัญชีเปลี่ยน | status คง/เดินไป `bank-account` ตาม required-step rule |
@@ -284,6 +306,10 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `internal/models/customer-background-db-model.go`: unmarshal และ composite calculation ของ `VulnerableDetail`
 - `utils/age.go`: การคำนวณ `YearsOld60` จากอายุปัจจุบัน
 - `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields ระหว่าง work/background update และ retake completion decision
+- `handler/customer-handler.go`: `PUT /api/v1/customer` personal-information handler, step/flow validation และ background watchlist trigger
+- `internal/models/personal-information-model.go`: `Personal`/`CurrentWorkData` payload fields และ required validation tags
+- `pkg/customer/customer-process/customer-process-service.go`: work-step persistence, occupation/business-type normalization และ master-data validation
+- `handler/master-data-handler.go`: `GET /api/v1/business-type?OccupationCode=...`
 - `pkg/suitability/suitability-service.go`: update `NoInvestmentKnowledge` และ `VulnerableFlag` ตอน confirm suitability
 - `internal/domain/customer_suitability.go`: Traditional/Digital persistence models
 - `pkg/cdd-score/cdd-score-service.go`: `CalculateCDDScore`, product-service risk calculation และ persistence
@@ -303,6 +329,10 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: investment-bank-account BFF
 - `xspring-mobile-app/lib/models/onboard/review_customer_information.dart`: review-information response model
 - `xspring-mobile-app/lib/domains/app_main_page/customer_status/controller.dart`: pending-application flags ที่ใช้เลือก bank step
+- `xspring-mobile-app/lib/domains/ekyc/onboarding/personal_information_data_controller/personal_information_data_controller.dart`: local model, cloned request และ step/flow submit
+- `xspring-mobile-app/lib/domains/ekyc/onboarding/work_information/work_information_controller.dart`: occupation/business-type payload reset และ local persistence
+- `xspring-mobile-app/lib/widgets/occupation_business_type/occupation_business_type.dart`: dependent business-type lookup และ client auto-selection
+- `xspring-mobile-app/lib/repository/onboard/business_type_service.dart`: business-type request ตาม occupation code
 - `xspring-mobile-app/lib/domains/ekyc/bank_account/accept_back_account_name_change/`: bank name-change acceptance flow
 - `xspring-mobile-app/lib/domains/ekyc/open_account/additional_account/review/widget/review_your_information_widget.dart`: normal bank display vs name-change warning
 - `xspring-mobile-app/lib/domains/re_kyc/review_re_kyc/screen.dart`: re-KYC name-change warning condition

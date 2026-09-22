@@ -3,10 +3,10 @@ title: Internal Customer Transfer
 description: Flow โอนสินทรัพย์ระหว่างบัญชีลูกค้าภายในระบบผ่าน White Glove พร้อมรักษายอดและต้นทุนเฉลี่ย
 capability: Fund Movement
 services: [order-service, asset-service, asset-consumer, web-portal]
-aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, order transfer audit, transfer audit log, OrderTransferAsset, transfer_failed, xspring_customer_code, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอนภายใน, โอนระหว่างบัญชีลูกค้า, audit การโอน, คู่บัญชีโอนไม่ได้รับอนุญาต]
+aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, transfer whitelist, no available account, order transfer audit, transfer audit log, OrderTransferAsset, transfer_failed, xspring_customer_code, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอนภายใน, โอนระหว่างบัญชีลูกค้า, audit การโอน, คู่บัญชีโอนไม่ได้รับอนุญาต, ไม่มีบัญชีที่ใช้ได้, บัญชีไม่อยู่ในรายการที่อนุญาต]
 errorCodes: ["400", "401", "500"]
 status: active
-lastUpdated: 2026-09-20
+lastUpdated: 2026-09-22
 documentType: flow
 ---
 
@@ -48,7 +48,7 @@ documentType: flow
 - `GET /api/v1/treasury/internal-transfer/accounts` (P0302, feature `treasury_transfer`) resolve treasury source ที่ configure ไว้, อ่าน active configuration rows จาก source ไปยัง destination, โหลด dealer customer accounts แล้วกรองเหลือเฉพาะ destination identification ที่อนุญาต พร้อมตัด treasury source account ออกจากผลลัพธ์
 - ถ้าไม่พบ treasury source, configuration หรือ destination ที่อนุญาต endpoint treasury คืนรายการว่าง; การ prefilter ใน read path นี้ไม่แทนการตรวจ pair ซ้ำใน create path
 
-`web-portal` ใช้ผลลัพธ์นี้เพื่อแสดง account selector เท่านั้น ส่วน `order-service` ยังคงเป็น owner ของ eligibility และ validation
+`web-portal` ใช้ผลลัพธ์นี้เพื่อแสดง account selector เท่านั้น ส่วน `order-service` ยังคงเป็น owner ของ eligibility และ validation ถ้า response ไม่มีบัญชีที่ผ่าน filter, web-portal จะแสดง empty state `No Available Account` พร้อมภาพ `no-document` และไม่เปิดทางให้เลือกบัญชีหรือสร้าง transfer จากรายการว่าง
 
 ### 2. Validate request and source portfolio
 
@@ -132,7 +132,8 @@ open → failed
 - Standard Mode ยอดไม่พอ: `ErrInsufficientBalance`
 - Skip Mode ไม่มี Price, format ไม่ถูกต้อง หรือ Price น้อยกว่าหรือเท่ากับ 0: `InvalidRequest`
 - Pair ไม่อยู่ใน `order_transfer_configuration`: HTTP 400 และ message `transfer between these identifications is not allowed`; owner/executor คือ `order-service`
-- `web-portal` จับคู่ message นี้เพื่อเปิด error modal, ปิด preview และ reset asset/account/form เป็นค่าเริ่มต้นเมื่อผู้ใช้ dismiss; UI recovery นี้ไม่เปลี่ยน backend validation
+- `web-portal` จับคู่ message นี้เพื่อเปิด error modal โดยแสดงข้อความ localized ว่า `This account is not on your whitelist. Please select the destination account and try again.` หรือ `บัญชีนี้ไม่อยู่ในรายการที่อนุญาตของคุณ กรุณาเลือกบัญชีปลายทางแล้วลองอีกครั้ง`, ปิด preview และ reset asset/account/form เป็นค่าเริ่มต้นเมื่อผู้ใช้ dismiss; UI recovery นี้ไม่เปลี่ยน backend validation
+- ถ้า account selector คืนรายการว่าง ผู้ใช้เห็น `No Available Account`/`ไม่มีบัญชีที่ใช้ได้` และไม่สามารถเลือก destination จาก modal นั้นได้; นี่เป็น user-visible read-path outcome ไม่ใช่การอนุญาต transfer เพิ่มเติม
 - ถ้า Phase 2 Settle ล้มเหลว ให้ revert Hold จาก `HOLD_IN_ORDER` กลับ `AVAILABLE` ของต้นทาง และจบตาม failure path
 - Handler validation หรือ service/settlement error ยังคืน error ของ transfer ตามเดิม พร้อม audit `transfer_failed`; ถ้า account code ถูก resolve แล้ว audit failure จะผูกกับ code ที่ resolve ได้ทีละรายการ
 - Audit save error ไม่ถูกส่งกลับ client และไม่ทำให้ transfer ถูกจัดเป็น failure เพิ่มเติม; มีเพียง log สำหรับตรวจสอบภายหลัง
@@ -142,6 +143,7 @@ open → failed
 - สำเร็จ: ต้นทางลดสินทรัพย์ ปลายทางเพิ่มสินทรัพย์ด้วย cost ที่เลือก และ order จบ `completed`
 - Validation ไม่ผ่าน: ไม่สร้าง settlement
 - Settle ล้มเหลว: revert Hold และ order จบ `failed`
+- ไม่มี eligible destination account: web-portal แสดง empty state และไม่สร้าง transfer request จาก selector ที่ว่าง
 - ทุก create attempt มี audit outcome อย่างน้อยหนึ่งรายการเมื่อ handler เดินถึงจุดสร้าง audit; audit success/failure ไม่ใช่ตัวแทนของ `order_transfer` state หรือ asset ledger
 
 ## Related shared rules and flows
@@ -174,3 +176,5 @@ open → failed
 - `src/app/features/internal-transfer/services/internal-transfer-service.ts`: parse backend error message
 - `src/app/features/internal-transfer/hooks/useInternalTransferPage.ts`: pair-not-allowed modal และ form reset
 - `src/app/features/internal-transfer/utils/is-transfer-pair-not-allowed-error.ts`: exact error classification
+- `src/app/features/internal-transfer/components/internal-transfer-to-modal/index.tsx`: empty state เมื่อไม่มี destination account
+- `src/app/features/white-glove/components/transfer/transfer-to-modal/index.tsx`: empty state แยกตาม Own Account/Other Account

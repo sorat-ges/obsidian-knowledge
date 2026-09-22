@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
-errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600"]
+errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600", "INVALID_APPLICATION_STATUS"]
 status: active
-lastUpdated: 2026-09-17
+lastUpdated: 2026-09-22
 documentType: flow
 ---
 
@@ -130,6 +130,25 @@ Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแส�
 เมื่อ application เป็น `re-kyc` และอยู่ใน `to-review`, `GET /api/v1/customer/review-information` จะคำนวณ `edit_data_allow.general_information` และ `edit_data_allow.address_on_id_card` จาก change-request log โดยอนุญาตเมื่อมี `identity-verification` อยู่ใน `re_kyc_steps` หรือ reason เป็น `id-card-expired`/`force-expired`; สำหรับ CDD/suitability-only ที่ไม่มี identity step จะไม่อนุญาตสองส่วนนี้ ส่วน address ปัจจุบัน/ที่ทำงาน/ที่อยู่จัดส่งและส่วนข้อมูลอื่นยังใช้ edit permission ของ review application ตามที่ Backend คืน
 
 Mobile ใช้ selected-step state เพื่อส่ง `disableAddressOnIdCardSection` ตอนนำทางไป personal-information และซ่อน/เปิด UX ของ address-on-ID-card เท่านั้น; ค่า `edit_data_allow` จาก `onboarding-service` เป็น source of truth และ client ไม่สามารถเพิ่มสิทธิ์การแก้ไขเอง
+
+### KYC approval edits general information
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+**Supporting client/BFF: `web-portal`**
+
+ในหน้า KYC approval, `web-portal` เปิดให้เจ้าหน้าที่แก้ไข `middle_name_en` ซึ่งเป็น optional English middle name แล้วส่งข้อมูลผ่าน `POST /api/kyc-approval/{application_id}/general-information`; BFF ส่งต่อเป็น `PATCH /web/api/v2/kyc/{application_id}/general-information` ให้ `onboarding-service` พร้อม `current_status` ของ application
+
+ก่อนเขียนข้อมูล handler ตรวจว่า `current_status` ที่ client ส่งตรงกับสถานะปัจจุบันของ application จากนั้น service อ่าน identification/customer profile, อัปเดตข้อมูล general information และ customer background KYC ใน update path เดิม และบันทึก audit ของ KYC approval เมื่อจบ path
+
+พฤติกรรมของ middle name ที่ยืนยันได้จาก source รอบนี้:
+
+- `middle_name_en` ไม่บังคับ; หน้า web ส่งค่าที่เจ้าหน้าที่แก้ไขโดยคง empty string ไว้ ไม่แปลงเป็น `null`
+- service แปลง pointer ที่ไม่มีค่าเป็น string ว่าง และ repository ใส่ `middle_name_en` ลง update map อย่าง explicit ดังนั้นการลบ middle name เดิมแล้วกดบันทึกจะเคลียร์ค่าใน `customer_profile` ได้
+- การแก้ไขนี้ไม่เปลี่ยน application status หรือ registration status; เป็น profile/background update ที่ต้องผ่าน current-status check ก่อน
+- `onboarding-service` ยังคงเป็นผู้ตัดสิน validation, persistence และ audit; `web-portal` เป็นเพียง form/payload trigger
 
 ### 3. Employee requests retake
 
@@ -263,6 +282,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Retake background completion ใช้ `name_changed` เป็นเงื่อนไขหยุดเพื่อ bank-account path; retake ที่ไม่ใช่ name-change เรียก `ValidateCompleteDraft` และ completion path ต่อ
 - Work/background personal-information updates โหลด `customer_background` เดิมแล้ว overlay field ของ step ปัจจุบัน เพื่อไม่ล้างข้อมูลของ sub-step อื่น
 - KYC approval ใช้ expiry date ใน bank-account read model เพื่อแสดง warning ต่อเจ้าหน้าที่; เป็น supporting UI/read behavior ไม่ใช่หลักฐานของ expiry calculation หรือการลบบัญชี
+- KYC approval general-information edit รองรับ optional `middle_name_en`; empty string เป็นคำสั่งเคลียร์ค่าที่มีอยู่ ไม่ใช่ค่าที่ client ต้องเปลี่ยนเป็น `null`
+- `current_status` เป็น precondition ของ general-information edit; status mismatch ต้อง refresh application state ก่อน retry และไม่ควรเขียน profile ต่อ
 
 ## State transitions
 
@@ -284,6 +305,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | Customer reads `review-information` | ไม่เปลี่ยน application | คืน `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period context จาก change-request log |
 | Re-KYC status มี default bank แต่ `name_changed = true` | ไม่เปลี่ยน application โดยตรง | registration ต้องผ่าน `bank-account`; acceptance แล้วจึงเดิน next status |
 | Retake บันทึก background step | `to-retake` → `to-review` เมื่อไม่ใช่ name-change และ completion validation ผ่าน | เรียก completion path; ถ้า `name_changed = true` คง flow ไว้ที่ bank-account path |
+| KYC approval แก้ general information | ไม่เปลี่ยน application/registration status | `onboarding-service` อัปเดต customer profile/background และ audit; `middle_name_en = ""` เคลียร์ค่าก่อนหน้าได้ |
 
 ขั้น request ของ re-KYC เขียน flow type `retake-re-kyc` แต่ DOPA completion ปัจจุบันสร้าง status/history ด้วย `retake` และ success helper ตั้ง flow เป็น `onboarding`; ต้องยืนยัน intended state chain กับเจ้าของ `onboarding-service` ก่อนอธิบายผลของ re-KYC retake หลัง DOPA เป็นข้อเท็จจริงเพิ่มเติม
 
@@ -293,6 +315,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Manual forgery request ที่ claim ไม่ถูกต้องคืน HTTP 401, body ไม่ผ่าน validation คืน HTTP 400 และ service failure คืน HTTP 500
 - `web-portal` แสดง memo เป็น optional และส่ง `null` เมื่อช่องว่าง แต่ backend DTO ติด `validate:required`; การทำงานจริงของ empty memo ต้องยืนยันกับเจ้าของ contract และไม่ถือว่า client behavior override backend validation
 - KYC customer-list query ใช้ base status exclusion ที่กว้างกว่าเดิม; หาก UI ต้องการซ่อน `closed`, `inactive` หรือ `freeze` ต้องส่ง/ยืนยัน request status filter เพิ่มเติม ไม่ควรอนุมานจาก base query
+- General-information edit bind body ไม่ผ่าน: HTTP 400 และ `INVALID_REQUEST`; `current_status` ไม่ตรงกับ application: HTTP 200 พร้อม `INVALID_APPLICATION_STATUS` และไม่เรียก update service ต่อ; service/profile update failure: HTTP 500
 - Claim ไม่ถูกชนิด: HTTP 401
 - Request body ไม่ถูกต้อง: HTTP 400, code `4001` (`INVALID_REQUEST`)
 - `re_kyc_step` ที่ไม่ใช่ parent step ที่อนุญาต: HTTP 400 พร้อม `invalid re_kyc_step`; array ว่างไม่ใช่ error และใช้ legacy behavior
@@ -319,6 +342,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - KYC approval รองรับการอ่าน detail จาก `OldCaptureId` ของ `cancelled-by-system` และแสดงเฉพาะ default investment bank account ที่ผูก company ได้
 - KYC approval customer list แสดง individual customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base predicate และอาจรวม status อื่นที่ไม่ถูก filter เพิ่มเติม
 - Customer/additional-account review แยก normal bank-account display กับ name-change warning จาก `has_submitted_bank_account`, `has_default_bank_account`, `has_accepted_bank_account_grace_period` และ `name_changed`; client เป็นเพียงผู้แสดงผล
+- KYC approval สามารถบันทึกหรือเคลียร์ optional English middle name ผ่าน general-information edit ได้ โดยไม่เปลี่ยน application state
 
 ## Related shared rules
 
@@ -351,6 +375,9 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields และ retake completion decision จาก `NameChanged`
 - `pkg/customer/customer-bank-account/service.go`: create bank account, `has_submitted_bank_account` flag และ grace-period acceptance
 - `handler/customer-dto.go`: `review-information` response fields รวม `has_submitted_bank_account`
+- `handler/webportal/kyc-approver-handler.go`: `PATCH /web/api/v2/kyc/{application_id}/general-information`, current-status validation และ error mapping
+- `pkg/customer/kyc_approver/edit-service.go`: general-information update และการแปลง `middle_name_en` เป็น string ว่าง
+- `pkg/customer/customer-profile/customer-profile-repo/customer-profile-repository.go`: explicit `middle_name_en` update map
 - `handler/customer-re-kyc-handler.go`: optional `re_kyc_step` request และ `steps[]` status response
 - `handler/customer_re_kyc.dto.go`: re-KYC status response fields และ deprecated compatibility fields
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: re-KYC option/status calculation จาก expiry และ selected steps
@@ -364,6 +391,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/kyc/kyc-service.go`: compose review-information flags จาก change-request log
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: bank-account BFF และ expiry field
 - `web-portal/src/app/(customer-flow)/new-bank-request/[applicationId]/container.tsx`: map backend `to-review` เป็น UI-only new-bank-request review status
+- `web-portal/src/app/(customer-flow)/kyc-approval/[applicationId]/general-information/container.tsx`: เปิด input middle name ภาษาอังกฤษ
+- `web-portal/src/app/features/kyc-approval/edit/types/update-general-info-request.ts`: คง empty `middleNameEn` ใน request payload
 - `xspring-mobile-app/lib/domains/ekyc/bank_account/accept_back_account_name_change/`: bank name-change acceptance flow
 - `xspring-mobile-app/lib/models/onboard/review_customer_information.dart`: review-information response model
 - `xspring-mobile-app/lib/domains/ekyc/open_account/additional_account/review/widget/review_your_information_widget.dart`: normal bank display vs name-change warning
