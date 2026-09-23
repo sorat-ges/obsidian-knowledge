@@ -6,7 +6,7 @@ services: [onboarding-service, web-portal, xspring-mobile-app]
 aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-22
+lastUpdated: 2026-09-23
 documentType: flow
 ---
 
@@ -108,6 +108,7 @@ Mobile เก็บข้อมูล personal information ไว้ใน local
 - ใน address step, mobile clone address cards ก่อน `prepareRequest()` จะล้าง fields ของ address ที่อ้างอิง address อื่น เพื่อไม่ให้การปรับ outgoing payload ล้างค่าที่อยู่ใน memory ของ form เดิม
 - ใน work-information step, การเลือก occupation จะ persist `current_work.occupation` ทันที ก่อนรอ `GET /api/v1/business-type?OccupationCode={code}`; การเลือกอาชีพใหม่จะล้าง `business_type`, `business_type_other`, `job_title` และ `company_name` ที่ผูกกับอาชีพเดิม
 - ถ้า business-type response ว่าง mobile ถือว่า business type เป็น optional ใน client validation; ถ้ามี `Other` เพียงรายการเดียวจะเลือก code `180` ให้อัตโนมัติ และถ้า occupation code `25` (Buddhist Monk / Priest) มี business type code `60` จะเลือก code `60` ให้อัตโนมัติ
+- client validation ของ mobile normalize `null` เป็นค่าว่างก่อนตรวจ: `occupation_other` ต้องไม่ว่างเมื่อ occupation code เป็น `Other` และต้องว่างเมื่อเป็น occupation ปกติ; `business_type_other` ใช้กฎเดียวกันกับ business type code `180` (`Other`) ส่วน business type code อื่นห้ามมีข้อความค้าง
 - mobile แสดง/ส่งชื่อจาก master-data ที่ Backend คืนมา และส่ง `occupation`, `business_type`, `occupation_other` หรือ `business_type_other` ตามค่าที่ผู้ใช้เลือก/กรอก; `onboarding-service` ยังคงตรวจ master-data combination และเป็นผู้ persist ค่าใน `customer_background`
 
 ข้อกำหนด client เหล่านี้เป็น supporting behavior เท่านั้น ไม่ได้ override `CurrentWorkData` validation หรือการ normalize ชื่อ/combination ที่ `onboarding-service` ทำก่อนบันทึก

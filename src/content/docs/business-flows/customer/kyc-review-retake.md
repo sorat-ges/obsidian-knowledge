@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
 errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600", "INVALID_APPLICATION_STATUS"]
 status: active
-lastUpdated: 2026-09-22
+lastUpdated: 2026-09-23
 documentType: flow
 ---
 
@@ -160,7 +160,7 @@ Handler ตรวจ claim, bind `current_status` และยืนยันว
 
 1. ลบ `customer_laser_code` และแถว `customer_image_verification` ของ identification เดียวกัน
 2. ปิด action-flow ช่วง review ด้วย action `retake`
-3. เปลี่ยน application จาก `to-review` เป็น `to-retake`
+3. เปลี่ยน application จาก `to-review` เป็น `to-retake` และตั้ง `application.status_date` เป็น `userUpdate.UpdatedAt` ของการ request retake
 4. ตั้ง registration ที่ `identity-verification/front-card-scan`
 5. ใช้ flow `retake-re-kyc` เมื่อ application type เป็น `re-kyc`; application type อื่นใช้ `retake`
 6. soft-delete history เดิมของ application/flow เดียวกัน
@@ -264,6 +264,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
 - Backend รองรับ step-based re-KYC ผ่าน `re_kyc_step`; option/status read และ mobile review flow ใช้ selected parent steps ชุดเดียวกัน ส่วน request ว่างยังคง legacy type-based behavior
+- `GET /api/v1/customer/re-kyc/option` ตัดเวลาปัจจุบันเป็น date ตาม business timezone ก่อนเทียบ expiry: step จะเริ่มแสดงเมื่อถึง `warning_date` (`today >= warning_date`) แต่ `is_force` จะเป็น `true` เฉพาะเมื่อเลย `expiry_date` (`today > expiry_date`); ในวันหมดอายุเองยังแสดง `expiry_date` แต่ไม่ถือเป็น forced step
 - Mobile step-selection ปัจจุบันเลือก option ทุก stepเป็นค่าเริ่มต้น, lock เฉพาะ forced step และ route หลัง start จาก customer status ที่ refresh แล้ว; onboarding-service ยังคงเป็น owner ของ selected-step history และ registration state
 - สำหรับ re-KYC ที่อยู่ `to-review`, `edit_data_allow.general_information` และ `address_on_id_card` เปิดเมื่อ selected/reason มี identity-verification หรือเป็น `id-card-expired`/`force-expired`; CDD/suitability-only ที่ไม่มี identity step ปิดสองส่วนนี้ และ mobile เป็นเพียงผู้ส่งต่อ UX guard
 - เมื่อ re-KYC nationality ถูกบันทึกด้วย `flow_type = re-kyc`, registration history/status ใช้ `FlowReKYC`; mobile เป็นเพียงผู้ส่ง flow context
@@ -291,7 +292,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | :--- | :--- | :--- |
 | DOPA completion และ forgery feature เปิด | ไม่เปลี่ยน DOPA/application state | background KYC → `forgery_flag` `pass`/`reject`/`error` แบบ asynchronous |
 | KYC reviewer manual verifies rejected forgery | ไม่เปลี่ยน application | background KYC `reject` → `pass` พร้อม reviewer/memo |
-| Employee requests retake | `to-review` → `to-retake` | → `identity-verification/front-card-scan` |
+| Employee requests retake | `to-review` → `to-retake`; `application.status_date` = reviewer update time | → `identity-verification/front-card-scan` |
 | Customer creates re-KYC with selected steps | ไม่เปลี่ยน application โดยตรง | selected parent step แรก → sub-status แรก; unselected sub-steps ถูก seed เป็น completed และ `steps[]` คืนสถานะต่อ client |
 | Customer saves nationality in re-KYC | ไม่เปลี่ยน application โดยตรง | nationality completion → next status/history ใน `FlowReKYC` |
 | DOPA success; profile/address match | `to-retake` → `to-review` | → `completed-draft/application-completed-draft` |
