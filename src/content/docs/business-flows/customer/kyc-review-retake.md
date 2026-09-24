@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ]
-integrations: [DOPA, AppMan, AdvanceAI, Keycloak]
-errorCodes: ["1000", "200", "2009", "400", "401", "4001", "500", "6600", "INVALID_APPLICATION_STATUS"]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, FundConnext customer sync, FundConnext account sync, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์]
+integrations: [DOPA, AppMan, AdvanceAI, Keycloak, FundConnext]
+errorCodes: ["1000", "200", "2009", "400", "401", "403", "4001", "500", "6600", "INVALID_APPLICATION_STATUS", "permission not found"]
 status: active
-lastUpdated: 2026-09-23
+lastUpdated: 2026-09-24
 documentType: flow
 ---
 
@@ -239,7 +239,29 @@ CDD date ที่ส่งใน current/previous KYC information ถูก tru
 
 เมื่อเป็น selected-step re-KYC, `getSuitabilityInfoForReKyc` จะคืน suitability ต่อเมื่อไม่มี `re_kyc_steps` (legacy) หรือมี parent step `suitability-test`; ถ้าเลือกเฉพาะขั้นอื่น `suitabilityInfo` จะเป็น `null` ใน review response ส่วน bank read ใช้ `bankAccountsInfo` และไม่ expose scalar `bankAccountInfo` แบบ deprecated แล้ว
 
-### 9. Verify forgery and expose KYC decision
+### 9. Approve customer, ensure investment bank account and sync FundConnext
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+เมื่อ approval เรียก `ProcessApproveApplicationCustomer`, service จะพยายามตรวจและสร้าง default investment-bank account ให้ individual customer accounts ที่ status ไม่ใช่ `closed` ก่อนเตรียมส่งข้อมูลไป `FundConnext`:
+
+- อ่านบัญชีที่ไม่ใช่ `closed` ต่อ identification แล้วตรวจ default investment-bank account type `RED` ของแต่ละบัญชี
+- ถ้าไม่มี default `RED` จะเรียก `GetBankAccountForUploadFundconnext` และสร้าง binding ที่ขาด; ถ้ามีอยู่แล้วจะข้าม
+- ถ้าขั้น ensure account error ระบบ log `step_check_account_error` แต่ approval path ไม่ return error จากขั้นนี้ และยังเดินต่อไปยัง FundConnext preparation
+
+ขั้น FundConnext ใช้ `identification.VerificationKey` เรียก `GetCustomer` แล้วเลือก path ตาม profile/account ที่พบ:
+
+- ไม่พบ profile: เดิน new-customer account path ต่อ
+- พบ profile แต่ไม่มี account: บันทึก identification reference แล้วเดิน new-customer account path ต่อ
+- พบ profile พร้อม account: sync เฉพาะ account ที่ยังไม่มี local account ตาม `InvestmentAccountCode`; duplicate local account จะถูกข้าม และ account/bank binding ที่ขาดจะถูกสร้างใน sync path ก่อนจบด้วย existing-account outcome
+
+**Integration executor: `FundConnext` ผ่าน `onboarding-service`**
+
+`web-portal` เป็น supporting client ของ approval/read path เท่านั้น; การ ensure RED account, profile lookup, duplicate check และ local account creation เป็น backend behavior ของ `onboarding-service`
+
+### 10. Verify forgery and expose KYC decision
 
 **Owner service: `onboarding-service`**
 
@@ -276,6 +298,9 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Stored watchlist report ใน KYC approval ไม่จำเป็นต้องมีครบทั้ง personal, background และ vulnerable-investor; missing group ถูกแสดงเป็น object ว่าง
 - Application ที่เป็น `cancelled-by-system` ใช้ `OldCaptureId` เป็น source ของ customer detail เมื่อ KYC approval อ่าน completed-flow data
 - Investment bank account read model แสดงเฉพาะ default account และแบ่งผลตาม XAM/XD company; business owner และ executor ยังคงเป็น `onboarding-service`
+- Approval account preparation ตรวจ individual customer accounts ที่ status ไม่ใช่ `closed` และพยายามให้แต่ละ account มี default investment-bank account type `RED`; existing default ถูกข้าม
+- Error จากขั้น ensure default `RED` account ถูก log เป็น `step_check_account_error` แล้ว approval ยังเดินต่อไปยัง FundConnext preparation; source ไม่ยืนยันว่า missing binding ถูกสร้างสำเร็จเมื่อมี error
+- FundConnext profile ที่มี account จะ sync เฉพาะ account ที่ยังไม่พบ local `InvestmentAccountCode`; account ที่มีอยู่แล้วถูกข้ามเพื่อไม่สร้างซ้ำ ส่วน profile ที่ไม่มี account จะกลับไป new-account path
 - KYC approval/customer bank read path กรอง active และ non-deleted accounts แล้วเรียง default → newest created → bank code → account number; inactive/soft-deleted capture entries ไม่ถูกส่งเป็น bank item
 - `review-information` response ส่ง `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period flag เป็น nullable context จาก change-request log; `has_submitted_bank_account` สะท้อนการสร้าง bank account สำเร็จ ไม่ใช่การอนุมัติ account หรือ state transition ของ application
 - Default bank account ไม่ทำให้ re-KYC ข้าม bank step เมื่อ `name_changed = true`; ต้องผ่าน grace-period acceptance ก่อน registration เดินต่อ
@@ -301,6 +326,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | KYC approval reads customer list | ไม่เปลี่ยน application | คืน customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base query และ request filter |
 | KYC approval reads stored capture | ไม่เปลี่ยน application | คืน `watchlist_report` เท่าที่มี stored report |
 | KYC approval reads suitability/bank account | ไม่เปลี่ยน application | คืน v2/V1 suitability และ default investment bank account ที่ map ได้ |
+| Customer approval prepares investment-bank account | approval state ไม่เปลี่ยนจาก ensure step นี้ | สำหรับ individual account ที่ไม่ใช่ `closed` พยายามสร้าง default `RED` binding ที่ขาด; error ถูก log และไม่หยุด approval path |
+| FundConnext profile/account sync | application state ไม่เปลี่ยนจาก profile lookup เพียงอย่างเดียว | profile/account ที่พบถูก materialize เฉพาะ local account ที่ยังไม่มี; duplicate investment account ถูกข้าม |
 | KYC approval/customer reads bank list | ไม่เปลี่ยน application | คืนเฉพาะ active/non-deleted bank accounts ตามลำดับ default/created time/bank identifiers |
 | Customer creates bank account | ไม่เปลี่ยน application โดยตรง | สร้าง active bank account และพยายามตั้ง `has_submitted_bank_account = true` ใน change-request log; ถ้า update flag ล้มเหลว create path ยังเดินต่อ |
 | Customer reads `review-information` | ไม่เปลี่ยน application | คืน `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period context จาก change-request log |
@@ -328,7 +355,9 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - การอ่าน existing background หรือการ parse `VulnerableDetail` ใน personal-information work/background step ใช้ error ที่ถูกละไว้ใน current implementation; หาก read/parse ล้มเหลว การ preserve field เดิมไม่ควรถูกถือว่ายืนยันได้
 - การตั้ง `has_submitted_bank_account` เกิดหลัง bank row ถูกสร้าง; ถ้า change-request log update ล้มเหลว service log error และยังดำเนิน bank-account flow ต่อ โดย `review-information` อาจยังคืนค่าเป็น nil
 - การเขียน registration status/history หลัง DOPA completion log error แล้ว Flow ยังคืนผลได้ในบาง path; ต้องตรวจ log เมื่อ response สำเร็จแต่ progress ไม่เปลี่ยน
-- Investment bank details service error คืน HTTP 500; แต่ถ้า customer-account lookup error ใน current implementation service คืน output ว่างพร้อม `nil` error ทำให้ handler ตอบ HTTP 200 ได้
+- `GET /web/api/v2/customer/{identification_id}/open-account` คืน HTTP 403 และข้อความ `permission not found` เมื่อ permission lookup ล้มเหลวหรือไม่พบ XAM/XD account; `web-portal` BFF ส่งต่อ status นี้ ไม่ควร map เป็น empty-success
+- Error ใน approval ขั้น ensure default `RED` investment-bank account ถูก log เป็น `step_check_account_error` และ source ปัจจุบันให้ approval เดินต่อ; ถ้า FundConnext profile lookup หรือ existing-account sync ล้มเหลว preparation path คืน error และ stamp request error handling
+- Retry service เรียก ensure-account check ซ้ำก่อนเดิน retry path แต่ source รอบนี้ไม่ยืนยัน retry schedule หรือจำนวนครั้งอัตโนมัติ
 - ถ้า suitability dependency ของ KYC approval อ่านไม่ได้ service คืน risk status แบบ `incomplete`; ไม่ควรตีความเป็นการเปลี่ยน application state
 
 ## Final outcomes
@@ -343,6 +372,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - KYC approval รองรับการอ่าน detail จาก `OldCaptureId` ของ `cancelled-by-system` และแสดงเฉพาะ default investment bank account ที่ผูก company ได้
 - KYC approval customer list แสดง individual customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base predicate และอาจรวม status อื่นที่ไม่ถูก filter เพิ่มเติม
 - Customer/additional-account review แยก normal bank-account display กับ name-change warning จาก `has_submitted_bank_account`, `has_default_bank_account`, `has_accepted_bank_account_grace_period` และ `name_changed`; client เป็นเพียงผู้แสดงผล
+- Approval พยายามเติม default `RED` investment-bank account ให้ non-closed individual accounts ก่อน FundConnext preparation และ profile ที่มี account จะ sync local account/bank binding ที่ขาดโดยข้าม duplicate
+- Permission failure ของ open-account read path ปรากฏต่อ caller เป็น HTTP 403 `permission not found`; เป็นผลของ backend permission check ไม่ใช่ customer application state transition
 - KYC approval สามารถบันทึกหรือเคลียร์ optional English middle name ผ่าน general-information edit ได้ โดยไม่เปลี่ยน application state
 
 ## Related shared rules
@@ -411,8 +442,15 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/customer/customer-repo/customer-repository.go`: KYC customer-list status/deleted predicate
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: suitability V1 fallback และ risk/answer mapping
 - `onboarding-service/handler/webportal/kyc-customer-handler.go`: investment-bank-account endpoint
+- `pkg/customer/application/service.go`: `ProcessApproveApplicationCustomer` และ non-fatal `step_check_account_error` handling
+- `pkg/customer/customer-process/customer-process-service.go`: `CheckAndCreateCustomerInvestmentBankAccount` และ non-closed account selection
+- `pkg/customer/customer-account/customer-account-repo/customer-account-repository.go`: `GetListByIdentificationByNotStatus`
+- `pkg/fundconnextprocess/service.go`: `GetCustomer`, profile/account sync และ new/existing account branching
+- `pkg/customer/kyc_approver/customer-service.go`: open-account permission error mapping source
+- `handler/webportal/kyc-customer-handler.go`: `permission not found` → HTTP 403
 - `web-portal/src/app/features/kyc-approval/services/kyc-approval-detail.ts`: request-retake payload
 - `web-portal/src/app/api/customer/[userId]/bank-account/route.ts`: bank-account proxy
+- `web-portal/src/app/api/customer/[userId]/accounts/request/route.ts`: open-account BFF ที่ส่งต่อ non-OK จาก onboarding-service
 - `pkg/customer/kyc_approver/helper.go`: CDD date truncation และ forgery result/reason mapping
 - `handler/webportal/kyc-handler.go`: manual forgery verify และ forgery refresh handlers
 - `handler/ekyc-handler.go`: asynchronous forgery trigger หลัง DOPA completion

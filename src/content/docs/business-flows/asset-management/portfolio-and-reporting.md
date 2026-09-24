@@ -3,16 +3,16 @@ title: Portfolio and Reporting
 description: Flow อ่านยอดสินทรัพย์ คำนวณมูลค่าพอร์ต และสร้างรายงานตามสถานะบัญชี
 capability: Asset Management
 services: [customer-service, asset-service, asset-consumer]
-integrations: [Asset Monthly]
-aliases: [portfolio, asset balance, monthly statement, report, customer list by RM, customer status monthly statement, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, รายงานสินทรัพย์, รายชื่อลูกค้า RM, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
+integrations: [Asset Monthly, Product FX Mark-to-Market]
+aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
 status: active
-lastUpdated: 2026-08-29
+lastUpdated: 2026-09-24
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบาย read flow ของ asset portfolio และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service` สถานะ `closed` ถูกตัดออกจาก account/portfolio query ที่เปลี่ยนในรอบนี้ ส่วน status อื่นที่ไม่ใช่ `closed` ยังอยู่ใน read path เหล่านั้นได้
+อธิบาย read flow ของ asset portfolio, fiat wallet overview และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service` สถานะ `closed` ถูกตัดออกจาก account/portfolio query ที่เปลี่ยนในรอบนี้ ส่วน status อื่นที่ไม่ใช่ `closed` ยังอยู่ใน read path เหล่านั้นได้
 
 สำหรับ monthly statement ที่ให้ RM เลือกลูกค้า `asset-service` มี endpoint `GET /api/v1/customer/rm-owner` ที่คืน `customer_status` และตัดเฉพาะ `rejected` กับ `onboarding` ออกจากรายการเลือก นี่เป็นกฎของ customer-selection endpoint ไม่ใช่หลักฐานว่าทุก portfolio หรือ report-generation query ตัดสถานะเดียวกัน
 
@@ -22,7 +22,7 @@ documentType: flow
 - Portfolio trigger: client ขอ portfolio overview โดย `asset-service` เป็น owner
 - Reporting trigger: client/ระบบส่งคำขอ monthly statement โดย `asset-service` เป็น owner
 - RM selection trigger: `web-portal` ขอรายชื่อลูกค้าของ RM จาก `asset-service` ก่อนสร้าง monthly statement
-- ต้องมี customer/account mapping, product definition และราคา NAV/MTM ที่เกี่ยวข้อง
+- ต้องมี customer/account mapping, product definition และราคา NAV/MTM ที่เกี่ยวข้อง; fiat ที่ไม่ใช่ THB ต้องมี FX mark-to-market record ที่มี `NavPU`
 - การปิดบัญชีต้องมียอดสินทรัพย์เป็น 0
 - สำหรับ portfolio overview และ account lookup ที่ใช้ query ใหม่ บัญชีต้องมี status ไม่ใช่ `closed`; `freeze`, `suspended` และ status อื่นที่ไม่ใช่ `closed` ไม่ถูกตัดออกด้วย predicate นี้
 
@@ -34,7 +34,7 @@ documentType: flow
 | `asset-consumer` | รับ master-data sync และ materialize downstream portfolio state ตาม event ที่เกี่ยวข้อง |
 | `customer-service` | เป็น owner ของ account lifecycle/status ที่กำหนดสิทธิ์ของบัญชี |
 | `Asset Monthly` | External report generator ที่ `asset-service` เรียกสำหรับ monthly statement |
-| `web-portal` | Supporting client/BFF สำหรับเลือก customer ตาม RM และแสดง `customer_status` |
+| `web-portal` | Supporting client/BFF สำหรับเลือก customer ตาม RM, เรียก White Glove wallet overview และแสดง fiat/crypto portfolio |
 
 ## End-to-end sequence
 
@@ -71,12 +71,18 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - Digital Asset market value แสดงเป็น THB
 - `Unrealized P/L = (NAV - AverageCost) * UnitBalance`
 - Mark-to-Market แปลงสินทรัพย์ทุกประเภทเป็น THB เพื่อหา Total Equity
+- `GetFiatBalanceByAccountID` รวม fiat portfolio ตาม product/currency, ใช้ rate `1` สำหรับ THB และใช้ `NavPU` จาก `dw_product.product_fx_mark_to_market` สำหรับ currency อื่น แล้วปัด `AmountTHB` ลงสองตำแหน่ง
+- ถ้า FX record ของ currency ใดไม่มี `NavPU`, `asset-service` log และข้ามเฉพาะ balance รายการนั้น; error จากการอ่าน portfolio/product/FX repository ทำให้ wallet request ล้มเหลว
+- Trading wallet overview คืนเฉพาะรายการ THB; White Glove wallet overview คืน fiat balance ทุก currency พร้อม native amount, THB equivalent และ `in_order`
+- Current trading/White Glove portfolio valuation ใช้ `NavPU`; `OriginalNavPU` ที่ `asset-consumer` persist ไม่ได้ถูกเลือกใน mapper ของ asset-service path นี้
 
 ### 4. Return portfolio overview
 
 **Owner service: `asset-service`**
 
 คืนยอดรวมและรายละเอียดสินทรัพย์จากทุก Asset Group ของลูกค้า
+
+สำหรับ `GET /api/v2/trading/asset/customer/wallet/overview` และ `GET /api/v2/white-glove/asset/customer/wallet/overview/{identification_id}`, `asset-service` คืน fiat balance ตาม contract ของแต่ละ endpoint; `web-portal` ใช้ White Glove response แยกตาราง fiat ออกจาก crypto/digital-token portfolio และเปิด deposit/withdraw action เฉพาะแถว THB ใน client
 
 ### 5. Select customers for monthly statement
 
@@ -110,6 +116,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 - RM customer-selection query ของ `asset-service` ตัด `rejected` และ `onboarding` แต่ยังคืน status อื่นที่ไม่ถูก exclude และส่ง `customer_status` กลับให้ client แสดงผล
 - กฎ selection ข้างต้นไม่ควรถูกขยายเป็นกฎของทุก portfolio read หรือ monthly statement data query โดยไม่มี source ยืนยัน
+- Wallet fiat valuation ใช้ `NavPU` ปัจจุบันของ FX mark-to-market; source รอบนี้ไม่ยืนยันการใช้ `OriginalNavPU` เป็น valuation สำหรับ trading หรือ White Glove wallet/portfolio
 
 `asset-service` เป็น owner และ executor ของ portfolio aggregation/valuation, RM customer selection และ monthly-report API; `Asset Monthly` เป็น external report generator ที่ถูกเรียกจาก service
 
@@ -133,12 +140,14 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - **Account status:** บัญชี `suspended` และ `freeze` ยังถูกเลือกใน portfolio read paths ที่ตัดเฉพาะ `closed`; ข้อจำกัดการเทรด/ถอนเป็น operation-specific และยืนยันที่ [Order State Machine](/shared-rules/order-state-machine/)
 - **Read-path boundary:** direct account-ID portfolio reads และ monthly statement ใช้ repository methods ที่ไม่มี not-closed predicate ใน diff นี้ จึงต้องไม่ขยายกฎ `closed` exclusion ไปยังทุก endpoint
 - **`asset-service`:** source ไม่ระบุ fallback เมื่อ NAV/MTM หาย ต้องตรวจ code, master/price data และ runtime path ก่อนกำหนด behavior
+- **Fiat FX:** ถ้าไม่มี `NavPU` สำหรับ currency ที่ไม่ใช่ THB รายการนั้นถูกข้ามและรายการอื่นยัง map ต่อ; ไม่มี fallback rate ที่ source ยืนยัน
 - **`asset-service` / `Asset Monthly`:** source ไม่ระบุ automatic recovery เมื่อ external report generation ล้มเหลว ต้องตรวจ service response และ runtime integration configuration ก่อนกำหนด behavior
 
 ## Final outcomes
 
 - `asset-service`: Portfolio overview รวม asset group ของ account ที่ status ไม่ใช่ `closed` และ valuation เป็น THB
 - `asset-service`: Monthly-report API รับ customer/date range และเรียก `Asset Monthly` ด้วยยอดและ NAV ณ สิ้นเดือน
+- `asset-service`: Trading wallet overview คืน THB fiat balance และ White Glove wallet overview คืน fiat balances ที่ map FX ได้ พร้อมยอด native/THB และ pending order amount
 - `customer-service`: Suspended และ freeze account ยังมีข้อมูลใน read paths ที่ใช้ not-closed predicate; Closed account ถูกตัดจาก query กลุ่มนั้นและต้องยืนยันยอดเป็นศูนย์; order operation ให้ยึด backend rule ของแต่ละ operation
 
 ## Related shared rules and flows
@@ -153,6 +162,9 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 - `internal/domain/asset_portfolio.go`
 - `pkg/asset/service.go`
+- `pkg/trading/service.go`: `GetTradingWalletAssetBalanceOverview`, `GetWhiteGloveFiatBalance` และ fiat/portfolio mappers
+- `handler/trading_handler.go`: trading wallet overview endpoint
+- `handler/white_glove_handler.go`: White Glove wallet/portfolio endpoints
 - `pkg/customer/service.go`
 - `handler/customer_handler.go`: RM customer-list endpoint และ response status
 - `storages/postgres/customerrepository/customer_identification_repository.go`: `GetCustomerListByRelationshipManager` status filter
@@ -160,6 +172,9 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - `pkg/report/monthly_service.go`: monthly report request และ call ไป `Asset Monthly`
 - `storages/postgres/customerrepository/customer_account_repository.go`: not-closed account selection
 - `storages/postgres/assetrepository/asset_portfolio_repository.go`: account-status predicate ใน portfolio reads
+- `storages/postgres/productrepository/product_fx_mark_to_market.go`: FX `NavPU` lookup by currency
 - `web-portal/src/app/api/report/customer-by-rm/route.ts`: RM customer-list BFF
 - `web-portal/src/app/api/report/customer-monthly-report/route.ts`: monthly-report BFF และ `WEB` channel
+- `web-portal/src/app/api/white-glove/[identificationId]/asset-portfolio/overview/route.ts`: White Glove wallet overview BFF
+- `web-portal/src/app/features/white-glove/components/common/portfolio/portfolio-fiat-table/index.tsx`: fiat rows and THB-only actions
 - Tables: `xpg_asset.asset_portfolio`, `xpg_asset.report_monthly_statement_file`
