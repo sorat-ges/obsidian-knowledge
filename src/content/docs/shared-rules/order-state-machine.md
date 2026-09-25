@@ -2,7 +2,7 @@
 title: Order State Machine
 description: สถานะ การเปลี่ยนสถานะ และข้อจำกัดของ Swap, Withdrawal และ Fund Order
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-09-25
 documentType: shared-rule
 ---
 
@@ -111,11 +111,22 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 
 `order-service` เป็น Business owner และ executor ของ status validation/cancellation; `order-consumer` เป็น executor ของ `CustomerSync` และ system-cancellation trigger ไม่ใช่ owner ของ order policy. การ cancel ที่ล้มเหลวบางรายการถูกรวบรวมและส่ง internal notification แบบ asynchronous; source ไม่ยืนยัน rollback ของรายการที่สำเร็จก่อนหน้า
 
+เมื่อ `order-consumer` consume `CustomerSync`, local identification/account/address/investment-account data จะถูกบันทึกใน transaction ก่อนขอ service-account token และเรียก downstream order APIs:
+
+1. ถ้า Keycloak token request ได้ network error, parse error หรือ non-200, consumer คืน error หลัง local transaction commit แล้ว; การ retry/replay ของ message ต้องยึด consumer policy และไม่ควรสมมติว่า local sync rollback แล้ว
+2. เมื่อได้ token แล้ว consumer เรียก `POST /api/v1/customer/{identification_id}/account-unitholder-sync` ของ `order-service`; error จาก URL/HTTP call นี้ถูก log และบันทึก `xpg_order.audit_log` เป็น `CustomerAccountUnitholderSync`/`CallOrderService` ผล `fail` แต่ไม่ถูกส่งกลับเป็น error ของ `EventCustomerSync`
+3. กรณี HTTP 200 บันทึก audit log ชุดเดียวกันเป็นผล `success`; การบันทึก audit ล้มเหลวถูก log และไม่ทำให้ customer sync event ล้ม
+4. หลังจากนั้น status ที่ไม่ใช่ `active` ยังเข้า `cancel-orders` path เดิม โดย error ของ cancellation ถูก log/กลืนตาม current consumer implementation
+
+ดังนั้น `order-consumer` เป็น executor ของ local sync และ downstream trigger, `order-service` เป็น executor ของ unitholder-sync/cancellation policy และ audit log นี้เป็นหลักฐานผลการเรียก service ไม่ใช่หลักฐานว่า ledger หรือ order state เปลี่ยนสำเร็จ
+
 ### Unresolved implementation boundaries
 
 - Repository lookup ใช้ `LIMIT 1` โดยไม่มี ordering เมื่อมีหลาย account ที่ product เดียวกันมีสถานะต่างกัน จึงยังไม่ยืนยัน precedence ของสถานะ
 - `IsMutualFundNotAllowOrder` คืน error จาก lookup สำหรับ `sell` แต่ทิ้ง error สำหรับ order type อื่น และค่า status ว่างจะถูกประเมินเป็น not allowed สำหรับ buy/switch ตาม enum ปัจจุบัน ต้องยืนยันว่าเป็น intended behavior หรือ defect
 - System-cancellation audit detail ยังบันทึก literal `customer_account_status: suspended` แม้ trigger status จะเป็น `closed` หรือ `freeze`
+- Local `CustomerSync` transaction commit ก่อน service-account token และ account-unitholder sync; source ไม่ยืนยัน idempotency/replay policy เมื่อ token fail หลัง local data ถูก commit
+- `account-unitholder-sync` failure ถูกบันทึกเป็น audit `fail` แต่ไม่ทำให้ consumer event fail; ต้องตรวจ audit log และ downstream account state แยกกัน
 
 ## ข้อจำกัดร่วม
 
@@ -134,3 +145,6 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 - `order-service/pkg/customer/suspend_service.go`
 - `order-service/handler/digital_asset_suspension.go`
 - `order-consumer/pkg/customer-account/service.go`
+- `order-consumer/internal/infrastructure/postgres/repository/audit-log.go`: configurable `xpg_order.audit_log` write สำหรับ unitholder sync
+- `order-consumer/internal/constants/enum/constant.go`: `AuditLogOrder` table selection
+- `order-consumer/internal/constants/enum/order_enum.go`: `CustomerAccountUnitholderSync` และ `CallOrderService`

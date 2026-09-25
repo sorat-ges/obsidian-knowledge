@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-24
+lastUpdated: 2026-09-25
 documentType: flow
 ---
 
@@ -14,7 +14,7 @@ documentType: flow
 
 อธิบาย behavior ที่ `onboarding-service` ใช้รายงานความคืบหน้า onboarding และ API v2 สำหรับรับคำตอบ suitability, คำนวณคะแนน Traditional/Digital, บันทึกผลตามบริษัทที่กำลังเปิดบัญชี, refresh watchlist และยืนยันผลเพื่อขยับ registration status รวมถึงการคงข้อมูลระหว่าง personal-information sub-step, การประกอบ payload ของ mobile สำหรับ personal/address/work/background, bank-account requirement เมื่อไม่มี default account หรือชื่อบัญชีธนาคารเปลี่ยน และ read path ของ KYC approval ที่รองรับข้อมูล suitability รุ่นเก่าและรุ่นใหม่ พร้อม flags ของ bank-account context ใน `review-information` response
 
-Source รอบนี้ยืนยัน behavior จาก Backend เป็นหลัก; `web-portal` และ `xspring-mobile-app` เป็น supporting client สำหรับ bank-account read, grace-period acceptance และ user-visible warning โดยไม่ override state หรือ validation ของ Backend
+Source รอบนี้ยืนยัน behavior จาก Backend เป็นหลัก; `web-portal` และ `xspring-mobile-app` เป็น supporting client สำหรับ bank-account read, grace-period acceptance และ user-visible warning โดยไม่ override state หรือ validation ของ Backend; suitability confirm ไม่ควรถูกตีความว่าเป็น trigger ของ watchlist refresh หากไม่ได้เรียก refresh endpoint แยก
 
 ## Trigger and preconditions
 
@@ -107,7 +107,7 @@ Mobile เก็บข้อมูล personal information ไว้ใน local
 
 - ใน address step, mobile clone address cards ก่อน `prepareRequest()` จะล้าง fields ของ address ที่อ้างอิง address อื่น เพื่อไม่ให้การปรับ outgoing payload ล้างค่าที่อยู่ใน memory ของ form เดิม
 - ใน work-information step, การเลือก occupation จะ persist `current_work.occupation` ทันที ก่อนรอ `GET /api/v1/business-type?OccupationCode={code}`; การเลือกอาชีพใหม่จะล้าง `business_type`, `business_type_other`, `job_title` และ `company_name` ที่ผูกกับอาชีพเดิม
-- `PersonalController` ถูก reuse แบบ permanent/shared ระหว่าง address, personal และ work screens; เมื่อกลับเข้าหน้า work-information, client reload personal-information local model ก่อน map choices เพื่อไม่ใช้ state เก่าจาก screen instance เดิม
+- `PersonalController` และ `AddressController` ถูกสร้างเป็น screen-local controller ด้วย `Get.put` ใน flow ปัจจุบัน ไม่พึ่ง permanent/shared instance จากหน้าเดิม; เมื่อเข้า work-information, client reload personal-information local model ก่อนโหลด choices เพื่อไม่ใช้ state เก่าจาก screen instance เดิม
 - ค่า source of income ที่ user เลือกถูก map กับรายการที่ sort แล้วตาม display value ไม่ใช่ลำดับ raw ที่ API ส่งมา; การเปลี่ยนนี้แก้ client selection behavior เท่านั้นและไม่เปลี่ยน backend payload contract หรือ validation ownership
 - ถ้า business-type response ว่าง mobile ถือว่า business type เป็น optional ใน client validation; ถ้ามี `Other` เพียงรายการเดียวจะเลือก code `180` ให้อัตโนมัติ และถ้า occupation code `25` (Buddhist Monk / Priest) มี business type code `60` จะเลือก code `60` ให้อัตโนมัติ
 - client validation ของ mobile normalize `null` เป็นค่าว่างก่อนตรวจ: `occupation_other` ต้องไม่ว่างเมื่อ occupation code เป็น `Other` และต้องว่างเมื่อเป็น occupation ปกติ; `business_type_other` ใช้กฎเดียวกันกับ business type code `180` (`Other`) ส่วน business type code อื่นห้ามมีข้อความค้าง
@@ -179,11 +179,10 @@ Response คืน ID ของ suitability record, description จาก risk-l
 1. อ่าน suitability answer ของบัญชีที่เปิด
 2. คำนวณและบันทึก `NoInvestmentKnowledge` จากคำตอบ suitability แล้วคง field vulnerable detail อื่นที่อ่านได้จาก customer background
 3. คำนวณ `VulnerableFlag` ใหม่จาก `YearsOld60`, `NoInvestmentKnowledge` และ `Disability`
-4. refresh watchlist report; failure ถูก log แต่ไม่หยุด Flow
-   - สำหรับ flow ที่ไม่ใช่ retake ระบบใช้ stored DOPA result เป็น filter เฉพาะเมื่อ `DopaFlag = "Passed"`; ค่า `Error`, `nil` หรือ status อื่นจะไม่ถูก filter และจะปล่อยให้ watchlist calculation ใช้ allowed types ของ registration status
-   - เมื่อ `flowType.IsRetake()` เป็นจริง ระบบไม่ใช้ stored watchlist flags เป็น filter ใน path นี้
-5. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
-6. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
+4. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
+5. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
+
+Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `RefreshWatchlistReportWithApplicationID` หรือ `UpsertWatchlistReport`; การ refresh watchlist ใน Flow นี้ต้องมาจาก background personal-information trigger หรือ endpoint refresh ที่ระบุไว้ใน [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/)
 
 ### 7. Read suitability for KYC approval
 
@@ -222,7 +221,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Digital score อาจต่างจาก Traditional score เพราะ digital-experience adjustment
 - Persistence เลือก Traditional ก่อนเมื่อ `IsXAMOpen`; Digital ใช้เมื่อ XAM ไม่เปิดและ `IsXDOpen` เป็นจริง
 - v2 confirm ใช้ current CDD score และไม่เรียก CDD score recalculation ใน production path นี้
-- Watchlist refresh เป็น best effort; registration ยังเดินต่อเมื่อ call นี้ล้มเหลว
+- `ConfirmSuitabilityTraditionalAndDigital` อัปเดต evaluation date, `NoInvestmentKnowledge`, `VulnerableFlag` และ registration history แต่ไม่รับประกันว่า watchlist report ถูกคำนวณใหม่ เพราะ current production path ไม่เรียก watchlist refresh
 - หลังบันทึก personal-information step `background`, current customer path ใช้ `UpsertWatchlistReport` เพียงครั้งเดียวใน asynchronous handler; ไม่เรียก legacy `CheckAndSaveCustomerWatchlist` ซ้ำใน trigger เดียวกัน
 - Work/background personal-information updates อ่าน row `customer_background` เดิมแล้ว overlay ข้อมูลของ step ปัจจุบัน เพื่อไม่ล้าง field ที่อีก sub-step บันทึกไว้
 - Mobile work-information จะล้าง business type, other text, job title และ company name เมื่อเปลี่ยน occupation ใน local payload; การ auto-select business type เป็น client convenience และ backend ยังตรวจ master-data combination ก่อน persist
@@ -269,7 +268,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Background personal-information update ตอบสำเร็จหลัง primary write; ถ้า asynchronous `UpsertWatchlistReport` ล้มเหลวระบบ log error ภายหลัง และ source ยังไม่ยืนยัน retry policy หรือการ rollback primary write
 - `handleWorkStep` และ `handleBackgroundStep` ไม่ propagate error จากการอ่าน existing background; `handleBackgroundStep` ยังไม่ propagate error จากการ unmarshal `VulnerableDetail` ถ้าอ่าน/parse เดิมล้มเหลว source ปัจจุบันยังเดินต่อด้วยข้อมูลที่มีและพยายาม upsert จึงไม่ควรสรุปว่า field เดิมจะถูก preserve ในกรณี dependency/JSON error
 - การตั้ง `has_submitted_bank_account` เกิดหลัง bank row ถูกสร้าง; ถ้า change-request log update ล้มเหลว service log error และยังดำเนิน bank-account flow ต่อ โดย `review-information` อาจยังคืนค่าเป็น nil
-- watchlist refresh error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
+- watchlist refresh ที่ถูกเรียกจาก background update เป็น best effort: error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
 - KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
 ## Final outcomes
@@ -277,7 +276,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 - Caller เห็น `flow_type`, optional onboarding expiry และสถานะของ step ที่คำนวณจาก history
 - Suitability score/risk level ถูกบันทึกในตาราง Traditional หรือ Digital ตาม account-opening intent
 - หลัง confirm, customer background vulnerability ถูกอัปเดตและ registration เดินพ้น suitability step
-- หลัง update background, ระบบจะพยายาม persist `watchlist_report` ของ personal/background-risk/vulnerable-investor แบบ asynchronous; HTTP 200 ของ primary update ไม่ได้ยืนยันว่า report refresh เสร็จแล้ว
+- หลัง update background, ระบบจะพยายาม persist `watchlist_report` ของ personal/background-risk/vulnerable-investor แบบ asynchronous; HTTP 200 ของ primary update ไม่ได้ยืนยันว่า report refresh เสร็จแล้ว ส่วน suitability confirm เพียงอย่างเดียวไม่ทำให้ watchlist report refresh เสร็จ
 - หลัง update background หรือ confirm suitability, `customer_background.VulnerableFlag` สะท้อน composite vulnerable detail ที่ current backend คำนวณได้
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
 - ลูกค้าที่มี default bank account แต่ชื่อบัญชีเปลี่ยนต้องผ่าน bank-account/grace-period step ก่อน registration จะเดินต่อ; ลูกค้าที่ไม่มี name change ยังข้าม step ได้เมื่อมี default account และ retake background path จะเรียก completion ตาม `name_changed` decision
