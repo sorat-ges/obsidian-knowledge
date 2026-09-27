@@ -2,12 +2,12 @@
 title: Swap Market Order
 description: Flow การซื้อขาย Swap แบบ Market ตั้งแต่ขอราคา เลือก route สร้างคำสั่ง ส่ง Remarketer จน ledger และ portfolio สะท้อนผล
 capability: Trading
-services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app]
+services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, web-portal]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, digital asset account freeze, suspended swap sell, suspended swap buy warning, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, Swap เมื่อระงับบัญชี]
+aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี]
 errorCodes: ["60002", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-09-04
+lastUpdated: 2026-09-27
 documentType: flow
 ---
 
@@ -61,6 +61,8 @@ Mobile อ่าน Digital Asset account status ระหว่างเตร�
 3. Backend เลือก fee ของแต่ละ route, คำนวณ fee/net amount, จัดอันดับ และคืน route เดียวให้ retail client
 4. Client ใช้ `isBestRoute` หรือรายการแรกเป็น route ปัจจุบัน แสดง rate, estimated receive และ fee
 5. Trading Web refresh quote เมื่อ countdown หมด; Mobile App refresh และพยายามคง route เดิมถ้ายัง available โดยให้ `mixed` route มาก่อน; `web-portal` refresh ตาม timer และคง route เดิมด้วยชื่อ route ถ้ายังอยู่ใน response
+
+สำหรับ White Glove ใน `web-portal`, client ใช้ `available_symbol_pairs` ของ asset ที่เลือกเพื่อหา quote currency: ใช้ quote ตัวแรกที่ backend ส่งมา และ fallback เป็น `THB` เมื่อหาไม่ได้ จากนั้นส่งค่าที่เลือกเป็น `quote_currency` ไปยัง order-book BFF ขณะโหลด order book และจะไม่ query เมื่อยังไม่มี route ที่เลือก พฤติกรรมนี้ยืนยันได้เฉพาะ client trigger/payload; การที่ `order-service` รับหรือใช้ quote currency เพื่อกรอง order book และ execution ต้องยืนยันจาก backend path เดียวกัน
 
 รายละเอียดการจัดอันดับอยู่ที่ [Trading Route Selection](/business-flows/trading/routing/)
 
@@ -215,6 +217,9 @@ Trading Web map code ที่รู้จักไป error modal และ ref
 - `trading-web/src/features/trade/hooks/swap/use-swap.ts`
 - `web-portal/src/app/features/white-glove/hooks/useTrading.ts`
 - `web-portal/src/app/features/white-glove/services/order.ts`
+- `web-portal/src/app/features/white-glove/utils/swap-currency.ts`: เลือก quote currency จาก `available_symbol_pairs` และ fallback `THB`
+- `web-portal/src/app/features/white-glove/hooks/useOrderBook.ts`: ส่ง `quoteCurrency` และ `route` ไปยัง order-book service พร้อม route guard
+- `web-portal/src/app/api/white-glove/order-book/[symbol]/route.ts`: proxy `quote_currency` ไปยัง `order-service`
 - `web-portal/src/app/features/white-glove/components/swap/swap-preview-modal/index.tsx`
 - `web-portal/src/app/api/white-glove/[identificationId]/order-trade/inquiry/route.ts`
 - `web-portal/src/app/api/white-glove/[identificationId]/order-trade/swap/route.ts`

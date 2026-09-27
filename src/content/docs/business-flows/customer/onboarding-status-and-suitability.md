@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, complete draft, completed-draft, registration confirm, retake watchlist completion, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, ยืนยันการลงทะเบียน, complete draft onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, complete draft หลังแก้ข้อมูล, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-25
+lastUpdated: 2026-09-27
 documentType: flow
 ---
 
@@ -115,23 +115,45 @@ Mobile เก็บข้อมูล personal information ไว้ใน local
 
 ข้อกำหนด client เหล่านี้เป็น supporting behavior เท่านั้น ไม่ได้ override `CurrentWorkData` validation หรือการ normalize ชื่อ/combination ที่ `onboarding-service` ทำก่อนบันทึก
 
-### 3. Update background information and refresh watchlist
+### 3. Update personal information and complete a draft
 
 **Owner service: `onboarding-service`**
 
 **Executing service: `onboarding-service`**
 
-เมื่อ `UpdateCustomerWithPersonalInformation` บันทึก step `background` สำเร็จ handler จะตอบ `200` (`success update data personal`) แล้วเปิด asynchronous `processWatchlistCheck` ต่อ โดยไม่รอให้ watchlist คำนวณเสร็จ:
+เมื่อ `UpdateCustomerWithPersonalInformation` บันทึก personal-information step สำเร็จ handler จะตอบ `200` (`success update data personal`) และอัปเดต registration history ของ step นั้น การบันทึก `background` ไม่ได้เปิด asynchronous watchlist refresh อีกต่อไป:
 
-1. เลือก application type `new` หรือ `re-kyc` ตาม flow
-2. เรียก `UpsertWatchlistReport` ด้วย `isSaveWatchList = true` และ selector ว่างเพื่อประมวลผลกลุ่มที่ allowed ตาม registration status/flags
-3. คำนวณและ upsert personal, background-risk และ vulnerable-investor report ตาม registration status กับ stored watchlist flags
+1. `onboarding-service` persist profile/background และข้อมูลของ sub-step ที่ request ส่งมา
+2. `onboarding-service` เรียก `UpdateNextStatusAndCreateHistory` ตาม `step` และ `flow_type`
+3. การคำนวณ watchlist จะเกิดเมื่อเข้า completion path ที่ระบุด้านล่าง ไม่ใช่จากการบันทึก `background` เพียงอย่างเดียว
 
-เส้นทาง background update นี้ไม่เรียก `CheckAndSaveCustomerWatchlist` ซ้ำอีกต่อไป จึงไม่ทำ legacy parallel save ควบคู่กับ `UpsertWatchlistReport`; endpoint `save-watchlist` ของ KYC และ offline onboarding ที่ยังเรียก legacy service เป็นคนละ trigger
+เส้นทาง personal-information นี้ไม่เรียกทั้ง `UpsertWatchlistReport` หรือ `CheckAndSaveCustomerWatchlist` จาก handler เดียวกันอีกต่อไป; KYC approval refresh และ completion service เป็นคนละ trigger ที่มีการคำนวณ/side effect ของตนเอง
 
 การบันทึก `work-information` และ `background` จะอ่าน `customer_background` เดิมก่อน แล้ว overlay field ที่ step ปัจจุบันเป็นเจ้าของลงบน row เดิม จึงไม่ rebuild เป็น row ว่างที่ล้างข้อมูลของอีก personal-information sub-step; ทั้งสอง step ยังอัปเดต `UpdatedAt`/`UpdatedBy` ตาม request ปัจจุบัน
 
 สำหรับ `background` ระบบจะอ่าน `customer_background.vulnerable_detail` เดิมก่อน แล้ว merge กับข้อมูลจาก request: `YearsOld60` คำนวณใหม่จากวันเกิดเมื่อมีค่า, `Disability` ใช้ `IsInvestmentDecision` ของ request และ `NoInvestmentKnowledge` ที่มีอยู่เดิมจะไม่ถูกล้างเพียงเพราะบันทึก background ซ้ำ จากนั้นระบบ marshal detail ที่รวมแล้วและคำนวณ `VulnerableFlag` จาก detail ชุดเดียวกัน
+
+ถ้า flow เป็น retake หลังบันทึก `background`, service จะอ่าน registration status, application และ change-request log อีกครั้ง ถ้า `name_changed = true` หรือสถานะล่าสุดยังไม่ใช่ `completed-draft` จะจบเฉพาะการบันทึก step และปล่อยให้ flow เดินผ่าน `bank-account`/ขั้นถัดไปตาม rule เดิม ถ้าเป็น `completed-draft` และไม่มี name change จึงเรียก `CompleteDraftRetake` ซึ่งเป็น completion path ของ retake
+
+`CompleteDraftRetake` คำนวณ watchlist ด้วย `RetakeWatchlistTypes`, persist report ของ personal/background-risk/vulnerable-investor และอัปเดต bank-account expiry; เมื่อผล watchlist ครบจะพยายามคำนวณ CDD และ ensure enhanced documents โดย failure ของ side effect นี้ถูก log และไม่หยุด completion ถ้าผ่าน auto-reject decision ระบบส่ง customer capture เป็น `Submit`, เปลี่ยน application เป็น `rejected` และ patch change-request log ด้วย actor ของ AML; ถ้าไม่ auto-reject ระบบเปลี่ยน application เป็น `to-review`, บันทึก submitted action-flow/metadata, resolve vulnerable ticket เมื่อจำเป็น และส่ง customer capture เป็น `Submit`
+
+#### Final completion via registration-confirm
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+`POST /api/v1/customer/registration-confirm` อ่าน registration status ปัจจุบัน, เดิน next status/history แล้วเรียก `RegistrationCompleteService.CompleteDraft` สำหรับ flow ที่ส่งมา โดย completion path นี้:
+
+1. คำนวณ watchlist ด้วย `AllWatchlistTypes` และ persist report ทั้งสามกลุ่ม
+2. เมื่อผลคำนวณครบ พยายามคำนวณ CDD และ ensure enhanced documents โดย side effect นี้ log failure แล้วเดินต่อ
+3. อัปเดต bank-account expiry, `application_date` และ submitted-date ของ application/customer background ที่เกี่ยวข้อง
+4. ถ้าไม่ auto-reject จะบันทึก submitted action-flow, เปลี่ยน application เป็น `to-review`, patch change-request log, resolve vulnerable ticket และส่ง customer capture เป็น `Submit`
+5. ถ้า auto-reject จะส่ง customer capture เป็น `Submit`, เปลี่ยน application เป็น `rejected` และ patch change-request log ด้วย reviewer/AML metadata
+
+การ patch `change-request-log` แยก account-opening intent: initial-account-only จะเติม submitted metadata เมื่อยังว่าง, additional-account path จะ stamp submitted metadata ใน completion และ auto-reject จะ stamp reviewer fields พร้อม approved actor ของ AML ตามค่าที่ Backend กำหนด
+
+สำหรับ flow `onboarding` หลัง completion สำเร็จ service ส่ง welcome email และ onboarding notification; flow `re-kyc` ใช้ re-KYC waiting-approval notification ตาม flow type
 
 ### 4. Submit suitability answers
 
@@ -182,7 +204,7 @@ Response คืน ID ของ suitability record, description จาก risk-l
 4. ขยับ registration จาก `suitability-test` ไป step ถัดไปและสร้าง history
 5. ถ้าเป็น retake ที่ suitability เป็น step สุดท้ายก่อน completed draft ให้เดิน application completion logic ต่อ
 
-Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `RefreshWatchlistReportWithApplicationID` หรือ `UpsertWatchlistReport`; การ refresh watchlist ใน Flow นี้ต้องมาจาก background personal-information trigger หรือ endpoint refresh ที่ระบุไว้ใน [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/)
+Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `RefreshWatchlistReportWithApplicationID` หรือ `UpsertWatchlistReport`; การคำนวณ watchlist ใน Flow นี้ต้องมาจาก completion path (`registration-confirm` หรือ retake/bank completion) หรือ endpoint refresh ที่ระบุไว้ใน [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/) ไม่ใช่จากการ confirm suitability หรือบันทึก background เพียงอย่างเดียว
 
 ### 7. Read suitability for KYC approval
 
@@ -222,7 +244,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - Persistence เลือก Traditional ก่อนเมื่อ `IsXAMOpen`; Digital ใช้เมื่อ XAM ไม่เปิดและ `IsXDOpen` เป็นจริง
 - v2 confirm ใช้ current CDD score และไม่เรียก CDD score recalculation ใน production path นี้
 - `ConfirmSuitabilityTraditionalAndDigital` อัปเดต evaluation date, `NoInvestmentKnowledge`, `VulnerableFlag` และ registration history แต่ไม่รับประกันว่า watchlist report ถูกคำนวณใหม่ เพราะ current production path ไม่เรียก watchlist refresh
-- หลังบันทึก personal-information step `background`, current customer path ใช้ `UpsertWatchlistReport` เพียงครั้งเดียวใน asynchronous handler; ไม่เรียก legacy `CheckAndSaveCustomerWatchlist` ซ้ำใน trigger เดียวกัน
+- หลังบันทึก personal-information step `background`, current customer path ไม่เรียก watchlist calculation จาก handler นี้; retake ที่อยู่ `completed-draft` และไม่มี name change จะส่งต่อไป `CompleteDraftRetake` ซึ่งคำนวณด้วย `RetakeWatchlistTypes`
 - Work/background personal-information updates อ่าน row `customer_background` เดิมแล้ว overlay ข้อมูลของ step ปัจจุบัน เพื่อไม่ล้าง field ที่อีก sub-step บันทึกไว้
 - Mobile work-information จะล้าง business type, other text, job title และ company name เมื่อเปลี่ยน occupation ใน local payload; การ auto-select business type เป็น client convenience และ backend ยังตรวจ master-data combination ก่อน persist
 - Mobile address request ใช้ cloned cards สำหรับการล้าง fields ของ address ที่อ้างอิง address อื่น จึงไม่ควรตีความการล้าง outgoing payload เป็นการลบ address ที่เก็บใน backend
@@ -243,12 +265,13 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 | Submit suitability | create/update Traditional หรือ Digital suitability record; ยังไม่ขยับ registration |
 | Calculate CDD score | upsert aggregate CDD risk พร้อม product-service risk score/case/data; ไม่ขยับ registration |
 | Confirm suitability | `suitability-test` → next registration sub-status พร้อม history |
-| Update personal work/background | ไม่เปลี่ยน application/registration state จาก trigger นี้; preserve field ของ `customer_background` ที่อยู่นอก step ปัจจุบัน และ background เริ่ม asynchronous watchlist report refresh |
+| Update personal work/background | persist step และเดิน registration history; preserve field ของ `customer_background` ที่อยู่นอก step ปัจจุบัน แต่ไม่เริ่ม watchlist refresh จาก background update เพียงอย่างเดียว |
 | Mobile ส่ง personal-information step | `onboarding-service` validate และ persist profile/address/background ตาม `step`; client local-state cleanup/auto-selection ไม่สร้าง state transition เอง |
-| Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft` แล้วเข้า completion logic |
+| Retake และ suitability เป็น final draft step | เพิ่ม `completed-draft`; เมื่อ final step ทำให้ status เป็น `completed-draft` และไม่มี name-change bank path จึงเข้า `CompleteDraftRetake` |
 | Read onboarding status | ไม่แก้ state; derive `draft`/`completed` จาก history |
 | Bank step required เพราะไม่มี default account หรือชื่อบัญชีเปลี่ยน | status คง/เดินไป `bank-account` ตาม required-step rule |
-| Accept bank grace period | บันทึก acceptance → `bank-account` history/next status; `completed-draft` อาจเข้า completion logic |
+| Accept bank grace period | บันทึก acceptance → `bank-account` history/next status; ถ้าเป็น retake และ status หลัง update เป็น `completed-draft` จะเรียก `CompleteDraftRetake` |
+| Registration confirm | เดิน next registration status/history แล้ว `CompleteDraft` คำนวณ watchlist; application ไป `to-review` หรือ `rejected` ตาม auto-reject decision |
 | Start new onboarding | สร้าง `customer_change_request_log` พร้อม `has_default_bank_account = false` ภายใน customer-creation transaction |
 | KYC approval reads suitability/answers | ไม่แก้ state; ใช้ v2 หรือ fallback V1 เพื่อสร้าง read model |
 | Create customer bank account | ไม่เปลี่ยน application โดยตรง; พยายามตั้ง `has_submitted_bank_account = true` ใน change-request log หลังสร้าง bank row |
@@ -265,10 +288,11 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - onboarding-status อ่าน dependency ไม่สำเร็จ: HTTP 500
 - Bank account list, application lookup หรือ grace-period acceptance ล้มเหลว: ไม่ควรถือว่า bank step ผ่าน; source ไม่ยืนยัน retry หรือ rollback ของ external client state
 - Backend expiry read คืนค่าได้ แต่ source ที่ตรวจยังไม่พบ executor ลบบัญชีตาม expiry และไม่ยืนยันว่าข้อความ 90 วันของ client เป็น calculation rule
-- Background personal-information update ตอบสำเร็จหลัง primary write; ถ้า asynchronous `UpsertWatchlistReport` ล้มเหลวระบบ log error ภายหลัง และ source ยังไม่ยืนยัน retry policy หรือการ rollback primary write
+- Background personal-information update ตอบสำเร็จหลัง primary write และ history update; source รอบนี้ไม่ยืนยันว่า watchlist ถูกคำนวณจาก trigger นี้
 - `handleWorkStep` และ `handleBackgroundStep` ไม่ propagate error จากการอ่าน existing background; `handleBackgroundStep` ยังไม่ propagate error จากการ unmarshal `VulnerableDetail` ถ้าอ่าน/parse เดิมล้มเหลว source ปัจจุบันยังเดินต่อด้วยข้อมูลที่มีและพยายาม upsert จึงไม่ควรสรุปว่า field เดิมจะถูก preserve ในกรณี dependency/JSON error
 - การตั้ง `has_submitted_bank_account` เกิดหลัง bank row ถูกสร้าง; ถ้า change-request log update ล้มเหลว service log error และยังดำเนิน bank-account flow ต่อ โดย `review-information` อาจยังคืนค่าเป็น nil
-- watchlist refresh ที่ถูกเรียกจาก background update เป็น best effort: error ถูก log แล้วดำเนิน registration ต่อ; retry policy ไม่ได้ยืนยันใน source
+- `CompleteDraft`/`CompleteDraftRetake` หาก `CalculateWatchlist` ล้มเหลวจะคืน service error ก่อน final application transition; CDD/enhanced-document side effect ที่ถูกเรียกหลังผล watchlist ครบเป็น best effort และ log error แล้วเดินต่อ
+- Completion ที่เปลี่ยน application หรือ customer capture สำเร็จบางส่วนแล้ว ถ้า patch change-request log, vulnerable ticket หรือ capture submit ล้มเหลว อาจเหลือ state บางส่วนที่ต้องตรวจจาก application/action-flow/capture log; source ไม่ยืนยัน rollback ครอบคลุมทุก external side effect
 - KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
 ## Final outcomes
@@ -276,7 +300,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - Caller เห็น `flow_type`, optional onboarding expiry และสถานะของ step ที่คำนวณจาก history
 - Suitability score/risk level ถูกบันทึกในตาราง Traditional หรือ Digital ตาม account-opening intent
 - หลัง confirm, customer background vulnerability ถูกอัปเดตและ registration เดินพ้น suitability step
-- หลัง update background, ระบบจะพยายาม persist `watchlist_report` ของ personal/background-risk/vulnerable-investor แบบ asynchronous; HTTP 200 ของ primary update ไม่ได้ยืนยันว่า report refresh เสร็จแล้ว ส่วน suitability confirm เพียงอย่างเดียวไม่ทำให้ watchlist report refresh เสร็จ
+- หลัง update background ระบบ persist ข้อมูล step และ history แต่ไม่คำนวณ `watchlist_report` จาก trigger นี้; watchlist report จะถูกคำนวณใน completion path หรือ explicit KYC refresh ตาม endpoint ที่เรียก
 - หลัง update background หรือ confirm suitability, `customer_background.VulnerableFlag` สะท้อน composite vulnerable detail ที่ current backend คำนวณได้
 - Flow อาจจบที่ completed draft/completion สำหรับ retake ที่ suitability เป็น step สุดท้าย
 - ลูกค้าที่มี default bank account แต่ชื่อบัญชีเปลี่ยนต้องผ่าน bank-account/grace-period step ก่อน registration จะเดินต่อ; ลูกค้าที่ไม่มี name change ยังข้าม step ได้เมื่อมี default account และ retake background path จะเรียก completion ตาม `name_changed` decision
@@ -297,7 +321,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 `onboarding-service`:
 
 - `routes/routes.go`: `registerRouteSuitability`, `registerRouteCustomer`
-- `handler/customer-handler.go`: `GetCustomerOnboardingStatus`, `UpdateCustomerWithPersonalInformation` และ `processWatchlistCheck`
+- `handler/customer-handler.go`: `GetCustomerOnboardingStatus`, `UpdateCustomerWithPersonalInformation` และ `RegistrationCustomerConfirm`
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: `GetCustomerOnboardingStatusStep`
 - `internal/constants/enum/xpg-customer-registartion-status.go`: required sub-status mapping
 - `handler/suitability-handler.go`: v2 submit/confirm handlers
@@ -308,7 +332,9 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - `internal/models/customer-background-db-model.go`: unmarshal และ composite calculation ของ `VulnerableDetail`
 - `utils/age.go`: การคำนวณ `YearsOld60` จากอายุปัจจุบัน
 - `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields ระหว่าง work/background update และ retake completion decision
-- `handler/customer-handler.go`: `PUT /api/v1/customer` personal-information handler, step/flow validation และ background watchlist trigger
+- `pkg/customer/registrationcomplete/service.go`: `CompleteDraft`, `CompleteDraftRetake`, watchlist calculation, auto-reject, application/action-flow/capture completion และ change-request log patch
+- `pkg/customer/customer-bank-account/service.go`: retake completion trigger หลัง create bank account หรือ accept grace period เมื่อ registration เป็น `completed-draft`
+- `handler/customer-handler.go`: `PUT /api/v1/customer` personal-information handler, step/flow validation และ `POST /api/v1/customer/registration-confirm` trigger
 - `internal/models/personal-information-model.go`: `Personal`/`CurrentWorkData` payload fields และ required validation tags
 - `pkg/customer/customer-process/customer-process-service.go`: work-step persistence, occupation/business-type normalization และ master-data validation
 - `handler/master-data-handler.go`: `GET /api/v1/business-type?OccupationCode=...`

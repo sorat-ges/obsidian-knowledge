@@ -4,9 +4,9 @@ description: Flow อ่านยอดสินทรัพย์ คำนว�
 capability: Asset Management
 services: [customer-service, asset-service, asset-consumer, web-portal]
 integrations: [Asset Monthly, Product FX Mark-to-Market]
-aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, fiat allocation, multi-currency fiat, USD portfolio, xpg customer code, xpg account code, investment account code, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงินหลายสกุล, สัดส่วน fiat, พอร์ต USD, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, ค้นหาด้วยรหัสลูกค้า XPG, ค้นหาด้วยรหัสบัญชี XPG, ค้นหาด้วยรหัสบัญชีลงทุน, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
+aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, fiat allocation, aggregated fiat allocation, multi-currency fiat, USD portfolio, xpg customer code, xpg account code, investment account code, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงินหลายสกุล, สัดส่วน fiat, สัดส่วน fiat รวม, พอร์ต USD, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, ค้นหาด้วยรหัสลูกค้า XPG, ค้นหาด้วยรหัสบัญชี XPG, ค้นหาด้วยรหัสบัญชีลงทุน, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
 status: active
-lastUpdated: 2026-09-25
+lastUpdated: 2026-09-27
 documentType: flow
 ---
 
@@ -87,7 +87,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 สำหรับ `GET /api/v2/trading/asset/customer/wallet/overview` และ `GET /api/v2/white-glove/asset/customer/wallet/overview/{identification_id}`, `asset-service` คืน fiat balance ตาม contract ของแต่ละ endpoint; `web-portal` ใช้ White Glove response แยกตาราง fiat ออกจาก crypto/digital-token portfolio และเปิด deposit/withdraw action เฉพาะแถว THB ใน client
 
-สำหรับ portfolio allocation overview, `GetTradingPortfolioOverview` อ่าน digital-asset portfolio แล้วเพิ่ม fiat allocation ที่มีสัดส่วนไม่เป็นศูนย์ทีละ product code เช่น `THB` และ `USD`; สัดส่วน `Crypto` ถูกคำนวณเป็น `100 - total fiat - digital token` การอ่าน account/portfolio ที่ล้มเหลวใช้ THB allocation เดิมเป็น fallback เพื่อคง response เดิม
+สำหรับ White Glove portfolio allocation overview, `GetTradingPortfolioOverview` อ่าน digital-asset portfolio แล้วเลือกเฉพาะ asset value ที่มี `ProductType = FIAT` และ allocation ไม่เป็นศูนย์ จากนั้นรวมสัดส่วน fiat ทุก currency เป็นแถวเดียวที่ `AssetGroupCode = FIAT` และ `AssetGroup = FIAT`; ไม่คืนแถวแยกตาม product code เช่น `THB` หรือ `USD` ใน overview นี้ สัดส่วน `Crypto` ถูกคำนวณเป็น `100 - total fiat - digital token` เมื่อมี crypto portfolio row ให้ปรับ และการอ่าน digital account/portfolio ที่เป็น optional ล้มเหลวจะ log แล้วคืน overview เดิมโดยไม่เติม fiat row แทนการใช้ THB fallback
 
 ### 5. Select customers for monthly statement
 
@@ -123,7 +123,8 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - RM customer-selection query ค้นหาได้ด้วย `xspring_customer_code`, `xpg_account_code` และ `investment_account_code` ผ่าน account existence check; การค้นหา account code ไม่ได้เปลี่ยน owner ของ customer status
 - กฎ selection ข้างต้นไม่ควรถูกขยายเป็นกฎของทุก portfolio read หรือ monthly statement data query โดยไม่มี source ยืนยัน
 - Wallet fiat valuation ใช้ `NavPU` ปัจจุบันของ FX mark-to-market; source รอบนี้ไม่ยืนยันการใช้ `OriginalNavPU` เป็น valuation สำหรับ trading หรือ White Glove wallet/portfolio
-- `GetTradingPortfolioOverview` แยก fiat allocation ตาม product code และคำนวณ crypto residual ใหม่; ถ้าไม่มี fiat allocation ที่ไม่เป็นศูนย์จะคง overview เดิม
+- White Glove `GetTradingPortfolioOverview` รวม fiat allocation ที่ไม่เป็นศูนย์ทุก currency เป็นแถว `FIAT` เดียว และคำนวณ crypto residual ใหม่; ถ้าไม่มี fiat allocation ที่ไม่เป็นศูนย์ หรือไม่มี crypto row ให้ปรับ จะคง overview เดิม
+- Fiat allocation overview ใช้ `ProductType = FIAT` เป็นตัวคัดกรอง ไม่ถือว่า symbol เช่น `THB` เป็น fiat โดยอัตโนมัติ และไม่มี THB fallback เมื่อ optional account/portfolio lookup ใช้งานไม่ได้
 
 `asset-service` เป็น owner และ executor ของ portfolio aggregation/valuation, RM customer selection และ monthly-report API; `Asset Monthly` เป็น external report generator ที่ถูกเรียกจาก service
 
@@ -141,13 +142,14 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 | Monthly statement query `GetAssetPortfolioAllByIdentificationForMonthlyStatement` | source ปัจจุบันยังไม่มี predicate ใหม่ จึงไม่สรุปว่า monthly statement ตัด `closed` ออก |
 
 | RM customer-selection query `GetCustomerListByRelationshipManager` | ตัด `rejected` และ `onboarding`; คืน `customer_status`; เป็น selection policy ไม่ใช่ state transition |
-| Trading portfolio allocation overview | อ่าน fiat asset values จาก digital-asset account แล้วเพิ่มแถว allocation ต่อ product code; ไม่ใช่การเปลี่ยน portfolio state |
+| White Glove trading portfolio allocation overview | อ่าน fiat asset values จาก digital-asset account แล้วรวมเป็นแถว `FIAT` เดียว พร้อมปรับ crypto residual; ไม่ใช่การเปลี่ยน portfolio state |
 
 ## Error and recovery behavior
 
 - **Account status:** บัญชี `suspended` และ `freeze` ยังถูกเลือกใน portfolio read paths ที่ตัดเฉพาะ `closed`; ข้อจำกัดการเทรด/ถอนเป็น operation-specific และยืนยันที่ [Order State Machine](/shared-rules/order-state-machine/)
 - **Read-path boundary:** direct account-ID portfolio reads และ monthly statement ใช้ repository methods ที่ไม่มี not-closed predicate ใน diff นี้ จึงต้องไม่ขยายกฎ `closed` exclusion ไปยังทุก endpoint
 - **`asset-service`:** source ไม่ระบุ fallback เมื่อ NAV/MTM หาย ต้องตรวจ code, master/price data และ runtime path ก่อนกำหนด behavior
+- **White Glove portfolio allocation:** ถ้าอ่าน digital account หรือ portfolio เพื่อหา fiat allocation ไม่สำเร็จ ระบบ log แล้วคืน base overview โดยไม่เติม fiat allocation; ไม่ได้สร้าง THB fallback ใน path ปัจจุบัน
 - **Fiat FX:** ถ้าไม่มี `NavPU` สำหรับ currency ที่ไม่ใช่ THB รายการนั้นถูกข้ามและรายการอื่นยัง map ต่อ; ไม่มี fallback rate ที่ source ยืนยัน
 - **USD portfolio:** ถ้าไม่มี USD FX rate, USD market price จะหายจาก mapper ที่ใช้ direct FX path จึงไม่ควรคำนวณมูลค่า THB จากชื่อ symbol หรือ rate ที่ client ส่งมา
 - **RM search:** repository error ทำให้ customer-selection request ล้ม; source ไม่ยืนยัน fallback search จาก frontend เมื่อ account-code lookup ใช้งานไม่ได้
@@ -158,7 +160,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - `asset-service`: Portfolio overview รวม asset group ของ account ที่ status ไม่ใช่ `closed` และ valuation เป็น THB
 - `asset-service`: Monthly-report API รับ customer/date range และเรียก `Asset Monthly` ด้วยยอดและ NAV ณ สิ้นเดือน
 - `asset-service`: Trading wallet overview คืน THB fiat balance และ White Glove wallet overview คืน fiat balances ที่ map FX ได้ พร้อมยอด native/THB และ pending order amount
-- `asset-service`: Trading portfolio allocation overview คืน fiat allocation แยกตาม product code เช่น THB/USD และปรับ crypto residual ตาม allocation ที่อ่านได้; ถ้าอ่าน digital account/portfolio ไม่ได้ใช้ THB fallback
+- `asset-service`: White Glove trading portfolio allocation overview คืน fiat allocation รวมเป็นแถว `FIAT` เดียวและปรับ crypto residual ตาม allocation ที่อ่านได้; ถ้าอ่าน optional digital account/portfolio ไม่ได้คืน overview เดิมโดยไม่เติม fiat row
 - `customer-service`: Suspended และ freeze account ยังมีข้อมูลใน read paths ที่ใช้ not-closed predicate; Closed account ถูกตัดจาก query กลุ่มนั้นและต้องยืนยันยอดเป็นศูนย์; order operation ให้ยึด backend rule ของแต่ละ operation
 
 ## Related shared rules and flows
