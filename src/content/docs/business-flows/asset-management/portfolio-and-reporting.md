@@ -4,9 +4,9 @@ description: Flow อ่านยอดสินทรัพย์ คำนว�
 capability: Asset Management
 services: [customer-service, asset-service, asset-consumer, web-portal]
 integrations: [Asset Monthly, Product FX Mark-to-Market]
-aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, fiat allocation, aggregated fiat allocation, multi-currency fiat, USD portfolio, xpg customer code, xpg account code, investment account code, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงินหลายสกุล, สัดส่วน fiat, สัดส่วน fiat รวม, พอร์ต USD, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, ค้นหาด้วยรหัสลูกค้า XPG, ค้นหาด้วยรหัสบัญชี XPG, ค้นหาด้วยรหัสบัญชีลงทุน, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
+aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, fiat allocation, aggregated fiat allocation, multi-currency fiat, USD portfolio, fiat product type, fiat portfolio cost, USD logical ledger, xpg customer code, xpg account code, investment account code, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงินหลายสกุล, สัดส่วน fiat, สัดส่วน fiat รวม, พอร์ต USD, ต้นทุนพอร์ต fiat, ledger USD, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, ค้นหาด้วยรหัสลูกค้า XPG, ค้นหาด้วยรหัสบัญชี XPG, ค้นหาด้วยรหัสบัญชีลงทุน, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด]
 status: active
-lastUpdated: 2026-09-27
+lastUpdated: 2026-09-29
 documentType: flow
 ---
 
@@ -77,6 +77,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - ถ้า FX record ของ currency ใดไม่มี `NavPU`, `asset-service` log และข้ามเฉพาะ balance รายการนั้น; error จากการอ่าน portfolio/product/FX repository ทำให้ wallet request ล้มเหลว
 - Trading wallet overview คืนเฉพาะรายการ THB; White Glove wallet overview คืน fiat balance ทุก currency พร้อม native amount, THB equivalent และ `in_order`
 - Current trading/White Glove portfolio valuation ใช้ `NavPU`; `OriginalNavPU` ที่ `asset-consumer` persist ไม่ได้ถูกเลือกใน mapper ของ asset-service path นี้
+- ก่อนอ่าน portfolio state, `asset-consumer` materialize logical-ledger `AVAILABLE` + `INCREASE` ที่มี `ProductType = FIAT` ด้วย `average_cost = 1` และ `total_cost = 1`; จึงไม่ใช้ชื่อ symbol เป็นตัวตัดสินว่า USD หรือ fiat อื่นต้องถูกคำนวณเป็น crypto cost
 - Portfolio list path เก็บแถว fiat ที่มี `UnitBalance = 0` ไว้ได้ เพื่อให้ product/currency fiat ยังปรากฏในผลลัพธ์ ขณะที่ zero-balance asset ประเภทอื่นถูกกรองตาม path ที่ใช้ `WithoutZeroUnitBalance`
 
 ### 4. Return portfolio overview
@@ -125,6 +126,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - Wallet fiat valuation ใช้ `NavPU` ปัจจุบันของ FX mark-to-market; source รอบนี้ไม่ยืนยันการใช้ `OriginalNavPU` เป็น valuation สำหรับ trading หรือ White Glove wallet/portfolio
 - White Glove `GetTradingPortfolioOverview` รวม fiat allocation ที่ไม่เป็นศูนย์ทุก currency เป็นแถว `FIAT` เดียว และคำนวณ crypto residual ใหม่; ถ้าไม่มี fiat allocation ที่ไม่เป็นศูนย์ หรือไม่มี crypto row ให้ปรับ จะคง overview เดิม
 - Fiat allocation overview ใช้ `ProductType = FIAT` เป็นตัวคัดกรอง ไม่ถือว่า symbol เช่น `THB` เป็น fiat โดยอัตโนมัติ และไม่มี THB fallback เมื่อ optional account/portfolio lookup ใช้งานไม่ได้
+- Cost ที่ materialize จาก logical ledger ใช้ `ProductType = FIAT` เป็นหลักใน `asset-consumer`; `product_type_code` หรือ symbol อย่างเดียวไม่ override กฎนี้
 
 `asset-service` เป็น owner และ executor ของ portfolio aggregation/valuation, RM customer selection และ monthly-report API; `Asset Monthly` เป็น external report generator ที่ถูกเรียกจาก service
 
@@ -194,4 +196,6 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - `web-portal/src/app/api/report/customer-monthly-report/route.ts`: monthly-report BFF และ `WEB` channel
 - `web-portal/src/app/api/white-glove/[identificationId]/asset-portfolio/overview/route.ts`: White Glove wallet overview BFF
 - `web-portal/src/app/features/white-glove/components/common/portfolio/portfolio-fiat-table/index.tsx`: fiat rows and THB-only actions
+- `asset-consumer/internal/domain/ledger-transaction.go`: FIAT classification ที่กำหนด cost materialization
+- `asset-consumer/pkg/customer-logical-entry/service.go`: apply ledger และ update average/total cost
 - Tables: `xpg_asset.asset_portfolio`, `xpg_asset.report_monthly_statement_file`

@@ -4,15 +4,15 @@ description: Flow ที่ asset-consumer รับ logical ledger แล้ว
 capability: Asset Management
 services: [asset-consumer, asset-service]
 integrations: [kafka]
-aliases: [ledger processing, logical ledger consumer, customer logical entry, ประมวลผลบัญชี, อัปเดตพอร์ต]
+aliases: [ledger processing, logical ledger consumer, customer logical entry, fiat product type, fiat ledger cost, USD ledger, total cost, ประมวลผลบัญชี, อัปเดตพอร์ต, ต้นทุน fiat, ยอดต้นทุน fiat]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-09-29
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบายขั้นที่ `asset-consumer` รับ logical ledger จาก business flow ต่าง ๆ แล้วเปลี่ยนเป็น current portfolio state พร้อม audit trail และ cost calculation หน้านี้ไม่กำหนดว่าธุรกรรมต้นทางควรสร้าง ledger อะไร; กฎบัญชีและการสร้าง movement อยู่ที่ flow ต้นทางและ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+อธิบายขั้นที่ `asset-consumer` รับ logical ledger จาก business flow ต่าง ๆ แล้วเปลี่ยนเป็น current portfolio state พร้อม audit trail และ cost calculation รวมถึงการจำแนก `ProductType = FIAT` สำหรับ cost ของ fiat เช่น USD หน้านี้ไม่กำหนดว่าธุรกรรมต้นทางควรสร้าง ledger อะไร; กฎบัญชีและการสร้าง movement อยู่ที่ flow ต้นทางและ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
 ## Trigger and preconditions
 
@@ -20,6 +20,7 @@ documentType: flow
 
 - Trigger คือข้อความจาก Kafka topic `customer_logical_entry`
 - ข้อความต้องมี ledger type, movement direction, account/product และจำนวนที่ใช้ materialize
+- การใช้ fiat cost rule อ่าน `product_type` จาก logical-ledger event โดยตรง; source ปัจจุบันไม่อนุมานจาก `product_asset_code`, symbol หรือ `product_type_code`
 - master data ที่ใช้ระบุ account/product ต้อง sync แล้ว
 
 ## Participating services
@@ -59,8 +60,10 @@ documentType: flow
 | `HOLD_IN_ORDER` | `DECREASE` | ลด `pending_out_unit_balance` และ `unit_balance` เมื่อรายการสำเร็จหรือถูกยกเลิก |
 | `PENDING_DEPOSIT` | `INC` / `DEC` | อัปเดต `pending_in_unit_balance` |
 
-- Weighted average: `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่`
-- THB ใช้ cost 1.0
+- สำหรับ `AVAILABLE` + `INCREASE` ที่มี `ProductType = FIAT`, `asset-consumer` ตั้ง `average_cost = 1` และ `total_cost = 1`; กฎนี้ครอบคลุม USD และ fiat อื่น ไม่ได้จำกัดเฉพาะ THB
+- รายการ `FIAT` ถูกตัดออกจาก customer-crypto cost recalculation; จึงไม่ถูกนำไปคำนวณเหมือน crypto จาก `CustomerCryptoTransaction`
+- สินทรัพย์ที่ไม่ใช่ FIAT ใช้ weighted average: `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่`
+- `ProductTypeCode` ถูกส่งผ่าน input/domain mapper เพื่อคงข้อมูลของ ledger แต่ตัวตัดสิน `IsFiat()` ปัจจุบันใช้ `ProductType = FIAT`
 - เมื่อ `unit_balance = 0` reset `average_cost` และ `total_cost` เป็น 0
 
 [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/) อธิบายบทบาทบัญชีและกฎการสร้าง movement ที่ business flow ต้นทางต้องรักษา ไม่ใช่ source ของ materialization matrix ในหน้านี้
@@ -78,8 +81,9 @@ documentType: flow
 ## Business rules
 
 - Audit ledger กับ portfolio update ต้องอยู่ใน database transaction เดียวกัน
-- Cost ของ THB คงที่ 1.0
-- Cost ของสินทรัพย์อื่นใช้ `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่` เมื่อเพิ่ม unit
+- Cost ของ `ProductType = FIAT` คงที่ 1.0 ใน `AVAILABLE` + `INCREASE`; source ไม่ได้จำกัดกฎนี้ด้วย symbol หรือ asset code
+- Cost ของสินทรัพย์ที่ไม่ใช่ FIAT ใช้ `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่` เมื่อเพิ่ม unit
+- การมี `product_type_code = 5002` เพียงอย่างเดียวไม่ทำให้ ledger ถูกจำแนกเป็น FIAT ใน consumer ปัจจุบัน หาก event ไม่ส่ง `ProductType = FIAT`
 - การถือครองเป็นศูนย์ต้องล้าง average/total cost
 - หน้านี้ consume movement เท่านั้น ไม่เปลี่ยน business outcome ของ order ต้นทาง
 
@@ -120,6 +124,10 @@ order ต้นทางเป็นเจ้าของการเปลี�
 
 ## Code references
 
-- `pkg/customer-logical-entry/service.go`
+- `asset-consumer/internal/domain/ledger-transaction.go`: `IsFiat()` และ FIAT classification
+- `asset-consumer/pkg/customer-logical-entry/interface.go`: logical-ledger input fields
+- `asset-consumer/pkg/customer-logical-entry/service.go`: map event และ apply average/total cost
+- `asset-consumer/internal/domain/ledger-transactions.go`: exclude FIAT from customer-crypto selection
+- `asset-consumer/internal/domain/ledger-transaction_test.go`: FIAT/crypto classification tests
 - `dw_order.logical_ledger_transaction`
 - `xpg_asset.asset_portfolio`

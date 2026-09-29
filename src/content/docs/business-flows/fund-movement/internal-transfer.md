@@ -3,10 +3,10 @@ title: Internal Customer Transfer
 description: Flow โอนสินทรัพย์ระหว่างบัญชีลูกค้าภายในระบบผ่าน White Glove พร้อมรักษายอดและต้นทุนเฉลี่ย
 capability: Fund Movement
 services: [order-service, asset-service, asset-consumer, web-portal]
-aliases: [internal transfer, customer transfer, white glove transfer, transfer pair not allowed, transfer whitelist, no available account, order transfer audit, transfer audit log, OrderTransferAsset, transfer_failed, xspring_customer_code, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอนภายใน, โอนระหว่างบัญชีลูกค้า, audit การโอน, คู่บัญชีโอนไม่ได้รับอนุญาต, ไม่มีบัญชีที่ใช้ได้, บัญชีไม่อยู่ในรายการที่อนุญาต]
+aliases: [internal transfer, customer transfer, white glove transfer, fiat transfer cost, product type 5002, USD treasury transfer, transfer pair not allowed, transfer whitelist, no available account, order transfer audit, transfer audit log, OrderTransferAsset, transfer_failed, xspring_customer_code, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอน fiat, ต้นทุนโอน fiat, โอน USD, โอนภายใน, โอนระหว่างบัญชีลูกค้า, audit การโอน, คู่บัญชีโอนไม่ได้รับอนุญาต, ไม่มีบัญชีที่ใช้ได้, บัญชีไม่อยู่ในรายการที่อนุญาต]
 errorCodes: ["400", "401", "500"]
 status: active
-lastUpdated: 2026-09-22
+lastUpdated: 2026-09-29
 documentType: flow
 ---
 
@@ -62,6 +62,12 @@ documentType: flow
 4. Skip Mode ข้าม balance validation แต่บังคับ Price override ที่ถูกต้อง
 5. เลือกต้นทุน: ใช้ Price override เมื่อส่งมา มิฉะนั้นใช้ `sourcePortfolio.AverageCost` ใน Standard Mode
 
+`web-portal` เป็น supporting client สำหรับ cost input/payload เท่านั้น:
+
+- Treasury internal-transfer product response ส่ง `product_type_code`; client ซ่อน cost input เมื่อเป็น `5002` (FIAT) และส่ง `cost: "1"` แทนค่าที่ผู้ใช้กรอก
+- สำหรับ product ที่ไม่ใช่ `5002`, client แสดง cost input และส่งค่าต้นทุนที่กรอกโดยตัด comma และจำกัดทศนิยมไม่เกิน 8 ตำแหน่ง
+- การจำแนกนี้เป็น client behavior ไม่ใช่ backend validation; `order-service` ยังเป็น owner ของการตรวจ request, cost และ ledger
+
 ### 3. Create transfer and hold source balance
 
 **Owner service: `order-service`**
@@ -78,6 +84,8 @@ documentType: flow
 **Ledger application and cost-update owner: `asset-consumer`**
 
 Apply movement เข้า source/destination portfolio และอัปเดต average cost ตาม [Ledger Event Processing](/business-flows/asset-management/ledger-processing/)
+
+สำหรับ White Glove dealer transfer, `web-portal` ส่ง `cost` เฉพาะเมื่อปลายทางเป็น `treasury`; FIAT (`product_type_code = 5002`) ส่ง `cost: "1.00"`, non-FIAT ส่งต้นทุนที่กรอก และ dealer destination ไม่ส่ง cost จาก client
 
 ### 5. Finalize and expose balances
 
@@ -112,6 +120,8 @@ Apply movement เข้า source/destination portfolio และอัปเ�
 - Treasury-transfer selector ใช้เฉพาะ destination identification ที่มี active configuration จาก configured treasury source และไม่คืน source treasury account เอง
 - Read-path account filtering เป็นเพียง precondition ของ selector; create endpoint ต้อง revalidate pair และ product ทุกครั้ง
 - Standard Mode ใช้ average cost ของ source portfolio เมื่อไม่มี override
+- ใน client ปัจจุบัน `product_type_code = 5002` (FIAT) ซ่อน cost input และใช้ cost `1`/`1.00` ตาม transfer endpoint; non-FIAT ใช้ต้นทุนที่ผู้ใช้กรอก
+- การแสดง cost ใน history เป็น presentation ของ `web-portal`: `THB`/`USD` ใช้ symbol ของ asset ส่วน symbol อื่น fallback เป็น `THB`; กฎนี้ไม่ใช่หลักฐานว่า backend คำนวณหรือเก็บ cost เป็นหน่วยเดียวกัน
 - Hold และ settle ต้องรักษา movement สองฝั่งให้สอดคล้องตาม [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 - Audit customer code ใช้ค่าจาก identification ที่ service resolve ได้ ไม่ใช่ค่าจาก request body และตัดค่าซ้ำก่อนสร้าง audit record
 - Audit code lookup และ audit persistence เป็น best-effort side effect; ความล้มเหลวของสองขั้นตอนนี้ไม่เปลี่ยน validation, ledger หรือผล API ของ transfer
@@ -176,5 +186,12 @@ open → failed
 - `src/app/features/internal-transfer/services/internal-transfer-service.ts`: parse backend error message
 - `src/app/features/internal-transfer/hooks/useInternalTransferPage.ts`: pair-not-allowed modal และ form reset
 - `src/app/features/internal-transfer/utils/is-transfer-pair-not-allowed-error.ts`: exact error classification
+- `web-portal/src/app/features/internal-transfer/utils/should-show-cost.ts`: FIAT/non-FIAT cost input rule
+- `web-portal/src/app/features/internal-transfer/utils/build-internal-transfer-order-payload.ts`: treasury payload cost fallback `1`
+- `web-portal/src/app/features/internal-transfer/hooks/useInternalTransferPage.ts`: select asset, cost validation และ submit payload
+- `web-portal/src/app/features/internal-transfer/types/internal-transfer-history.ts`: history cost-unit presentation
 - `src/app/features/internal-transfer/components/internal-transfer-to-modal/index.tsx`: empty state เมื่อไม่มี destination account
+- `web-portal/src/app/features/white-glove/components/transfer/resolve-transfer-cost.ts`: FIAT `1.00` และ treasury cost resolver
+- `web-portal/src/app/features/white-glove/components/transfer/transfer-content/index.tsx`: White Glove transfer payload
+- `web-portal/src/app/features/white-glove/components/transfer/transfer-preview-modal/index.tsx`: hide FIAT cost in preview
 - `src/app/features/white-glove/components/transfer/transfer-to-modal/index.tsx`: empty state แยกตาม Own Account/Other Account
