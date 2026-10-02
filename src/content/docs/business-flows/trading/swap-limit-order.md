@@ -3,11 +3,11 @@ title: Swap Limit Order
 description: Flow คำสั่ง Swap Limit ตั้งแต่ตั้งราคาและ estimate, สร้าง order, hold balance, ส่ง Remarketer, partial fill, cancellation, ledger และ portfolio
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer]
-integrations: [Remarketer, kafka]
-aliases: [swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ]
-errorCodes: ["60002"]
+integrations: [Remarketer, Kafka]
+aliases: [swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ, swap limit estimate, limit estimate rate, quote currency swap, product-specific swap minimum, FeeDisplay quote currency, ประมาณการ swap limit, ขั้นต่ำ swap แยกตามเหรียญ, สกุล quote ของคู่ swap]
+errorCodes: ["400", "401", "500", "60002"]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-10-02
 documentType: flow
 ---
 
@@ -57,10 +57,14 @@ Client ใช้ market rate เป็นค่าตั้งต้นและ
 - Mobile: `POST /api/v1/order-crypto/swap-limit-estimated/inquiry`
 - Trade Web: `POST /api/v1/trading/order-crypto/swap-limit-estimated/inquiry`
 
-`order-service` เลือก fee จาก customer account และ product แล้วคำนวณ:
+`order-service` เลือก fee จาก customer account และ product ของ base currency แล้วคำนวณ:
 
-- BUY: fee ถูกหักจาก source THB ก่อนหารด้วย rate เพื่อหา estimated received crypto
-- SELL: `matched amount = unit × rate`, หัก fee แล้วได้ estimated received fiat
+- BUY: `unit` เป็นยอด quote currency; service หัก fee จากยอดนี้แล้วหารด้วย `rate` เพื่อหา estimated received base asset
+- SELL: `matched amount = unit × rate` เป็น quote currency; service หัก fee แล้วคำนวณ net amount เป็น base asset
+- `FeeDisplay` ใช้สัญลักษณ์ quote currency ของ `swap_pair`
+- BUY minimum เลือก Swap config ของ product ฝั่ง quote และคืนจำนวนขั้นต่ำใน quote currency
+- SELL minimum เลือก config ของ product ฝั่ง base แล้วหารจำนวน config ด้วย last trade price และปัดขึ้นตาม decimal ของ base asset
+- การเลือก config ใช้ product-specific row ก่อน และ fallback ไปยัง row ที่ `product_id` เป็น `NULL`; ถ้าไม่พบทั้งสองแบบ estimate ล้มเหลว
 - Response คืน `minimum_amount`, `minimum_amount_display`, fee rate/amount และ net amount สำหรับแสดง preview
 
 Trade Web ใช้ minimum จาก response ทำ client validation และยังไม่เรียก estimate ต่อเมื่อ source amount ต่ำกว่าขั้นต่ำ
@@ -179,6 +183,7 @@ Customer ใช้ `POST /api/v1/order-trade/:order_trade_id/cancel`; Trade Web 
 - Retail Limit Order persist `route = null`; White Glove Dealer variant อาจคง route จาก request เพราะ `IsDealerTrading` ต่างจาก retail
 - `order_quantity` ถูกปัดตาม decimal configuration ของ source product
 - Fee rate, fee amount, estimate และ price มาจาก client payload; Backend create path ไม่ recompute ค่าเหล่านี้
+- Limit estimate ใช้ quote currency ของ pair สำหรับยอด BUY และ fee label; client ต้องส่ง rate ที่ใช้คำนวณ estimate
 - BUY hold source fiat; SELL hold source crypto
 - Partial fill settle ได้หลายครั้งและ remaining quantity ยังคงอยู่ใน Hold
 - Reject หรือ cancel หลัง partial fill จบ status เป็น `filled` เพราะมี trade ที่เกิดขึ้นแล้ว
@@ -216,6 +221,9 @@ draft → open → processing → filling → sync-ledger → filled
 - System cancellation ของ pending Limit Order ถ้า selection, order lookup, consumer หรือ Remarketer path ล้มเหลว อาจค้างที่ `is_cancelling`; `CustomerSuspendService` เก็บ failure/ส่ง internal notification แต่ไม่ยืนยัน rollback ของรายการอื่น
 - Callback race ระหว่าง fill กับ cancel ถูกตัดสินจาก callback และข้อมูล partial fill ที่ Backend เห็น: ส่วนที่ execute คงอยู่ ส่วน remaining จึงถูกคืน
 - Client-only block ของ `SIRIHUB2`/`AQUAROUS` ไม่ป้องกัน API client อื่น จึงต้องยืนยันกับ Business owner ว่าต้องเป็น Backend rule หรือไม่
+- Estimate handler ต้องมี `rate` ตาม request binding แม้ Swagger annotations ของ Mobile และ Trade Web routes ยังไม่แสดง parameter นี้
+- `FeeDisplay` ติด label จาก quote currency แต่โค้ด format จำนวน fee ด้วย currency `THB`; ความแม่นของ decimal display สำหรับ quote currency อื่นต้องยืนยันกับเจ้าของระบบ
+- Swap-config selector fallback ดู `product_id IS NULL` เท่านั้น ขณะที่ comment ระบุ default row ต้องมีทั้ง `product_id` และ `network_id` เป็น `NULL`; selector และ query ไม่ได้กรอง/จัดลำดับ `network_id`
 
 ## Final outcomes
 
@@ -247,6 +255,8 @@ draft → open → processing → filling → sync-ledger → filled
 - `handler/order_trade_handler.go`: customer create/detail/cancel/cancel-all handlers
 - `handler/order_trade_dto.go`: create payload mapping
 - `pkg/order_crypto/service.go`: Limit fee, net amount และ minimum calculation
+- `pkg/order_crypto/repository.go` และ `storages/postgres/salerepository/digital_asset_transaction_config.go`: โหลด Swap config ตาม transaction type
+- `handler/order_crypto_request.go`: query/form/JSON binding ของ `unit`, `rate`, `swap_pair` และ `side`
 - `pkg/order_trade/service.go`: `CanSwap`, cancellation predicates และ cancel event publication
 - `pkg/order_trade/swap_service.go`: order persistence, retail route resolution และ cancellation settlement
 - `pkg/order_trade/webhook_service.go`: fill/reject callback, ledger และ final status

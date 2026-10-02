@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, complete draft retake, retake watchlist completion, auto-reject complete draft, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, FundConnext customer sync, FundConnext account sync, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, refresh watchlist report, refresh_watchlist, WatchlistTypes, RetakeWatchlistTypes, maximum_age, investment_experience, disability, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, refresh watchlist แบบเลือก field, complete draft retake หลังแก้ข้อมูล, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, complete draft retake, retake watchlist completion, auto-reject complete draft, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, FundConnext customer sync, FundConnext account sync, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, refresh watchlist report, refresh_watchlist, WatchlistTypes, RetakeWatchlistTypes, maximum_age, investment_experience, disability, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, refresh watchlist แบบเลือก field, complete draft retake หลังแก้ข้อมูล, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์, TriggerReKycNationalityEnabled, re-KYC nationality reset, post-DOPA watchlist best effort, IdentityVerificationAppmanUnderMinAge, ล้างสัญชาติเมื่อเริ่ม re-KYC, watchlist หลัง DOPA, อายุไม่ถึงเกณฑ์ KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak, FundConnext]
-errorCodes: ["1000", "200", "2009", "400", "401", "403", "4001", "500", "6600", "INVALID_APPLICATION_STATUS", "INVALID_REQUEST", "permission not found"]
+errorCodes: ["1000", "200", "2009", "400", "401", "403", "4001", "4409", "500", "6600", "INVALID_APPLICATION_STATUS", "INVALID_REQUEST", "permission not found"]
 status: active
-lastUpdated: 2026-09-27
+lastUpdated: 2026-10-02
 documentType: flow
 ---
 
@@ -113,7 +113,9 @@ Mobile อ่าน `GET /api/v1/customer/bank-accounts` เพื่อแส�
 
 `GET /api/v1/customer/re-kyc` คืน `flow_type`, `re_kyc_date`, `is_force` และ `steps[]` ที่บอก parent step กับสถานะ completion; ค่า `required_steps`, `status` และ `sub_status` ใน response ยังมีไว้เพื่อ compatibility เดิม Personal Information รวม `nationality`, `fatca`, `personal`, `address`, `work-information` และ `background` เป็น required sub-status set
 
-`POST /api/v1/customer/nationality` รับ `flow_type` เพิ่มจาก payload เดิม เมื่อ mobile ส่ง flow ปัจจุบันเป็น `re-kyc`, `onboarding-service` จะ update next status/history ใน `FlowReKYC`; หากไม่มี flow type ระบบใช้ onboarding flow เป็นค่าเริ่มต้น
+เมื่อเริ่ม re-KYC Backend ล้าง watchlist, CDD และ FATCA/CRS เดิมใน transaction; ถ้า `TriggerReKycNationalityEnabled()` เปิดและ request ไม่มี selected steps หรือเลือก `personal-information`, จะล้าง nationality ใน customer profile ด้วย ระบบล้าง background KYC เมื่อ reason เป็น `force-expired`/`id-card-expired` หรือเลือก `identity-verification`; เมื่อ background KYC ไม่ถูกล้าง current path จะ restore watchlist ของ `AgeCondition`, `IDIsNotExpired`, `Dopa` และ `MaximumAge`
+
+`POST /api/v1/customer/nationality` รับ `flow_type` เพิ่มจาก payload เดิมและ upsert nationality ลง customer profile ก่อนขยับ next status/history; เมื่อ mobile ส่ง flow ปัจจุบันเป็น `re-kyc`, `onboarding-service` จะ update ใน `FlowReKYC`; หากไม่มี flow type ระบบใช้ onboarding flow เป็นค่าเริ่มต้น หาก upsert ไม่สำเร็จ endpoint คืน HTTP 500 และไม่ขยับ registration status
 
 เมื่อ `hasReKycCddTriggeredOnlyFeatureToggleOn()` เปิดและสถานะยังไม่เริ่ม mobile จะเรียก `GET /api/v1/customer/re-kyc/option` เพื่ออ่าน `re_kyc_date`, `is_force` และ `steps[]` ที่มี `step`, `is_force` และ `expiry_date`; controller เลือกทุก step ที่ Backend คืนมาเป็นค่าเริ่มต้น และไม่ให้ยกเลิก step ที่บังคับ เมื่อผู้ใช้ยืนยันหน้า review mobile จะส่ง selected parent status ใน `re_kyc_step` ไปกับ `POST /api/v1/customer/re-kyc` และ refresh customer status หลังเริ่มสำเร็จ ถ้าไม่มี selected step/body ระบบยังใช้ legacy type-based behavior ตาม Backend
 
@@ -181,6 +183,10 @@ Handler ตรวจ claim, bind `current_status` และยืนยันว
 
 ถ้า DOPA เป็น error/บัตรหมดอายุตามเงื่อนไข service จะคืน code `6600` และ message `ID Card Expired` โดยไม่เดิน profile-comparison path สำหรับ response จาก DOPA ที่ `Expired()` หรือ `Invalid()`, handler จะเรียก `ValidateError` เพื่อ persist `IdentityVerificationDopaFail` พร้อม `response_message` ก่อนเดิน completion handler ต่อ; การ map response code สุดท้ายยังยึด `dopaResponseCodeMessage` ของ Backend
 
+หลัง DOPA verification สำเร็จ flow onboarding/verification พยายามคำนวณ watchlist `Dopa`, `AgeCondition` และ `IDIsNotExpired`; retake path คำนวณ `Dopa` เท่านั้น ขั้นนี้ไม่คำนวณ `MaximumAge` และเป็น best effort โดย failure ถูก log แต่ไม่ทำให้ DOPA response ที่สำเร็จกลายเป็น error การคำนวณเต็มและ auto-reject ยังคงเกิดใน completion หรือ watchlist-refresh path
+
+ถ้าการตรวจ minimum age ไม่ผ่าน `onboarding-service` บันทึก registration sub-status `under-min-age` (`IdentityVerificationAppmanUnderMinAge`), อัปเดตข้อมูลที่เกี่ยวข้อง และเรียก rejection path ของ latest KYC approval application; verification endpoint คืน HTTP 200, code `4409` (`CUSTOMER_STATUS_UNDER_MIN_AGE`) และ message `customer under min age`; การคำนวณ `AgeCondition` หลังจากนั้นเป็น best effort
+
 ### 5. Compare current data with newly verified data
 
 **Owner service: `onboarding-service`**
@@ -220,10 +226,10 @@ Address match ต้องตรงทั้ง province, district, sub-district
 
 `CompleteDraftRetake`:
 
-1. คำนวณและ persist personal, background-risk และ vulnerable-investor watchlist ด้วย `RetakeWatchlistTypes`
+1. คำนวณและ persist personal, background-risk และ vulnerable-investor watchlist ด้วย `RetakeWatchlistTypes` แล้วอ่าน persisted report กลับมาใช้ต่อ
 2. เมื่อผลคำนวณครบ พยายามคำนวณ CDD และ ensure enhanced documents; failure ของ side effect นี้ถูก log และไม่หยุด completion
 3. อัปเดต bank-account expiry แล้วประเมิน auto-reject จากผล watchlist และ vulnerable detail
-4. ถ้า auto-reject ส่ง customer capture เป็น `Submit`, เปลี่ยน application เป็น `rejected` และ patch change-request log ด้วย reviewer/AML metadata
+4. ถ้า auto-reject ส่ง customer capture เป็น `Submit`, เปลี่ยน application เป็น `rejected` และ patch change-request log ด้วย reviewer/AML metadata; action-flow ใช้ application status ปัจจุบัน และ review audit ใช้ sequence ของ flow ที่เรียก rejection
 5. ถ้าไม่ auto-reject เปลี่ยน application เป็น `to-review`, บันทึก submitted action-flow, patch change-request log, สร้าง vulnerable ticket เมื่อจำเป็น และส่ง customer capture เป็น `Submit`
 
 การ patch change-request log แยก account-opening intent: initial-account-only จะเติม submitted metadata เมื่อยังว่าง, additional-account path จะ stamp submitted metadata ใน completion และ auto-reject จะ stamp reviewer fields พร้อม approved actor ของ AML ตามค่าที่ Backend กำหนด
@@ -242,9 +248,9 @@ Backend ตรวจทุกค่าด้วย `WatchlistTypes.IsValid()` �
 
 หลัง validation, `CalculateWatchlist` คำนวณเฉพาะ check ที่อยู่ใน set แล้ว upsert report ของ personal, background-risk และ vulnerable-investor ทุกกลุ่ม จากนั้น flow จะ:
 
-1. คำนวณ CDD score แบบ synchronous; ถ้าคำนวณไม่ได้จะ log error และคืน watchlist output โดยไม่ทำให้ refresh request ล้ม
-2. เรียก `EnsureDocumentsByCDDScore`; ถ้าสร้าง enhanced document ไม่สำเร็จจะ log แล้วเดินต่อ
-3. เรียก `ValidateCompleteDraft` และหากผลเป็น `REJECTED` จะเปลี่ยน application เป็น `rejected`, อัปโหลด capture เป็น `EndFlow` และคืน error หากขั้น reject/capture ล้ม
+1. อ่าน watchlist report ที่ persist แล้วอีกครั้งด้วย identification ID
+2. ถ้า report ยืนยันว่าทุก check ถูกคำนวณแล้ว จะคำนวณ CDD score และ ensure enhanced documents; failure ของสอง side effect นี้ถูก log และไม่หยุด refresh
+3. คำนวณ centralized auto-reject decision จาก LED, AMLO, Mule Account และ vulnerable-investor disability data; เมื่อเข้าเงื่อนไขจะเรียก application rejection path ของ `onboarding-service`
 
 `web-portal` เป็น supporting trigger ที่ refresh หลังแก้ข้อมูลตาม field ที่เลือกและคำนวณ CDD read model ต่อ; state transition และ auto-reject decision อยู่ที่ `onboarding-service`
 
@@ -324,6 +330,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Retake เริ่มได้จาก application `to-review` เท่านั้น และ request ต้องไม่อาศัย state เก่าจาก client
 - re-KYC reason เป็นตัวกำหนดว่า action เปิด, disabled หรือถูกซ่อน
 - Backend รองรับ step-based re-KYC ผ่าน `re_kyc_step`; option/status read และ mobile review flow ใช้ selected parent steps ชุดเดียวกัน ส่วน request ว่างยังคง legacy type-based behavior
+- `TriggerReKycNationalityEnabled()` เปิดการล้าง nationality เฉพาะเมื่อ re-KYC มี personal-information step; selected-step re-KYC ที่ไม่รวม step นี้คง nationality เดิม
 - `GET /api/v1/customer/re-kyc/option` ตัดเวลาปัจจุบันเป็น date ตาม business timezone ก่อนเทียบ expiry: step จะเริ่มแสดงเมื่อถึง `warning_date` (`today >= warning_date`) แต่ `is_force` จะเป็น `true` เฉพาะเมื่อเลย `expiry_date` (`today > expiry_date`); ในวันหมดอายุเองยังแสดง `expiry_date` แต่ไม่ถือเป็น forced step
 - Mobile step-selection ปัจจุบันเลือก option ทุก stepเป็นค่าเริ่มต้น, lock เฉพาะ forced step และ route หลัง start จาก customer status ที่ refresh แล้ว; onboarding-service ยังคงเป็น owner ของ selected-step history และ registration state
 - สำหรับ re-KYC ที่อยู่ `to-review`, `edit_data_allow.general_information` และ `address_on_id_card` เปิดเมื่อ selected/reason มี identity-verification หรือเป็น `id-card-expired`/`force-expired`; CDD/suitability-only ที่ไม่มี identity step ปิดสองส่วนนี้ และ mobile เป็นเพียงผู้ส่งต่อ UX guard
@@ -335,14 +342,14 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - ค่า re-KYC expiry ที่คำนวณจาก card, CDD หรือ suitability ถูก normalize เป็น UTC midnight ของวันถัดจาก expiry ตาม business timezone
 - Stored watchlist report ใน KYC approval ไม่จำเป็นต้องมีครบทั้ง personal, background และ vulnerable-investor; missing group ถูกแสดงเป็น object ว่าง
 - KYC watchlist refresh รับ `refresh_watchlist` เป็นราย `WatchlistTypes`; empty list หมายถึง allow ทุก check ใน current helper และ selected list จะ gate เฉพาะ check ที่ระบุ ก่อน upsert report ครบสามกลุ่ม
-- KYC watchlist refresh คำนวณ CDD ต่อหลังบันทึก report; CDD failure ถูก log และคืน output, enhanced-document failure ถูก log แล้วเดินต่อ แต่ `ValidateCompleteDraft` ที่ได้ผล `REJECTED` จะเรียก application rejection และปิด customer capture flow
+- KYC watchlist refresh อ่าน report ที่ persist แล้วอีกครั้ง; เมื่อ check ครบจึงคำนวณ CDD และ ensure enhanced documents แบบ best effort จากนั้นใช้ centralized auto-reject decision จาก LED, AMLO, Mule Account และ vulnerable-investor disability เพื่อพิจารณา reject application
 - เมื่อ DOPA provider response เป็น `Expired()` หรือ `Invalid()`, handler persist `IdentityVerificationDopaFail` ก่อนเรียก completion path; client response code ไม่ควรเดาจากการ persist error เพียงอย่างเดียว
 - Age/card-expiry watchlist checks ใช้เวลาท้องถิ่นผ่าน `GetTimeNowLocal()` ใน current path; maximum-age check อาจเขียน `customer_background.vulnerable_detail.YearsOld60` กลับก่อนสร้าง vulnerable report
 - Application ที่เป็น `cancelled-by-system` ใช้ `OldCaptureId` เป็น source ของ customer detail เมื่อ KYC approval อ่าน completed-flow data
 - Investment bank account read model แสดงเฉพาะ default account และแบ่งผลตาม XAM/XD company; business owner และ executor ยังคงเป็น `onboarding-service`
 - Approval account preparation ตรวจ individual customer accounts ที่ status ไม่ใช่ `closed` และพยายามให้แต่ละ account มี default investment-bank account type `RED`; existing default ถูกข้าม
 - Error จากขั้น ensure default `RED` account ถูก log เป็น `step_check_account_error` แล้ว approval ยังเดินต่อไปยัง FundConnext preparation; source ไม่ยืนยันว่า missing binding ถูกสร้างสำเร็จเมื่อมี error
-- FundConnext profile ที่มี account จะ sync เฉพาะ account ที่ยังไม่พบ local `InvestmentAccountCode`; account ที่มีอยู่แล้วถูกข้ามเพื่อไม่สร้างซ้ำ ส่วน profile ที่ไม่มี account จะกลับไป new-account path
+- FundConnext profile ที่มี account จะตรวจ local account ด้วยทั้ง `InvestmentAccountCode` และ `identification_id`; record ที่เป็นของ customer เดียวกันและมีอยู่แล้วจะถูกข้าม ส่วน profile ที่ไม่มี account จะกลับไป new-account path
 - KYC approval/customer bank read path กรอง active และ non-deleted accounts แล้วเรียง default → newest created → bank code → account number; inactive/soft-deleted capture entries ไม่ถูกส่งเป็น bank item
 - `review-information` response ส่ง `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period flag เป็น nullable context จาก change-request log; `has_submitted_bank_account` สะท้อนการสร้าง bank account สำเร็จ ไม่ใช่การอนุมัติ account หรือ state transition ของ application
 - Default bank account ไม่ทำให้ re-KYC ข้าม bank step เมื่อ `name_changed = true`; ต้องผ่าน grace-period acceptance ก่อน registration เดินต่อ
@@ -368,10 +375,10 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 | DOPA error/expired condition | ไม่มี completion transition ใน path นี้ | ไม่เดิน profile-comparison transition |
 | KYC approval reads customer list | ไม่เปลี่ยน application | คืน customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base query และ request filter |
 | KYC approval reads stored capture | ไม่เปลี่ยน application | คืน `watchlist_report` เท่าที่มี stored report |
-| KYC approval refreshes selected watchlist | application คงเดิมเมื่อ `ValidateCompleteDraft` ไม่ได้ผล `REJECTED`; ถ้าได้ `REJECTED` เปลี่ยนเป็น `rejected` และปิด capture flow | `onboarding-service` คำนวณ selected checks, upsertสาม report groups, คำนวณ CDD และอาจทำ auto-reject |
+| KYC approval refreshes selected watchlist | คงเดิมเมื่อ centralized auto-reject decision ไม่เข้าเงื่อนไข; เมื่อเข้าเงื่อนไขเปลี่ยนเป็น `rejected` และปิด capture flow | `onboarding-service` คำนวณ selected checks, reread persisted reports, ทำ CDD/document side effect เมื่อ checks ครบ และประเมิน LED/AMLO/Mule Account/vulnerable-investor disability |
 | KYC approval reads suitability/bank account | ไม่เปลี่ยน application | คืน v2/V1 suitability และ default investment bank account ที่ map ได้ |
 | Customer approval prepares investment-bank account | approval state ไม่เปลี่ยนจาก ensure step นี้ | สำหรับ individual account ที่ไม่ใช่ `closed` พยายามสร้าง default `RED` binding ที่ขาด; error ถูก log และไม่หยุด approval path |
-| FundConnext profile/account sync | application state ไม่เปลี่ยนจาก profile lookup เพียงอย่างเดียว | profile/account ที่พบถูก materialize เฉพาะ local account ที่ยังไม่มี; duplicate investment account ถูกข้าม |
+| FundConnext profile/account sync | application state ไม่เปลี่ยนจาก profile lookup เพียงอย่างเดียว | local account ที่มีทั้ง investment-account code และ identification ID ตรงกันถูกข้าม; account ที่ยังไม่มี mapping จึงถูก materialize |
 | KYC approval/customer reads bank list | ไม่เปลี่ยน application | คืนเฉพาะ active/non-deleted bank accounts ตามลำดับ default/created time/bank identifiers |
 | Customer creates bank account | ไม่เปลี่ยน application โดยตรง | สร้าง active bank account และพยายามตั้ง `has_submitted_bank_account = true` ใน change-request log; ถ้า update flag ล้มเหลว create path ยังเดินต่อ |
 | Customer reads `review-information` | ไม่เปลี่ยน application | คืน `name_changed`, `has_default_bank_account`, `has_submitted_bank_account` และ grace-period context จาก change-request log |
@@ -395,7 +402,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - DOPA data changed: code `2009` เป็น business outcome สำหรับ review ข้อมูล ไม่ใช่ transport failure
 - DOPA error/expired branch: code `6600`; source ไม่ยืนยัน automated retry ใน path นี้
 - `refresh_watchlist` มีค่าไม่อยู่ใน `WatchlistTypes.IsValid()` จะถูก reject เป็น HTTP 400 `INVALID_REQUEST`; backend ไม่ได้ใช้ `is_save_watchlist` หรือชื่อ report group เป็นตัวตัดสินการคำนวณใน handler ใหม่นี้
-- ถ้า CDD calculation ใน watchlist refresh ล้ม ระบบ log แล้วคืน watchlist result; ถ้า `EnsureDocumentsByCDDScore` ล้ม ระบบ log แล้วเดินต่อ แต่ `ValidateCompleteDraft`/auto-reject หรือการ upload EndFlow ล้ม จะคืน error และอาจทำให้ application state เปลี่ยนไปแล้วบางส่วน
+- Watchlist refresh ล้มเมื่อคำนวณ/persist report, อ่าน stored report หรืออ่าน vulnerable-investor detail ไม่สำเร็จ; CDD calculation และ `EnsureDocumentsByCDDScore` เป็น best effort และถูก log ส่วน application rejection failure คืน error หลังจาก state บางส่วนอาจถูกเขียนแล้ว
 - `CompleteDraftRetake` ถ้า `CalculateWatchlist` ล้มจะคืน service error ก่อน final application transition; หลัง watchlist ครบ CDD/enhanced-document side effect เป็น best effort และถูก log เมื่อผิดพลาด
 - ถ้า auto-reject หรือ submit path เปลี่ยน application/capture สำเร็จบางส่วนแล้ว patch change-request log, vulnerable ticket หรือ customer-capture submit ล้มเหลว อาจเหลือ application/action-flow/capture state ที่ต้องตรวจแยก; source ไม่ยืนยัน rollback ครอบคลุมทุก side effect
 - เมื่อ DOPA response เป็น expired/invalid แล้ว `ValidateError` persist ไม่สำเร็จ handler log ความล้มเหลวและยังเดิน completion path ต่อ; source ไม่ยืนยัน retry ของการบันทึก DOPA failure
@@ -419,12 +426,12 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Retake completion จะคำนวณ watchlist ด้วย `RetakeWatchlistTypes`; ผลผ่านส่ง application เป็น `to-review` พร้อม action-flow/change-request/capture side effect ส่วนผล auto-reject ส่ง application เป็น `rejected` พร้อม AML metadata
 - Backend แยก `DOPA_SUCCESS` (`200`) ออกจาก `DOPA_DATA_CHANGE` (`2009`)
 - KYC approval response แสดง stored watchlist report แบบ partial ได้โดยไม่ต้องมีครบทุกกลุ่ม
-- KYC approval สามารถ refresh watchlist แบบเลือก field ได้; report ทั้งสามกลุ่มถูก upsert, CDD/enhanced-document side effect ถูกประมวลผลต่อ และผล `REJECTED` จาก complete-draft validation อาจเปลี่ยน application เป็น `rejected`
+- KYC approval สามารถ refresh watchlist แบบเลือก field ได้; report ทั้งสามกลุ่มถูก upsert และอ่านกลับมา, CDD/enhanced-document side effect ทำเมื่อ check ครบและเป็น best effort, จากนั้น centralized auto-reject decision อาจเปลี่ยน application เป็น `rejected`
 - DOPA provider response ที่ expired/invalid ถูก persist เป็น `IdentityVerificationDopaFail` ก่อน completion path; ค่า response ที่ client เห็นยังต้องอ่านจาก DOPA response mapper
 - KYC approval รองรับการอ่าน detail จาก `OldCaptureId` ของ `cancelled-by-system` และแสดงเฉพาะ default investment bank account ที่ผูก company ได้
 - KYC approval customer list แสดง individual customer ที่ไม่ใช่ `rejected`/`onboarding` ตาม base predicate และอาจรวม status อื่นที่ไม่ถูก filter เพิ่มเติม
 - Customer/additional-account review แยก normal bank-account display กับ name-change warning จาก `has_submitted_bank_account`, `has_default_bank_account`, `has_accepted_bank_account_grace_period` และ `name_changed`; client เป็นเพียงผู้แสดงผล
-- Approval พยายามเติม default `RED` investment-bank account ให้ non-closed individual accounts ก่อน FundConnext preparation และ profile ที่มี account จะ sync local account/bank binding ที่ขาดโดยข้าม duplicate
+- Approval พยายามเติม default `RED` investment-bank account ให้ non-closed individual accounts ก่อน FundConnext preparation และ profile ที่มี account จะตรวจ local account ด้วย investment-account code กับ identification ID ก่อน sync account/bank binding ที่ยังไม่มี
 - Permission failure ของ open-account read path ปรากฏต่อ caller เป็น HTTP 403 `permission not found`; เป็นผลของ backend permission check ไม่ใช่ customer application state transition
 - KYC approval สามารถบันทึกหรือเคลียร์ optional English middle name ผ่าน general-information edit ได้ โดยไม่เปลี่ยน application state
 
@@ -461,6 +468,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `pkg/kyc/kyc-service.go`: review-information flags และ bank-account read composition
 - `pkg/customer/customer-process/customer-process-service.go`: preserve existing customer background fields และ retake completion decision จาก `NameChanged`
 - `pkg/customer/registrationcomplete/service.go`: `CompleteDraftRetake`, `RetakeWatchlistTypes` orchestration, auto-reject, application/action-flow/capture transition และ change-request log patch
+- `pkg/customer/application/reject_application.go`: rejection action-flow และ audit sequence ตาม flow ที่เรียก
 - `pkg/customer/customer-bank-account/service.go`: create bank account, `has_submitted_bank_account` flag และ grace-period acceptance
 - `handler/customer-dto.go`: `review-information` response fields รวม `has_submitted_bank_account`
 - `handler/webportal/kyc-approver-handler.go`: `PATCH /web/api/v2/kyc/{application_id}/general-information`, current-status validation และ error mapping
@@ -511,6 +519,10 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `handler/webportal/kyc-handler.go`: manual forgery verify และ forgery refresh handlers
 - `handler/ekyc-handler.go`: asynchronous forgery trigger หลัง DOPA completion
 - `pkg/ekyc/ekyc-verification/service.go`: AdvanceAI forgery call, audit และ background-KYC persistence
+- `pkg/ekyc/ekyc-verification/service.go`: post-DOPA watchlist set/error handling และ minimum-age rejection path
+- `pkg/customer/re-kyc/kyc_create_service.go`: clear/restore profile and watchlist data ตาม selected re-KYC steps
+- `pkg/customer/customer-profile/customer-profile-svc/customer-profile-service.go`: nationality upsert ก่อน registration-status update
+- `pkg/kyc/watchlist.go`: persisted-report reread, CDD/document side effect และ centralized auto-reject decision หลัง refresh
 
 `web-portal`:
 

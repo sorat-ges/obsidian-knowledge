@@ -3,15 +3,16 @@ title: Customer Onboarding and KYC
 description: จุดเริ่มต้นสำหรับ Flow onboarding, suitability, KYC review retake, re-KYC, KYC expiry, account suspension และ account freeze
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
-aliases: [customer onboarding, suitability, KYC retake, retake-re-kyc, re-KYC, KYC expiry, account suspension, account freeze, knowledge test, digital knowledge test, power of attorney customer, cancel orders on freeze, onboarding reminder, reminder email, เปิดบัญชี, ถ่ายบัตรใหม่, แบบประเมินความเสี่ยง, แบบทดสอบความรู้, แบบทดสอบความรู้ด้านสินทรัพย์ดิจิทัล, ลูกค้า POA, ทบทวน KYC, อีเมลเตือนเปิดบัญชี, ระงับบัญชี, Freeze บัญชี]
+aliases: [customer onboarding, suitability, KYC retake, retake-re-kyc, re-KYC, KYC expiry, account suspension, account freeze, knowledge test, digital knowledge test, power of attorney customer, cancel orders on freeze, onboarding reminder, reminder email, เปิดบัญชี, ถ่ายบัตรใหม่, แบบประเมินความเสี่ยง, แบบทดสอบความรู้, แบบทดสอบความรู้ด้านสินทรัพย์ดิจิทัล, ลูกค้า POA, ทบทวน KYC, อีเมลเตือนเปิดบัญชี, ระงับบัญชี, Freeze บัญชี, bank account change, bank-account-setting, FundConnext unitholder bank sync, เปลี่ยนบัญชีธนาคาร, บัญชี SUB RED, sync บัญชีธนาคาร FundConnext]
 status: active
-lastUpdated: 2026-09-18
+lastUpdated: 2026-10-02
 documentType: flow
 ---
 
 Flow หลัก:
 
 - [Onboarding Status and Suitability](/business-flows/customer/onboarding-status-and-suitability/) — ติดตามขั้น onboarding, คำนวณ suitability สำหรับ Traditional/Digital และยืนยันเพื่อเดิน registration ต่อ
+- [Customer Bank Account Change and FundConnext Sync](/business-flows/customer/bank-account-change-and-fundconnext-sync/) — เปลี่ยนบัญชี SUB/RED, sync account/unitholder ไป FundConnext และอัปเดต read model ของ order-consumer
 - [Onboarding Reminder Email](/business-flows/customer/onboarding-reminder-email/) — ส่งอีเมลเตือน draft onboarding และแจ้ง IT เมื่อส่งรายใดล้มเหลว
 - [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/) — เจ้าหน้าที่ส่ง application กลับให้ลูกค้าถ่ายบัตรใหม่, เทียบข้อมูล DOPA และส่งกลับเข้า review
 - [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) — คำนวณวันหมดอายุจากบัตรประชาชน, CDD และ suitability ก่อนระงับลูกค้า รวมถึง rejection ที่ทำให้ existing/re-KYC account เป็น `freeze`

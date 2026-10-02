@@ -344,6 +344,18 @@ test("Pagefind default search ranks the exact Thai Swap Limit phrase first", asy
   assert.equal(urls[0], "/business-flows/trading/swap-limit-order/");
 });
 
+test("Pagefind finds the bank-account flow from English and segmented Thai aliases", async () => {
+  const bankAccountFlowRoute =
+    "/business-flows/customer/bank-account-change-and-fundconnext-sync/";
+
+  assert.ok(
+    (await searchUrls("bank-account-setting")).includes(bankAccountFlowRoute),
+  );
+  assert.ok(
+    (await searchUrls("เปลี่ยน บัญชี ธนาคาร")).includes(bankAccountFlowRoute),
+  );
+});
+
 test("Pagefind ranks the browser-segmented Thai Swap Limit query first", async () => {
   const response = await pagefind.search("คำ สั่ง ลิ มิต", {
     ranking: pagefindRanking,
@@ -391,7 +403,7 @@ test("renders weighted segmented Thai aliases for search without changing visibl
   assert.doesNotMatch(textContent(variants[0]), /swap limit|limit order/);
   assert.equal(
     textContent(metadataValue(document, "คำค้น")).trim(),
-    "swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ",
+    "swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ, swap limit estimate, limit estimate rate, quote currency swap, product-specific swap minimum, FeeDisplay quote currency, ประมาณการ swap limit, ขั้นต่ำ swap แยกตามเหรียญ, สกุล quote ของคู่ swap",
   );
 });
 
