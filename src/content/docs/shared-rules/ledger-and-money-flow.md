@@ -2,7 +2,7 @@
 title: Ledger and Money Flow
 description: บทบาทบัญชี ประเภท Ledger และกฎความถูกต้องของการเคลื่อนไหวเงินและสินทรัพย์
 status: active
-lastUpdated: 2026-08-01
+lastUpdated: 2026-10-03
 documentType: shared-rule
 ---
 
@@ -35,6 +35,13 @@ documentType: shared-rule
 | `HOLD_IN_ORDER / DECREASE` | ลด pending-out balance และลด total unit balance ขั้นสุดท้าย |
 
 การล็อกสินทรัพย์ต้นทางใช้ `AVAILABLE / DECREASE` คู่กับ `HOLD_IN_ORDER / INCREASE` ส่วนการ settle หรือ refund ต้องสร้าง logical ledger ให้ตรงกับผลจริง
+
+## ต้นทุน Swap BUY ที่ quote เป็น USD
+
+- `order-service` แนบ `rate_symbol_pair` ที่เป็นบวกกับ Swap BUY fill เมื่อ quote เป็น USD; THB quote ไม่ส่ง rate field นี้
+- `asset-consumer` หา USD `HOLD_IN_ORDER / DECREASE` ที่ตรง customer account, order และ batch เดียวกัน แล้วคูณ amount ด้วย `rate_symbol_pair` เพื่อคำนวณ cost
+- ถ้าไม่พบ cost movement ที่ตรงเงื่อนไข consumer ใช้ผลรวม THB `xd_main` available increase กับ THB `xd_fee` order-fee increase เป็น fallback
+- USD cost ที่มี rate จะถูกแปลงเป็น local-currency cost ก่อนรวม `TotalCost`/`AverageCost` ใน portfolio
 
 ## กฎ Financial Integrity
 
@@ -75,6 +82,9 @@ documentType: shared-rule
 
 - `pkg/order_fiat/service_ledger.go`
 - `pkg/order_trade/service_ledger.go`
+- `order-service/internal/domain/ledger_fx_rate.go`
+- `asset-consumer/internal/domain/ledger-transactions.go`
+- `asset-consumer/internal/domain/ledger-transaction.go`
 - `order-service/pkg/crypto/service.go`
 - `order-service/pkg/crypto/service_confirm_deposit.go`
 - `order-consumer/pkg/digital-asset-order-request/withdraw.go`

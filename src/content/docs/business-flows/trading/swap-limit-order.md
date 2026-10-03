@@ -7,7 +7,7 @@ integrations: [Remarketer, Kafka]
 aliases: [swap limit, limit order, open order, cancel limit order, cancel limit order on account freeze, suspended account limit order, ตั้งราคารอซื้อขาย, คำสั่งลิมิต, ยกเลิกคำสั่งลิมิต, ยกเลิกคำสั่งลิมิตเมื่อบัญชีถูกระงับ, swap limit estimate, limit estimate rate, quote currency swap, product-specific swap minimum, FeeDisplay quote currency, ประมาณการ swap limit, ขั้นต่ำ swap แยกตามเหรียญ, สกุล quote ของคู่ swap]
 errorCodes: ["400", "401", "500", "60002"]
 status: active
-lastUpdated: 2026-10-02
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -138,6 +138,8 @@ Remarketer เรียก `POST /api/v1/order-trade/webhook`:
 | `rejected` หลัง partial fill | รักษา fill เดิม, คืนส่วนที่เหลือ และจบ `filled` |
 
 Webhook quantity และ price ที่ execute จริงเป็น source of truth ของ settlement ไม่ใช่ estimate ตอนสร้าง order
+
+หลัง insert fill, `order-service` เขียน quantity point สำหรับ 24-hour display volume เฉพาะเมื่อ customer-account lookup สำเร็จและ account ไม่ใช่ Dealer tier; account missing/lookup error ข้าม point และ time-series write error ถูก log โดยไม่ fail fill
 
 ### 6. Cancel an open Limit Order
 

@@ -7,7 +7,7 @@ aliases: [big lot, biglot, bulk order, white glove, customer status, customer_st
 integrations: [Remarketer, kafka]
 errorCodes: ["400", "401", "500", "60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-09-15
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -188,6 +188,8 @@ Remarketer เรียก `POST /api/v1/order-trade/webhook`:
 - `rejected`: เปลี่ยน order เป็น rejected และคืน hold balance ตาม path ที่เกี่ยวข้อง
 
 Webhook เป็นจุดยืนยันผล trade จริง; preview/create response ไม่ใช่ final trade outcome
+
+หลัง insert fill, `order-service` ไม่เขียน quantity point สำหรับ 24-hour display volume ให้ Dealer-tier account; account lookup ที่ไม่สำเร็จหรือ time-series write error ถูก log/ข้ามและไม่ย้อนผล fill
 
 ## Business rules
 

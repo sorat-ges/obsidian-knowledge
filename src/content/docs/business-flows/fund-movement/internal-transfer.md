@@ -6,7 +6,7 @@ services: [order-service, asset-service, asset-consumer, web-portal]
 aliases: [internal transfer, customer transfer, white glove transfer, fiat transfer cost, product type 5002, USD treasury transfer, transfer pair not allowed, transfer whitelist, no available account, order transfer audit, transfer audit log, OrderTransferAsset, transfer_failed, xspring_customer_code, order_transfer_configuration, transfer account selection, dealer transfer accounts, treasury transfer accounts, active transfer pair filter, โอน fiat, ต้นทุนโอน fiat, โอน USD, โอนภายใน, โอนระหว่างบัญชีลูกค้า, audit การโอน, คู่บัญชีโอนไม่ได้รับอนุญาต, ไม่มีบัญชีที่ใช้ได้, บัญชีไม่อยู่ในรายการที่อนุญาต]
 errorCodes: ["400", "401", "500"]
 status: active
-lastUpdated: 2026-09-29
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -120,6 +120,7 @@ Apply movement เข้า source/destination portfolio และอัปเ�
 - Treasury-transfer selector ใช้เฉพาะ destination identification ที่มี active configuration จาก configured treasury source และไม่คืน source treasury account เอง
 - Read-path account filtering เป็นเพียง precondition ของ selector; create endpoint ต้อง revalidate pair และ product ทุกครั้ง
 - Standard Mode ใช้ average cost ของ source portfolio เมื่อไม่มี override
+- เมื่อ product response ถูกเรียกด้วย `order_type=transfer`, `order-service` จัด FIAT (`ProductTypeCode = 5002`) ไว้ก่อน แล้วเรียง AvailableUnitBalance มากไปน้อย และ Symbol ตามตัวอักษรเมื่อยอดเท่ากัน; order type อื่นใช้ sort มาตรฐานเดิม
 - ใน client ปัจจุบัน `product_type_code = 5002` (FIAT) ซ่อน cost input และใช้ cost `1`/`1.00` ตาม transfer endpoint; non-FIAT ใช้ต้นทุนที่ผู้ใช้กรอก
 - การแสดง cost ใน history เป็น presentation ของ `web-portal`: `THB`/`USD` ใช้ symbol ของ asset ส่วน symbol อื่น fallback เป็น `THB`; กฎนี้ไม่ใช่หลักฐานว่า backend คำนวณหรือเก็บ cost เป็นหน่วยเดียวกัน
 - Hold และ settle ต้องรักษา movement สองฝั่งให้สอดคล้องตาม [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
@@ -165,6 +166,7 @@ open → failed
 ## Code references
 
 - `pkg/order_transfer/service.go`
+- `order-service/pkg/crypto_product/service.go`: order-type-specific product sort สำหรับ transfer
 - `routes/route.go`: `GET /api/v1/white-glove/transfer/accounts` (P0291) และ `GET /api/v1/treasury/internal-transfer/accounts` (P0302)
 - `handler/white_glove_handler.go`: dealer-transfer account selector
 - `handler/treasury_handler.go`: treasury-transfer account selector และ pair error mapping

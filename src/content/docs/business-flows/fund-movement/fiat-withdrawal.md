@@ -4,10 +4,10 @@ description: Flow ถอนเงินบาทตั้งแต่ตรว�
 capability: Fund Movement
 services: [order-service, order-consumer, payment-gateway, asset-service, asset-consumer]
 integrations: [bank]
-aliases: [fiat withdrawal, withdraw fiat, withdraw THB, special fee approval, withdraw fiat special fee, approval audit, suspended account bank account, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, อนุมัติค่าธรรมเนียมถอนเงิน, audit ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze]
+aliases: [fiat withdrawal, withdraw fiat, withdraw THB, special fee approval, withdraw fiat special fee, approval audit, suspended account bank account, cancel fiat withdrawal on account freeze, digital asset suspended withdrawal, ถอนเงิน, ถอนเงินบาท, อนุมัติค่าธรรมเนียมถอนเงิน, audit ถอนเงินบาท, ยกเลิกถอนเงินบาทเมื่อบัญชี freeze, special_fee_approver_name, special_fee_approver_email, withdraw status special fee approver]
 errorCodes: ["60002"]
 status: active
-lastUpdated: 2026-09-18
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -82,6 +82,8 @@ Current behavior ของ audit path คือ:
 - ถ้า confirmation token verify ล้มเหลว แต่ผล verify ยังมี action type และ entity ID ของ special fee ระบบจะ lookup special fee และ order แบบ best effort เพื่อเติม `order_id`/`customer_code` เช่นกัน
 - ถ้า lookup เพื่อ enrich audit ล้มเหลว ระบบคง error เดิมของ token/validation ไว้ ไม่เปลี่ยนให้ approval ผ่าน และการบันทึก audit เป็น best effort
 - Audit จะเริ่มด้วยผล `fail` และเปลี่ยนเป็น `success` หลัง decision สำเร็จและ confirmation token ถูกใช้แล้ว; metadata enrichment นี้ไม่เปลี่ยน state หรือ recovery ของ withdrawal เอง
+
+White Glove status inquiry `GET /api/v1/white-glove/order-fiat/{identification_id}/withdraw/status` แสดง `special_fee_approver_name` และ `special_fee_approver_email` เฉพาะเมื่อ order อยู่ `waiting-fee-approve`; ค่ามาจาก special-fee approver configuration และ field ที่ว่างจะถูกละจาก response. นี่เป็น read-only status display ไม่เปลี่ยน approval decision หรือ ledger
 
 ### 3. Confirm identity and submit
 
@@ -180,6 +182,8 @@ source ของ Fiat ยืนยันลำดับย่อ `DRAFT → SUBM
 ## Code references
 
 - `pkg/order_fiat/service.go`
+- `order-service/pkg/order_fiat/order_fiat_withdraw_service.go`: special-fee approver fields ใน status response
+- `order-service/handler/white_glove_handler.go`: White Glove withdrawal status endpoint
 - `pkg/customer/suspend_service.go` — เลือกและยกเลิก pending fiat withdrawal เมื่อ `closed` หรือ `freeze`
 - `pkg/customer/service.go`: `GetInvestmentBankAccountsByCustomerAccount` สำหรับ Digital Asset `REDEMPTION` bank-account read
 - `storages/postgres/customerrepository/customer_investment_bank_account_repository.go`: customer-account status predicate `active`/`suspended`

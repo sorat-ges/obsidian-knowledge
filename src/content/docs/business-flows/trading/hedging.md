@@ -1,81 +1,131 @@
 ---
 title: Post-Trade FX Hedging
-description: Flow หลังการซื้อขายสำหรับบันทึก USD exposure และทำ Auto Hedge เมื่อเกิน threshold
+description: Flow บันทึก USD exposure จาก trade activity และส่ง hedge เมื่อ Outstanding Balance ถึง threshold
 capability: Trading
 services: [order-service, order-consumer]
-integrations: [kafka, bank-gateway, KTB]
-aliases: [hedge, hedging, fx management, auto hedge, ป้องกันความเสี่ยงค่าเงิน]
+integrations: [Kafka, Bank Gateway, KTB]
+aliases: [hedge, hedging, fx management, fx-management/information, FX management information, auto hedge, order-hedge-transaction, OsBalance, outstanding FX balance, OriginalNavBuy, OriginalNavPU, OriginalNavSell, ป้องกันความเสี่ยงค่าเงิน, ยอดคงค้าง FX]
+errorCodes: ["400", "401"]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
 ## Purpose and scope
 
-จัดการ FX exposure จากรายการซื้อขายคู่ USD โดยบันทึก Outstanding Balance (`OsBalance`) และสั่ง Hedge กับ Bank Gateway เมื่อยอดเกิน threshold
+อธิบาย post-trade flow ที่บันทึก FX movement, คำนวณ `OsBalance` และเรียก Bank Gateway เมื่อ exposure ถึง threshold ที่กำหนด รวม read contract ของ FX management information. Flow นี้ไม่อธิบายการสร้าง order ต้นทางหรือรายละเอียดของ bank settlement ที่อยู่นอก `order-service`.
 
 ## Trigger and preconditions
 
 **Owner service: `order-service`**
 
-Flow เริ่มเมื่อเกิด trade ที่ใช้คู่ USD และเปิด feature flag `FEATURE_PRODUCE_FX_MOVEMENT_HEDGE_TRANSACTION` จากนั้น `order-service` ส่ง message ไป Kafka topic `order-hedge-transaction`
+หลัง trade fill, producer จะส่ง hedge event เมื่อเปิด `FEATURE_PRODUCE_FX_MOVEMENT_HEDGE_TRANSACTION`, มี exchange อย่างน้อยหนึ่งรายการ, customer quote currency ไม่ใช่ USD และ exchange รายการแรกเป็น USD pair. การไม่ผ่านข้อใดข้อหนึ่งจะไม่ส่ง `order-hedge-transaction`.
 
-## Forward hedge movement
+## Participating services
 
-**Owner service: `order-consumer`**
+| Service / integration | Responsibility |
+| :--- | :--- |
+| `order-service` | ตัดสินใจ publish event, รับ movement request, persist exposure และประเมิน auto-hedge threshold |
+| Kafka topic `order-hedge-transaction` | ส่ง customer trade activity ไปยัง asynchronous consumer |
+| `order-consumer` | Consume hedge event และเรียก movement API ของ `order-service` |
+| Bank Gateway (`KTB`) | External execution ของ FX hedge transaction |
 
-Consume message แล้วเรียก `POST /api/v1/fx-management/movement` ของ `order-service` แบบ asynchronous
+## End-to-end sequence
 
-## Record FX movement
+### 1. Publish eligible trade activity
 
 **Owner service: `order-service`**
 
-บันทึก movement ใน `fx_movement_auto_hedge` และปรับ `OsBalance` กับ `AverageCost`
+**Executing service: `order-service`**
 
-| Trade side | Direction | Balance update |
+เมื่อเงื่อนไขใน Trigger ผ่าน producer ส่ง transaction ID และ activity ของ exchange รายการแรกไป Kafka topic `order-hedge-transaction`. การ publish failure ถูก log หลัง trade flow ทำงานต่อ; ไม่ยืนยันว่ามี hedge movement ถูกสร้างจาก event นั้น.
+
+### 2. Forward the movement request
+
+**Owner service: `order-service`**
+
+**Executing service: `order-consumer`**
+
+`order-consumer` consume event แล้วเรียก `POST /api/v1/fx-management/movement` แบบ asynchronous เพื่อให้ `order-service` ประมวลผล customer activity.
+
+### 3. Record FX movement and update exposure
+
+**Owner service: `order-service`**
+
+`order-service` บันทึก movement ใน `fx_movement_auto_hedge` และอัปเดต `OsBalance`:
+
+| Trade side | Movement direction | `OsBalance` update |
 | :--- | :--- | :--- |
-| BUY | `OUT` | `NewOsBalance = OldOsBalance - ExecutedAmount` |
-| SELL | `IN` | `NewOsBalance = OldOsBalance + ExecutedAmount` |
+| BUY | `OUT` | `OldOsBalance - ExecutedAmount` |
+| SELL | `IN` | `OldOsBalance + ExecutedAmount` |
 
-Weighted Average Cost ใช้เมื่อ position ขยายในทิศทางเดิม หาก position ลดลง Average Cost คงเดิมจนเกิดการ flip side
+Weighted Average Cost ใช้เมื่อ position ขยายในทิศทางเดิม; เมื่อ position ลดลง Average Cost คงเดิมจน position flip side.
 
-## Evaluate threshold
-
-**Owner service: `order-service`**
-
-- Customer activity เทียบกับ `FxMovementAutoHedgeThreshold`
-- Scheduled task เทียบกับ `FxMovementScheduleHedgeThreshold`
-- ตัดสินใจจากค่าสัมบูรณ์ของ `OsBalance`
-
-ถ้ายอดยังไม่ถึง threshold ให้จบหลังบันทึก movement โดยไม่ส่งคำสั่ง Hedge
-
-## Execute hedge
+### 4. Evaluate the configured threshold
 
 **Owner service: `order-service`**
 
-เมื่อเกิน threshold ให้ส่งคำสั่งไป Bank Gateway เช่น KTB:
+- Customer-triggered activity ใช้ `FxMovementAutoHedgeThreshold`.
+- Scheduled hedge ใช้ `FxMovementScheduleHedgeThreshold`.
+- ทั้งสอง path เปรียบเทียบค่าสัมบูรณ์ของ `OsBalance`; ถ้ายังต่ำกว่า threshold จะเก็บ movement แล้วจบโดยไม่ส่ง hedge.
+- เมื่อ `abs(OsBalance)` เท่ากับหรือมากกว่า threshold จะเดินต่อไปประเมิน hedge.
 
-- `OsBalance < 0` (Short): ส่ง BUY เพื่อปิด position
-- `OsBalance > 0` (Long): ส่ง SELL เพื่อปิด position
+### 5. Send hedge instruction
+
+**Owner service: `order-service`**
+
+เมื่อถึง threshold `order-service` ส่งคำสั่งไป Bank Gateway ตาม sign ของ exposure:
+
+- `OsBalance < 0` (Short): BUY เพื่อลด position.
+- `OsBalance > 0` (Long): SELL เพื่อลด position.
+
+FX transaction ถูกบันทึกใน `order_fx_transaction`; movement history ยังคงอยู่ใน `fx_movement_auto_hedge`.
+
+### 6. Read FX management information
+
+**Owner service: `order-service`**
+
+`GET /api/v1/fx-management/information` เป็น read-only dashboard endpoint ที่ต้องใช้ `PortalClaims` และรับปีตั้งแต่ 2025 เป็นต้นไป. FX mark-to-market response map `Buy` จาก `OriginalNavBuy` และ `Sell` จาก `OriginalNavPU`; implementation ไม่ได้ใช้ `OriginalNavSell` สำหรับ field `Sell` นี้.
+
+## Business rules
+
+- Event producer guard ต้องผ่านทุกเงื่อนไขก่อน publish; การเป็น USD pair อย่างเดียวไม่พอ.
+- Customer-triggered และ scheduled path ใช้คนละ threshold configuration.
+- `OsBalance` ใช้ absolute value ตัดสิน threshold; direction ของคำสั่ง hedge ใช้ sign ของ balance.
+- `GET /api/v1/fx-management/information` แสดง `Sell = OriginalNavPU` ตาม current mapping.
+
+## State transitions
+
+**Owner service: `order-service`**
+
+Flow นี้ไม่มี order state machine ใหม่; การเปลี่ยนข้อมูลที่ยืนยันได้คือ:
+
+```text
+trade activity → fx_movement_auto_hedge / OsBalance update → [threshold reached] → hedge request / order_fx_transaction
+```
+
+การเปลี่ยนผลสำเร็จหรือสถานะ settlement ภายใน Bank Gateway ไม่ได้ยืนยันจาก path นี้.
+
+## Error and recovery behavior
+
+- Kafka publish failure ถูก log โดย trade callback ไม่เปลี่ยนผล callback เป็น failure; event จึงอาจไม่มี movement downstream.
+- Error จากการ consume/call movement API ต้องตรวจจาก consumer result และ service logs; source ที่ตรวจไม่ยืนยัน retry, dead-letter หรือ recovery policy เพิ่มเติม.
+- Error ระหว่าง persist movement, คำนวณ threshold หรือเรียก Bank Gateway ส่งกลับจาก hedge service; ห้ามสรุปว่า FX transaction สำเร็จจากการมี trade fill เพียงอย่างเดียว.
 
 ## Final outcomes
 
-**Owner service: `order-service`**
+- ต่ำกว่า threshold: movement และ Outstanding Balance ถูกเก็บเพื่อใช้ประเมินครั้งถัดไป โดยไม่มี hedge request.
+- ถึง threshold: `order-service` ส่ง BUY หรือ SELL ตาม sign ของ `OsBalance` และบันทึก FX transaction ตามผลของ gateway path.
+- Dashboard information อ่าน current mark-to-market/exposure โดยไม่เปลี่ยน FX state.
 
-- ต่ำกว่า threshold: เก็บ movement และ Outstanding Balance สำหรับการประเมินครั้งถัดไป
-- เกิน threshold: บันทึกการตัดสินใจและส่งคำสั่ง BUY/SELL ที่ลด exposure
-- ประวัติ movement อยู่ใน `fx_movement_auto_hedge`; ธุรกรรม FX อยู่ใน `order_fx_transaction`
+## Related shared rules
 
-## Error and recovery boundary
-
-**Owner service: `order-service`**
-
-การส่งผ่าน Kafka และการเรียก movement API เป็น asynchronous เอกสารต้นทางไม่ได้กำหนด retry หรือ error state จึงต้องวินิจฉัยจาก message delivery, endpoint response และข้อมูล movement โดยไม่สมมติ recovery behavior เพิ่มเติม
+- [Order State Machine](/shared-rules/order-state-machine/)
+- [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
 ## Code references
 
-- Producer: `pkg/order_trade/webhook_service.go`
-- Consumer: `pkg/hedge-transaction/service.go`
-- Business logic: `pkg/hedge/service.go`
-- Endpoint: `POST /api/v1/fx-management/movement`
-
+- `order-service/pkg/order_trade/webhook_service.go`: producer guard และ Kafka event
+- `order-consumer/pkg/hedge-transaction/service.go`: consume และ forward movement request
+- `order-service/pkg/hedge/service.go`: movement, threshold, hedge execution และ FX information mapping
+- `order-service/handler/hedge_handler.go`: FX management endpoints

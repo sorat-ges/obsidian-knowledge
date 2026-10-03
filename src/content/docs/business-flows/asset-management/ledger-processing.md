@@ -6,7 +6,7 @@ services: [asset-consumer, asset-service]
 integrations: [kafka]
 aliases: [ledger processing, logical ledger consumer, customer logical entry, fiat product type, fiat ledger cost, USD ledger, total cost, ประมวลผลบัญชี, อัปเดตพอร์ต, ต้นทุน fiat, ยอดต้นทุน fiat]
 status: active
-lastUpdated: 2026-09-29
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -85,6 +85,7 @@ documentType: flow
 - Cost ของสินทรัพย์ที่ไม่ใช่ FIAT ใช้ `AverageCost = (TotalCostเดิม + ต้นทุนรายการใหม่) / UnitBalanceรวมใหม่` เมื่อเพิ่ม unit
 - การมี `product_type_code = 5002` เพียงอย่างเดียวไม่ทำให้ ledger ถูกจำแนกเป็น FIAT ใน consumer ปัจจุบัน หาก event ไม่ส่ง `ProductType = FIAT`
 - การถือครองเป็นศูนย์ต้องล้าง average/total cost
+- สำหรับ Swap BUY ที่ quote เป็น USD, `order-service` แนบ `rate_symbol_pair` ที่เป็นบวกต่อ fill; `asset-consumer` ใช้ USD `HOLD_IN_ORDER / DECREASE` ของ account/order/batch เดียวกันคูณ rate เพื่อหา cost เป็น THB หากหา movement ที่ตรงเงื่อนไขไม่ได้ ใช้ผลรวม `xd_main` THB available increase กับ `xd_fee` THB order-fee increase แทน
 - หน้านี้ consume movement เท่านั้น ไม่เปลี่ยน business outcome ของ order ต้นทาง
 
 ## State transitions
@@ -124,7 +125,9 @@ order ต้นทางเป็นเจ้าของการเปลี�
 
 ## Code references
 
-- `asset-consumer/internal/domain/ledger-transaction.go`: `IsFiat()` และ FIAT classification
+- `asset-consumer/internal/domain/ledger-transaction.go`: `IsFiat()` FIAT classification และ `ApplyRateSymbolPair()` สำหรับ USD cost conversion
+- `asset-consumer/internal/domain/ledger-transactions.go`: Swap BUY cost aggregation จาก ledger movements
+- `order-service/internal/domain/ledger_fx_rate.go`: quote currency และ fill rate validation/mapping
 - `asset-consumer/pkg/customer-logical-entry/interface.go`: logical-ledger input fields
 - `asset-consumer/pkg/customer-logical-entry/service.go`: map event และ apply average/total cost
 - `asset-consumer/internal/domain/ledger-transactions.go`: exclude FIAT from customer-crypto selection

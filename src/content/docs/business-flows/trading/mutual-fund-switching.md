@@ -7,7 +7,7 @@ aliases: [mutual fund switching, MF switching, switch order, switching order, Sw
 integrations: [FundConnext]
 errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007", "91000"]
 status: active
-lastUpdated: 2026-09-20
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -88,6 +88,12 @@ Mobile ไม่มี holiday cache key แล้ว: ทุกครั้ง�
 Holiday มี priority เหนือ cutoff สำหรับวันเดียวกัน สำหรับ switch ที่ไม่มี `target_product_id` ระบบยังไม่คืน cutoff; เมื่อมี target แล้ว `order-service` ใช้ pair rule เดียวกับ precheck: settlement day ที่ไม่ใช่ศูนย์ใช้ source switch-out sell cutoff ส่วน settlement day เป็นศูนย์ใช้ cutoff ที่เร็วกว่า source sell และ target buy ในวันที่ target เปิดทำการ และ fallback เป็น source sell เมื่อ target ไม่มี calendar/เป็น holiday
 
 ปัจจุบัน mobile เรียก contract นี้ใน buy, sell และ switch และเรียกซ้ำเมื่อเลือก target fund เพื่อเก็บ cutoff ที่แสดง (`cutOffTimeBuy`/sell/switch), `current_date`, `effective_date` และสถานะ modal จาก response หาก `show_modal` เป็น `cut-off-time` หรือ `holiday` controller จะแสดง `OrderNoticeBottomSheet` ที่ตรงกับกรณี; หลังยืนยัน mobile ใช้ effective date ที่ response ให้มา โดย buy อาจบังคับ ATS เมื่อเลือกวันข้างหน้า ส่วน switch จะส่ง `target_product_id` เมื่อมี target แล้ว ดังนั้น availability API เป็นตัวขับ modal/effective-date UX ของ mobile ใน source ที่ตรวจรอบนี้แล้ว
+
+เมื่อ switch ไม่มี modal, Mobile ใช้ `effective_date` จาก response เป็น effective date ของฟอร์ม; หาก response ไม่มีวันดังกล่าว controller จะล้าง field และระหว่างโหลดจะแสดง skeleton. นี่เป็น client presentation behavior ไม่ใช่กฎ eligibility เพิ่มเติมของ `order-service`.
+
+Sell form ใช้ response แบบเดียวกัน: `getAvailableTradeDateSell()` ตั้ง effective date เมื่อไม่มี modal, ล้าง field เมื่อ response ไม่มีวันมีผล และแสดง skeleton ระหว่างโหลดแทน placeholder เดิม.
+
+เมื่อไม่มี modal, Mobile switch form กำหนด effective date จาก `effective_date` ของ response; หาก response ไม่มีวันดังกล่าว field จะถูกล้างไว้แทนการคง placeholder เดิม ระหว่างรอ response หน้าจอแสดง skeleton สำหรับ effective date
 
 `GET /api/v1/holidays/{order_type}/{fund_code}` จึงเหลือบทบาทเป็น date list สำหรับ calendar และส่งสัญญาณ `91000` เมื่อไม่มี trade-calendar config ไม่ได้เป็นแหล่ง `current_date`, `effective_date` หรือ holiday modal ของ mobile อีกต่อไป ส่วน trade-calendar notice ของ mobile ที่ source ยืนยันได้มาจาก `show_modal = trade-calendar` ใน `available-trade-date`; mapping ระหว่าง `91000` ของ holiday endpoint กับ UI notice ยังไม่สอดคล้องกันและต้องยืนยัน contract กับเจ้าของระบบ
 

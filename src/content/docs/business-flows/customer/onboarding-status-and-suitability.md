@@ -6,7 +6,7 @@ services: [onboarding-service, web-portal, xspring-mobile-app]
 aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, complete draft, completed-draft, registration confirm, retake watchlist completion, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, ยืนยันการลงทะเบียน, complete draft onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, complete draft หลังแก้ข้อมูล, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-09-27
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -229,6 +229,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - Backend claim เป็นแหล่ง `identification_id`; request ไม่เลือก customer เอง
 - Step completion ต้องมี required sub-status ครบ ไม่ใช่ดูเฉพาะ current status
 - เมื่อเจ้าหน้าที่ request retake ระบบสร้าง completed history สำหรับ personal/address/work/background/suitability/bank ของ flow ที่เลือก แล้วตั้ง current step กลับไป `identity-verification/front-card-scan`
+- Complete-draft retake ใช้ `RetakeWatchlistTypes` ซึ่งไม่รวม `maximum_age`; field นี้คำนวณได้ผ่าน explicit KYC approval `refresh_watchlist` ตาม check set ที่ request ส่ง
 - Application type `re-kyc` ใช้ `retake-re-kyc` ตอนเริ่ม retake; application type อื่นใช้ `retake`
 - Default bank account ที่ไม่มีชื่อเปลี่ยนทำให้ status response ไม่แสดง bank-account step; ถ้าชื่อบัญชีเปลี่ยน (`name_changed`) bank-account step ยัง required แม้มี default account
 - Bank grace-period acceptance เป็น transaction ของ `onboarding-service` ที่บันทึก acceptance และสร้าง bank-account history ก่อนเดิน registration ต่อ; mobile เป็นเพียง client trigger

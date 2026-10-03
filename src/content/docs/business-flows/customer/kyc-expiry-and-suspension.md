@@ -7,7 +7,7 @@ aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetLi
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002"]
 status: active
-lastUpdated: 2026-09-19
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -181,6 +181,8 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 2. เรียก `account-unitholder-sync` ของ `order-service`
 3. เรียก `/api/v1/customer/suspend/cancel-orders` เมื่อพบ account ใดเป็น `suspended`, `closed`, `freeze` หรือค่าอื่นที่ไม่ใช่ `active`
 
+ก่อนเรียก API ทั้งสอง `order-consumer` ขอ service-account token; token failure คืน error หลัง transaction ที่ upsert customer data commit แล้ว และไม่เรียก unitholder sync หรือ cancellation. เมื่อมี token, account-unitholder-sync ถูกเรียกก่อน; parse/network/non-2xx failures ถูก log และไม่หยุดการลอง cancel เมื่อเข้าเงื่อนไข ส่วน cancellation endpoint failure ก็ถูก log และกลืนไว้โดย event handler
+
 `order-service` จะอ่านสถานะปัจจุบันของ MF และ Digital Asset account แล้วเลือก cancellation set ตาม operation: `suspended` ยกเลิก MF buy/switch, ICO, pending fiat deposit และ swap-limit BUY; `closed`/`freeze` เพิ่ม MF sell, fiat/crypto withdrawal และ swap-limit SELL การ cancel เป็นราย order ตาม predicate ไม่ใช่การเปลี่ยนสถานะทุก order แบบ blanket
 
 `asset-consumer` รับและเก็บ status จาก `CustomerSync` ใน customer/account read model แต่ไม่พบ operation-level gate หรือ Freeze-specific cancellation ใน source ของ consumer นี้; backend order policy ยังอยู่ที่ `order-service`
@@ -275,6 +277,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - application handling หลัง transaction ล้ม: รายงาน error แต่ source ไม่มี compensating rollback/retry ที่ยืนยัน
 - KYC expiry path ไม่พบการ publish `CustomerSync` หลัง update status; downstream cancellation ที่อาศัย event จึงเป็น unresolved propagation gap ไม่ควรสรุปว่า order ถูกยกเลิกแล้วจาก database update เพียงอย่างเดียว
 - Rejection path ที่ publish `CustomerSync` ถ้า `order-consumer` เรียก cancellation endpoint แล้วได้ network/HTTP error จะ log error และไม่คืน error จาก `EventCustomerSync`; ต้องตรวจ order state แยก
+- ถ้าขอ service-account token ไม่สำเร็จ `EventCustomerSync` คืน error ก่อนเรียก `account-unitholder-sync` และ cancel endpoint; ถ้า unitholder-sync ล้มแต่ได้ token แล้ว consumer ยังลอง cancellation ต่อ
 - System cancellation เก็บ failure ต่อรายการและส่ง internal notification แบบ asynchronous; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จก่อนหน้า
 - auto-cancel re-KYC ล้ม: ไม่เดินต่อไปสร้าง suspended-by-system application ให้ customer รายเดียวกันใน invocation นั้น และ source ไม่ยืนยัน retry อัตโนมัติของ auto-cancel
 - Force re-KYC path อ่าน `customer_background_kyc` ไม่ได้หรือได้ record เป็น nil: ไม่ส่ง force email/notification และคืน error detail `failed to get background KYC`
