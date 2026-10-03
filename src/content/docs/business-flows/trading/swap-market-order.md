@@ -1,13 +1,13 @@
 ---
 title: Swap Market Order
-description: Flow การซื้อขาย Swap แบบ Market ตั้งแต่ขอราคา เลือก route สร้างคำสั่ง ส่ง Remarketer จน ledger และ portfolio สะท้อนผล
+description: Flow การซื้อขาย Swap แบบ Market ตั้งแต่ขอราคา เลือก route รวม partial order book สร้างคำสั่ง ส่ง Remarketer จน ledger และ portfolio สะท้อนผล
 capability: Trading
-services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, web-portal]
+services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี]
+aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial market order, partial order book, partial match, partial execution warning, single partial route, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, คำสั่งตลาดจับคู่บางส่วน, แจ้งเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
 errorCodes: ["60002", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-09-27
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -62,6 +62,8 @@ Mobile อ่าน Digital Asset account status ระหว่างเตร�
 4. Client ใช้ `isBestRoute` หรือรายการแรกเป็น route ปัจจุบัน แสดง rate, estimated receive และ fee
 5. Trading Web refresh quote เมื่อ countdown หมด; Mobile App refresh และพยายามคง route เดิมถ้ายัง available โดยให้ `mixed` route มาก่อน; `web-portal` refresh ตาม timer และคง route เดิมด้วยชื่อ route ถ้ายังอยู่ใน response
 
+ถ้า Mobile App ได้ route เดียวที่ `HasOrder=true` และ `MatchResult=partial` แต่ไม่มี best-route marker, จะเลือก route นั้นและแสดง warning ว่าคำสั่งจะ execute ได้บางส่วนทั้งหน้า Market และหน้ากดยืนยัน ข้อความที่ map ไว้ทั้ง locale `th` และ `en` คือ `Insufficient order book. Your order will be partially executed.` การ warning เป็น client feedback; backend ยัง re-query และตัดสิน route ตอน submit
+
 สำหรับ White Glove ใน `web-portal`, client ใช้ `available_symbol_pairs` ของ asset ที่เลือกเพื่อหา quote currency: ใช้ quote ตัวแรกที่ backend ส่งมา และ fallback เป็น `THB` เมื่อหาไม่ได้ จากนั้นส่งค่าที่เลือกเป็น `quote_currency` ไปยัง order-book BFF ขณะโหลด order book และจะไม่ query เมื่อยังไม่มี route ที่เลือก พฤติกรรมนี้ยืนยันได้เฉพาะ client trigger/payload; การที่ `order-service` รับหรือใช้ quote currency เพื่อกรอง order book และ execution ต้องยืนยันจาก backend path เดียวกัน
 
 รายละเอียดการจัดอันดับอยู่ที่ [Trading Route Selection](/business-flows/trading/routing/)
@@ -81,7 +83,9 @@ fee_amount, fee_rate,
 exchange_fee_rate, exchange_fee_amount (Dealer/White Glove เท่านั้น)
 ```
 
-Backend re-query Remarketer แล้วตรวจว่า route ชื่อเดียวกันยังมี liquidity, `HasOrder=true` และ Full Match แต่ production path ปัจจุบันไม่ได้แทนที่ `price`, `estimate_received_quantity`, `fee_amount` หรือ `fee_rate` ด้วยค่าที่คำนวณใหม่จาก re-query ค่าที่ client ส่งจึงถูก persist ลง order หลัง validation
+Backend re-query Remarketer แล้วตรวจ route ชื่อเดียวกันอีกครั้ง: route ที่ไม่ใช่ `mixed` ต้องมี liquidity มากกว่า 0, route ต้องมี `HasOrder=true`, และ route ที่จับคู่เต็มผ่านได้ตามเดิม ส่วน route ที่ `MatchResult=partial` ผ่านได้เมื่อมี route เดียวในผล re-query ที่ `HasOrder=true`; partial route ที่มี order หลาย route จะถูกปฏิเสธด้วย `insufficient order book`. การตรวจนี้อยู่ใน non-bulk Market path; Limit และ bulk trade ออกจาก `CanSwap` ก่อนถึงการตรวจ route นี้
+
+production path ปัจจุบันไม่ได้แทนที่ `price`, `estimate_received_quantity`, `fee_amount` หรือ `fee_rate` ด้วยค่าที่คำนวณใหม่จาก re-query ค่าที่ client ส่งจึงถูก persist ลง order หลัง validation
 
 ### 3. Create the order and publish async work
 
@@ -144,7 +148,10 @@ Backend re-query Remarketer แล้วตรวจว่า route ชื่อ
 ## Business rules
 
 - Market route ต้องมีชื่อตรงกับ route ที่ Remarketer คืนใน create-time recheck
-- route ปกติต้องมี liquidity มากกว่า 0; `mixed` route ข้ามเฉพาะ liquidity-zero check แต่ยังต้อง `HasOrder=true` และ Full Match
+- route ปกติต้องมี liquidity มากกว่า 0; `mixed` route ข้ามเฉพาะ liquidity-zero check แต่ยังต้อง `HasOrder=true`
+- Standard Market Swap ยอมรับ Full Match ตามเดิม และยอมรับ `MatchResult=partial` เมื่อมี route ที่ `HasOrder=true` เพียง route เดียวในผล re-query ของ Remarketer; route ที่ไม่มี order หรือ `MatchResult=no` ยังไม่ผ่าน, และ selected partial route ถูกปฏิเสธเมื่อมี order route มากกว่าหนึ่งรายการ
+- Partial route acceptance ใช้กับ non-bulk Market path ที่เรียก `checkRoute`; Limit และ bulk trade ไม่ผ่าน validation นี้ตาม `CanSwap` control flow
+- Mobile App เลือก single partial route ที่มี order แม้ไม่มี best marker และแสดง partial-execution warning; ผล execution จริงยังยึด Remarketer callback
 - Client quote เป็นค่าประมาณและอาจเปลี่ยนก่อน submit; create-time recheck ยืนยัน availability แต่ไม่ re-price payload
 - Available balance ถูกตรวจทั้งก่อนสร้าง order และก่อน hold โดย `order-consumer`
 - Market order ไม่มี customer-cancel path; cancel predicate ฝั่ง backendอนุญาตเฉพาะ `order_type=limit`
@@ -174,7 +181,7 @@ draft → open → processing → filling → sync-ledger → filled
 | :--- | :--- | :--- |
 | `90000` | คู่สินทรัพย์อยู่ใน maintenance | Client refresh maintenance state และไม่ submit |
 | `90001` | available asset ไม่พอตอนสร้าง order | เพิ่มยอดหรือลดจำนวนแล้วส่งใหม่ |
-| `90002` | route ไม่มี order หรือไม่ Full Match ตอน submit | Refresh route inquiry ก่อนส่งใหม่ |
+| `90002` | หลังผ่าน liquidity check แล้ว selected route ไม่มี order, เป็น `MatchResult=no` หรือเป็น partial ขณะที่มี order routes มากกว่าหนึ่งรายการตอน submit | Refresh route inquiry ก่อนส่งใหม่; partial route จะผ่านเมื่อเหลือ order route เดียว |
 | `90003` | route ปกติมี liquidity เป็นศูนย์ตอน submit | Refresh route inquiry หรือรอ liquidity |
 | `90004` | จำนวนต่ำกว่าขั้นต่ำ | ใช้ `minimum_amount` จาก inquiry ปรับจำนวน |
 | `90006` | Trading/White Glove inquiry ไม่ได้ route candidates จาก Remarketer | Client แสดง no available route และ retry inquiry |
@@ -192,6 +199,7 @@ Trading Web map code ที่รู้จักไป error modal และ ref
 - ปฏิเสธก่อนส่งหรือส่ง Remarketer ไม่สำเร็จ: order เป็น `rejected` และไม่มี source asset ค้างใน hold เมื่อ ledger คืนยอด apply สำเร็จ
 - คู่ USD ที่เข้าเงื่อนไข: มี hedge transaction สำหรับ post-trade flow
 - Response create สำเร็จยืนยันว่า order ถูกสร้างและ queued แล้ว ไม่ได้ยืนยันว่า execution หรือ portfolio update สำเร็จ
+- Mobile partial-execution warning สื่อว่า quote มี order book จับคู่ได้ไม่เต็มจำนวน; actual execution quantity, order status และ ledger outcome ยังมาจาก callback และ order processing หลัง submit
 - `suspended` + SELL ผ่าน status gate ได้ แต่ไม่ได้เปลี่ยนเป็น system-cancel branch เพราะ cancellation orchestration ที่เพิ่มในรอบนี้เลือกเฉพาะ Limit Order
 
 ## Related shared rules
@@ -208,11 +216,15 @@ Trading Web map code ที่รู้จักไป error modal และ ref
 - `order-service/handler/trading_handler.go`
 - `order-service/handler/order_trade_dto.go`
 - `order-service/pkg/order_trade/service.go`
+- `order-service/internal/domain/route.go`: `CanPlaceMarketOrder` ตรวจ single partial order-book route
+- `order-service/internal/domain/route_test.go`: single/multiple partial route behavior
 - `order-service/pkg/order_trade/swap_service.go`
 - `order-service/pkg/order_trade/webhook_service.go`
 - `order-consumer/pkg/digital-asset-order-request/swap.go`
 - `asset-consumer/pkg/customer-logical-entry/service.go`
 - `xspring-mobile-app/lib/domains/digital_portal/swap/controller.dart`
+- `xspring-mobile-app/lib/domains/digital_portal/swap/widgets/partial_execution_warning.dart`
+- `xspring-mobile-app/lib/domains/digital_portal/swap/widgets/swap_market.dart` และ `swap_confirm_bottom_sheet.dart`: partial-execution warning placement
 - `xspring-mobile-app/lib/domains/digital_portal/swap/service.dart`
 - `trading-web/src/features/trade/hooks/swap/use-swap.ts`
 - `web-portal/src/app/features/white-glove/hooks/useTrading.ts`

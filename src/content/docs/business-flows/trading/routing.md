@@ -1,13 +1,13 @@
 ---
 title: Trading Route Selection
-description: Flow การขอ คำนวณ จัดอันดับ แสดงผล และตรวจ route ซ้ำสำหรับ Swap Market
+description: Flow การขอ คำนวณ จัดอันดับ แสดงผล และตรวจ route ซ้ำสำหรับ Swap Market รวม single partial order book
 capability: Trading
-services: [order-service]
+services: [order-service, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer]
-aliases: [routing, swap routing, best route, mixed route, route inquiry, route revalidation, เส้นทางซื้อขาย, เลือกตลาด, เส้นทางที่ดีที่สุด]
+aliases: [routing, swap routing, best route, mixed route, route inquiry, route revalidation, partial route, partial match, partial order book, insufficient order book, single partial route, เส้นทางซื้อขาย, เลือกตลาด, เส้นทางที่ดีที่สุด, order book จับคู่บางส่วน, เลือก route ที่จับคู่บางส่วน, สมุดคำสั่งไม่พอ]
 errorCodes: ["90000", "90002", "90003", "90004", "90006"]
 status: active
-lastUpdated: 2026-07-29
+lastUpdated: 2026-10-03
 documentType: flow
 ---
 
@@ -85,7 +85,7 @@ Flow นี้ไม่ใช่ execution engine และไม่รับป
 3. ถ้าไม่มี valid `mixed` ให้เลือก candidate ตัวแรกตามลำดับ net amount ที่ `HasOrder=true` และ Full Match
 4. ย้าย candidate ที่เลือกมาไว้ลำดับแรก
 
-ดังนั้น “best route” หมายถึง valid `mixed` ก่อน แล้วจึงใช้ net amount สูงสุดในกลุ่ม valid non-mixed ไม่ใช่เลือก rate สูงสุดหรือต่ำสุดโดยตรง
+ดังนั้น “best route” หมายถึง valid `mixed` ก่อน แล้วจึงใช้ net amount สูงสุดในกลุ่ม valid non-mixed ไม่ใช่เลือก rate สูงสุดหรือต่ำสุดโดยตรง ถ้าไม่มี Full Match candidate ระบบยังคืน route ตาม fallback ของ channel โดยไม่มี best marker; candidate ที่เป็น partial จึงไม่ได้กลายเป็น best route จากการจัดอันดับนี้
 
 ### 5. Apply channel visibility
 
@@ -105,6 +105,7 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 - Trading Web ใช้ route ที่ `isBestRoute=true` หรือ fallback เป็นรายการแรก และ refresh เมื่อ countdown หมด
 - Mobile App ให้ valid `mixed` มาก่อน, พยายามคง route ที่ผู้ใช้เลือกไว้ถ้ายัง available, จากนั้นจึงใช้ best route; auto refresh สามารถกลับไปเลือก best route
+- เมื่อ Mobile App ได้ route เดียวที่มี `HasOrder=true` และ `MatchResult=partial` จะเลือก route นั้นได้แม้ไม่มี `IsBestRoute=true` และแสดง warning บนหน้า Market กับ confirmation sheet
 - `web-portal` White Glove เริ่มจาก route แรก, คง route เดิมเมื่อชื่อยังอยู่ใน inquiry response และให้ RM เลือกผ่าน route selection; เมื่อมี Dealer Execute permission จะแสดง `exchange_fee_amount`
 - Clients ส่ง `route`, `price`, estimated receive และ fee จาก quote กลับมาใน create request; White Glove เพิ่ม `exchange_fee_rate` และ `exchange_fee_amount`
 
@@ -114,10 +115,11 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 ก่อนสร้าง Market order backend ขอ Remarketer routes ใหม่ด้วย amount, side และ client type แล้วหา route ชื่อเดียวกับที่ client ส่ง:
 
-1. ถ้าไม่พบชื่อ route: `no route for <route>`
+1. ถ้าไม่พบชื่อ route: `no route for <route>`; ถ้า request ไม่ส่ง route จะคืน `no route`
 2. ถ้าไม่ใช่ `mixed` และ liquidity เป็น 0: `insufficient liquidity`
-3. ถ้าไม่ Full Match หรือ `HasOrder=false`: `insufficient order book`
-4. ถ้าผ่าน: อนุญาตให้สร้าง order
+3. `HasOrder=false` หรือ `MatchResult=no` คืน `insufficient order book`
+4. Full Match ที่มี order ผ่านได้ตามเดิม; Partial Match ที่มี order ผ่านได้เมื่อมี route ที่ `HasOrder=true` เพียงรายการเดียวในผล re-query; partial ที่มี order route หลายรายการยังคืน `insufficient order book`
+5. ถ้าผ่าน: อนุญาตให้สร้าง order
 
 ขั้นนี้ตรวจ availability เท่านั้น ไม่ได้คืน quote ใหม่และไม่ได้ overwrite `price`, estimated receive หรือ fee ใน create payload
 
@@ -125,7 +127,8 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 - Route ranking ใช้ net amount หลัง fee ไม่ใช่ rate อย่างเดียว
 - Valid `mixed` มี priority สูงกว่า valid single route โดยไม่คำนึงถึง net-amount rank
-- `mixed` ข้าม liquidity-zero check ตอน submit แต่ไม่ข้าม Full Match และ `HasOrder`
+- `mixed` ข้าม liquidity-zero check ตอน submit แต่ยังต้องมี `HasOrder=true`; Full Match ผ่านได้ตามเดิม และ Partial Match ผ่านได้เฉพาะเมื่อเป็น route เดียวที่มี order
+- Partial route validation อยู่ใน standard non-bulk Market path; Limit และ bulk trade ออกจาก `CanSwap` ก่อนเรียก `checkRoute`
 - Retail visibility ถูกลดเหลือหนึ่ง routeที่ backend; Dealer visibility ได้หลาย routeแต่ไม่มี `IsBestRoute` marker
 - Minimum failure คืน response สำเร็จที่มี route ว่าง ไม่ใช่ `90006`
 - `90006` หมายถึง Remarketer ไม่มี source candidates ใน Trading/White Glove handler ไม่ได้ครอบคลุมทุกกรณีที่ candidate ใช้งานไม่ได้
@@ -154,7 +157,7 @@ inquiry received
 | `90000` | maintenance validation | หยุด inquiry/submit และ refresh maintenance state |
 | `90004` | create validation พบ amount ต่ำกว่าขั้นต่ำ | ใช้ minimum จาก inquiry แล้วขอ route ใหม่ |
 | `90006` | Trading/White Glove inquiry ได้ `no sources available` | แสดง no available route และ retry inquiry |
-| `90002` | create-time route recheck พบ no order หรือ partial/unmatched book | refresh inquiry ก่อน submit ใหม่ |
+| `90002` | หลังผ่าน liquidity check แล้ว create-time route recheck พบ no order, `MatchResult=no`, หรือ selected partial route ขณะที่มี order routes หลายรายการ | refresh inquiry; partial route ผ่านได้เมื่อมี order route เดียว |
 | `90003` | create-time route recheck พบ liquidity เป็น 0 | refresh inquiry หรือรอ liquidity |
 | `no fee rate available` | ไม่มี fee configuration ที่ตรง candidate | candidate calculation ล้มเหลว; ต้องแก้ fee configuration ไม่ใช่บังคับเลือก route |
 | `no route for <route>` | route หายไประหว่าง quote กับ submit | ขอ quote ใหม่; handler ปัจจุบันคืน generic Bad Request สำหรับกรณีนี้ |
@@ -168,6 +171,7 @@ Frontend ควร treat quote หมดอายุหรือ create failure 
 - Minimum ไม่ผ่าน: ได้ routes ว่างพร้อมค่าขั้นต่ำ
 - ไม่มี source หรือคำนวณ route ไม่ได้: inquiry ล้มเหลวและไม่มี order ถูกสร้าง
 - Create-time revalidation ผ่าน: selected route ถูก persist และ flow ส่งต่อไป asynchronous execution
+- Mobile App แสดง partial-execution warning เมื่อเลือก single partial route; warning ไม่ยืนยัน fill quantity หรือ final order state
 
 ## Related shared rules
 
@@ -182,6 +186,7 @@ Frontend ควร treat quote หมดอายุหรือ create failure 
 - `order-service/handler/trading_handler.go`
 - `order-service/handler/white_glove_handler.go`
 - `order-service/pkg/order_trade/service.go`
+- `order-service/internal/domain/route.go`: market route acceptance for full/single-partial matches
 - `order-service/pkg/order_trade/swap_service.go`
 - `xspring-mobile-app/lib/domains/digital_portal/swap/controller.dart`
 - `xspring-mobile-app/lib/domains/digital_portal/swap/service.dart`
