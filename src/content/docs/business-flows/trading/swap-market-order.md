@@ -1,11 +1,11 @@
 ---
 title: Swap Market Order
-description: Flow การซื้อขาย Swap แบบ Market ตั้งแต่ขอราคา เลือก route ที่จับคู่เต็ม สร้างคำสั่ง ส่ง Remarketer จน ledger และ portfolio สะท้อนผล
+description: Flow การซื้อขาย Swap แบบ Market ตั้งแต่ขอและจัดอันดับ route เลือกคำสั่ง สร้าง order ส่ง Remarketer จน ledger และ portfolio สะท้อนผล
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer, kafka]
 aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial execution warning, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
-errorCodes: ["60002", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
+errorCodes: ["60002", "80003", "80004", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
 lastUpdated: 2026-10-04
 documentType: flow
@@ -185,7 +185,9 @@ draft → open → processing → filling → sync-ledger → filled
 | `90000` | คู่สินทรัพย์อยู่ใน maintenance | Client refresh maintenance state และไม่ submit |
 | `90001` | available asset ไม่พอตอนสร้าง order | เพิ่มยอดหรือลดจำนวนแล้วส่งใหม่ |
 | `90002` | <mark class="changed-feature" data-updated-on="2026-10-04">หลังผ่าน liquidity check แล้ว selected route ไม่มี order หรือ `MatchResult=no` ตอน submit</mark> | <mark class="changed-feature" data-updated-on="2026-10-04">Refresh route inquiry ก่อนส่งใหม่; Full และ Partial Match ส่งได้เมื่อ route มี order</mark> |
+| `80003` | White Glove create-time recheck พบ route ไม่มี order หรือ `MatchResult=no` | Refresh route inquiry; ส่งได้เมื่อ route มี order และ match เป็น full หรือ partial |
 | `90003` | route ปกติมี liquidity เป็นศูนย์ตอน submit | Refresh route inquiry หรือรอ liquidity |
+| `80004` | White Glove route ปกติมี liquidity เป็นศูนย์ตอน submit | Refresh route inquiry หรือรอ liquidity |
 | `90004` | จำนวนต่ำกว่าขั้นต่ำ | ใช้ `minimum_amount` จาก inquiry ปรับจำนวน |
 | `90006` | Trading/White Glove inquiry ไม่ได้ route candidates จาก Remarketer | Client แสดง no available route และ retry inquiry |
 | `90010` | เอกสารอ้างอิงหมดอายุ | ผู้ใช้ต้องผ่าน document acceptance flow ก่อน |

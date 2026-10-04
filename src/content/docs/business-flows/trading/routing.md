@@ -5,7 +5,7 @@ capability: Trading
 services: [order-service, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer]
 aliases: [routing, swap routing, best route, mixed route, route inquiry, route revalidation, partial match accepted, partial order book, partial execution warning, insufficient order book, quote_currency, white-glove order-book, customer_account_id, เส้นทางซื้อขาย, เลือกตลาด, เส้นทางที่ดีที่สุด, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
-errorCodes: ["90000", "90002", "90003", "90004", "90006"]
+errorCodes: ["80003", "80004", "90000", "90002", "90003", "90004", "90006"]
 status: active
 lastUpdated: 2026-10-04
 documentType: flow
@@ -116,7 +116,7 @@ Flow นี้ไม่ใช่ execution engine และไม่รับป
 
 ก่อนสร้าง Market order backend ขอ Remarketer routes ใหม่ด้วย amount, side และ client type แล้วหา route ชื่อเดียวกับที่ client ส่ง:
 
-1. ถ้าไม่พบชื่อ route: `no route for <route>`; `Route` เป็น optional ใน request แต่เมื่อไม่ส่งและไม่มี route ตรงกัน current path อาจ dereference nil; ยังไม่มี error contract ที่ยืนยันได้สำหรับกรณีนี้
+1. ถ้า `Route` ไม่ได้ส่ง service คืน `route is required`; ถ้าไม่พบ route ชื่อเดียวกันในผล re-query คืน `no route for <route>`
 2. ถ้าไม่ใช่ `mixed` และ liquidity เป็น 0: `insufficient liquidity`
 3. <mark class="changed-feature" data-updated-on="2026-10-04">`HasOrder=false` หรือ `MatchResult().IsMatched()` เป็น false คืน `insufficient order book`; `IsMatched()` รับทั้ง Full และ Partial Match</mark>
 4. ถ้าผ่าน: อนุญาตให้สร้าง order
@@ -158,9 +158,12 @@ inquiry received
 | `90004` | create validation พบ amount ต่ำกว่าขั้นต่ำ | ใช้ minimum จาก inquiry แล้วขอ route ใหม่ |
 | `90006` | Trading/White Glove inquiry ได้ `no sources available` | แสดง no available route และ retry inquiry |
 | `90002` | <mark class="changed-feature" data-updated-on="2026-10-04">หลังผ่าน liquidity check แล้ว create-time recheck พบ no order หรือ `MatchResult=no`; Partial Match ไม่ใช่ error กรณีนี้</mark> | <mark class="changed-feature" data-updated-on="2026-10-04">refresh inquiry และส่งใหม่เมื่อ route มี order และ Full หรือ Partial Match</mark> |
+| `80003` | White Glove create-time recheck พบ no order หรือ `MatchResult=no` | refresh inquiry และส่งใหม่เมื่อ route มี order และ Full หรือ Partial Match |
 | `90003` | create-time route recheck พบ liquidity เป็น 0 | refresh inquiry หรือรอ liquidity |
+| `80004` | White Glove create-time route recheck พบ liquidity เป็น 0 | refresh inquiry หรือรอ liquidity |
+| `route is required` | create request ไม่มี `Route`; service ปฏิเสธก่อนเรียก Remarketer | ส่ง route ที่เลือกจาก inquiry |
 | `no fee rate available` | ไม่มี fee configuration ที่ตรง candidate | candidate calculation ล้มเหลว; ต้องแก้ fee configuration ไม่ใช่บังคับเลือก route |
-| `no route for <route>` | <mark class="changed-feature" data-updated-on="2026-10-03">ไม่พบชื่อ route ในผล re-query; omitted `Route` อาจเข้าทาง nil dereference จึงไม่มี stable error contract ที่ยืนยันได้</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">ขอ quote ใหม่; กรณี omitted `Route` ต้องยืนยัน error behavior กับเจ้าของระบบ</mark> |
+| `no route for <route>` | ไม่พบชื่อ route ในผล re-query | ขอ quote ใหม่และส่ง route ที่มีอยู่ใน inquiry response |
 
 Frontend ควร treat quote หมดอายุหรือ create failure เป็นเหตุให้ refresh route ไม่ควร submit ซ้ำด้วย payload เดิมโดยอัตโนมัติ
 
