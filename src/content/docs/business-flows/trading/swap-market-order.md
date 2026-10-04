@@ -59,12 +59,12 @@ Mobile อ่าน Digital Asset account status ระหว่างเตร�
 1. Client ส่ง `unit`, `swap_pair` และ `side` ไป route inquiry
 2. `order-service` ตรวจ maintenance และ minimum amount แล้วขอ candidates จาก Remarketer ด้วย client type `retail`
 3. Backend เลือก fee ของแต่ละ route, คำนวณ fee/net amount, จัดอันดับ และคืน route เดียวให้ retail client
-4. Client ใช้ `isBestRoute` หรือรายการแรกเป็น route ปัจจุบัน แสดง rate, estimated receive และ fee; White Glove route response ยังมี `quote_currency` และ `rate_thb`
+4. Client ใช้ `isBestRoute` หรือรายการแรกเป็น route ปัจจุบัน แสดง rate, estimated receive และ fee; <mark class="changed-feature" data-updated-on="2026-10-03">White Glove route response ยังมี `quote_currency` และ `rate_thb`</mark>
 5. Trading Web refresh quote เมื่อ countdown หมด; Mobile App refresh และพยายามคง route เดิมถ้ายัง available โดยให้ `mixed` route มาก่อน; `web-portal` refresh ตาม timer และคง route เดิมด้วยชื่อ route ถ้ายังอยู่ใน response
 
-Mobile App จัด route ที่ไม่มี order หรือ `MatchResult` ไม่ใช่ full match เป็น unavailable และไม่ auto-select route เหล่านั้น ถ้า route ที่เลือกอยู่ไม่ผ่านเงื่อนไขนี้ หน้า Market แสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap; ไม่มี partial-execution warning ในหน้า Market หรือ confirmation
+<mark class="changed-feature" data-updated-on="2026-10-03">Mobile App จัด route ที่ไม่มี order หรือ `MatchResult` ไม่ใช่ full match เป็น unavailable และไม่ auto-select route เหล่านั้น ถ้า route ที่เลือกอยู่ไม่ผ่านเงื่อนไขนี้ หน้า Market แสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap; ไม่มี partial-execution warning ในหน้า Market หรือ confirmation</mark>
 
-White Glove order-book `GET /api/v1/white-glove/products/{symbol}/order-book` รับ `quote_currency` เป็น `THB` หรือ `USD`; ถ้าไม่ส่งจะใช้ `THB` และ currency อื่นคืน HTTP `400`. Backend ใช้ currency นี้อ่าน bids/asks; Dealer order book ต้องมี `customer_account_id` และ `route` ด้วย เงื่อนไขนี้ยืนยันเฉพาะ order-book read contract ไม่ได้เปลี่ยน quote pair ที่ route inquiry ใช้สร้าง Swap
+<mark class="changed-feature" data-updated-on="2026-10-03">White Glove order-book `GET /api/v1/white-glove/products/{symbol}/order-book` รับ `quote_currency` เป็น `THB` หรือ `USD`; ถ้าไม่ส่งจะใช้ `THB` และ currency อื่นคืน HTTP `400`. Backend ใช้ currency นี้อ่าน bids/asks; Dealer order book ต้องมี `customer_account_id` และ `route` ด้วย เงื่อนไขนี้ยืนยันเฉพาะ order-book read contract ไม่ได้เปลี่ยน quote pair ที่ route inquiry ใช้สร้าง Swap</mark>
 
 รายละเอียดการจัดอันดับอยู่ที่ [Trading Route Selection](/business-flows/trading/routing/)
 
@@ -83,7 +83,7 @@ fee_amount, fee_rate,
 exchange_fee_rate, exchange_fee_amount (Dealer/White Glove เท่านั้น)
 ```
 
-Backend re-query Remarketer แล้วตรวจ route ชื่อเดียวกันอีกครั้ง: route ที่ไม่ใช่ `mixed` ต้องมี liquidity มากกว่า 0; route ต้องมี `HasOrder=true` และ `MatchResult=full` เท่านั้น ส่วน `partial` และ `no` ถูกปฏิเสธด้วย `insufficient order book`. การตรวจนี้อยู่ใน non-bulk Market path; Limit และ bulk trade ออกจาก `CanSwap` ก่อนถึงการตรวจ route นี้
+<mark class="changed-feature" data-updated-on="2026-10-03">Backend re-query Remarketer แล้วตรวจ route ชื่อเดียวกันอีกครั้ง: route ที่ไม่ใช่ `mixed` ต้องมี liquidity มากกว่า 0; route ต้องมี `HasOrder=true` และ `MatchResult=full` เท่านั้น ส่วน `partial` และ `no` ถูกปฏิเสธด้วย `insufficient order book`. การตรวจนี้อยู่ใน non-bulk Market path; Limit และ bulk trade ออกจาก `CanSwap` ก่อนถึงการตรวจ route นี้</mark>
 
 production path ปัจจุบันไม่ได้แทนที่ `price`, `estimate_received_quantity`, `fee_amount` หรือ `fee_rate` ด้วยค่าที่คำนวณใหม่จาก re-query ค่าที่ client ส่งจึงถูก persist ลง order หลัง validation
 
@@ -129,7 +129,7 @@ production path ปัจจุบันไม่ได้แทนที่ `pr
 4. เมื่อจับคู่ครบ เปลี่ยนเป็น `sync-ledger` และสร้าง logical ledger สำหรับตัด hold/เพิ่มสินทรัพย์ที่ได้รับ
 5. เปลี่ยนเป็น `filled` เมื่อขั้น ledger ของ order สำเร็จ
 
-หลัง insert trade transaction, `order-service` เขียน quantity point สำหรับ 24-hour display volume เฉพาะเมื่อ lookup customer account สำเร็จและ account ไม่ใช่ Dealer tier; account missing/lookup error จะข้าม point ส่วน time-series write error ถูก log และไม่ทำให้ callback ล้มเหลว
+<mark class="changed-feature" data-updated-on="2026-10-03">หลัง insert trade transaction, `order-service` เขียน quantity point สำหรับ 24-hour display volume เฉพาะเมื่อ lookup customer account สำเร็จและ account ไม่ใช่ Dealer tier; account missing/lookup error จะข้าม point ส่วน time-series write error ถูก log และไม่ทำให้ callback ล้มเหลว</mark>
 
 รายละเอียด movement และ double-entry contract อยู่ที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
@@ -145,18 +145,18 @@ production path ปัจจุบันไม่ได้แทนที่ `pr
 
 **Owner and executing service: `order-service`**
 
-ถ้าเปิด `FEATURE_PRODUCE_FX_MOVEMENT_HEDGE_TRANSACTION`, มี exchange transaction และ quote currency ของ customer ไม่ใช่ `USD` โดย exchange แรกเป็น USD pair ระบบ publish hedge transaction ให้ post-trade [Hedging](/business-flows/trading/hedging/) ทำงานต่อ
+<mark class="changed-feature" data-updated-on="2026-10-03">ถ้าเปิด `FEATURE_PRODUCE_FX_MOVEMENT_HEDGE_TRANSACTION`, มี exchange transaction และ quote currency ของ customer ไม่ใช่ `USD` โดย exchange แรกเป็น USD pair ระบบ publish hedge transaction ให้ post-trade [Hedging](/business-flows/trading/hedging/) ทำงานต่อ</mark>
 
 ## Business rules
 
 - Market route ต้องมีชื่อตรงกับ route ที่ Remarketer คืนใน create-time recheck
 - route ปกติต้องมี liquidity มากกว่า 0; `mixed` route ข้ามเฉพาะ liquidity-zero check แต่ยังต้อง `HasOrder=true`
-- Standard non-bulk Market Swap ผ่าน route recheck เฉพาะเมื่อ route name ตรงกัน, liquidity ผ่าน (ยกเว้น mixed), `HasOrder=true` และ `MatchResult=full`; `partial`/`no` ถูกปฏิเสธ
-- Limit และ bulk trade ออกจาก `CanSwap` ก่อน validation route นี้; อย่านำกฎ Market route recheck ไปใช้กับสอง path ดังกล่าว
-- Mobile App มอง route ที่ไม่มี order หรือไม่ full-match เป็น unavailable; ข้อความ insufficient-order-book และการปิดปุ่ม Swap เป็น client feedback ก่อน submit
+- <mark class="changed-feature" data-updated-on="2026-10-03">Standard non-bulk Market Swap ผ่าน route recheck เฉพาะเมื่อ route name ตรงกัน, liquidity ผ่าน (ยกเว้น mixed), `HasOrder=true` และ `MatchResult=full`; `partial`/`no` ถูกปฏิเสธ</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">Limit และ bulk trade ออกจาก `CanSwap` ก่อน validation route นี้; อย่านำกฎ Market route recheck ไปใช้กับสอง path ดังกล่าว</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">Mobile App มอง route ที่ไม่มี order หรือไม่ full-match เป็น unavailable; ข้อความ insufficient-order-book และการปิดปุ่ม Swap เป็น client feedback ก่อน submit</mark>
 - Client quote เป็นค่าประมาณและอาจเปลี่ยนก่อน submit; create-time recheck ยืนยัน availability แต่ไม่ re-price payload
 - Available balance ถูกตรวจทั้งก่อนสร้าง order และก่อน hold โดย `order-consumer`
-- 24-hour display-volume point ไม่ถูกเขียนสำหรับ Dealer account; account lookup/write failure ถูก log/ข้ามโดยไม่ย้อน trade fill
+- <mark class="changed-feature" data-updated-on="2026-10-03">24-hour display-volume point ไม่ถูกเขียนสำหรับ Dealer account; account lookup/write failure ถูก log/ข้ามโดยไม่ย้อน trade fill</mark>
 - Market order ไม่มี customer-cancel path; cancel predicate ฝั่ง backendอนุญาตเฉพาะ `order_type=limit`
 - Account status gate เป็น backend rule: `suspended` ยังสร้าง Market SELL ได้ แต่สร้าง BUY ไม่ได้; `closed`/`freeze` ถูก block ด้วย HTTP `400`, `60002` (`ErrorCustomerSuspend`)
 - Mobile suspended-BUY dialog และ `Buy order unavailable.` เป็น supporting warning ไม่ใช่ execution result หรือ backend authorization
@@ -184,7 +184,7 @@ draft → open → processing → filling → sync-ledger → filled
 | :--- | :--- | :--- |
 | `90000` | คู่สินทรัพย์อยู่ใน maintenance | Client refresh maintenance state และไม่ submit |
 | `90001` | available asset ไม่พอตอนสร้าง order | เพิ่มยอดหรือลดจำนวนแล้วส่งใหม่ |
-| `90002` | หลังผ่าน liquidity check แล้ว selected route ไม่มี order หรือ `MatchResult` ไม่ใช่ full match ตอน submit | Refresh route inquiry ก่อนส่งใหม่; ส่งได้เมื่อ route มี order และ full match |
+| `90002` | <mark class="changed-feature" data-updated-on="2026-10-03">หลังผ่าน liquidity check แล้ว selected route ไม่มี order หรือ `MatchResult` ไม่ใช่ full match ตอน submit</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">Refresh route inquiry ก่อนส่งใหม่; ส่งได้เมื่อ route มี order และ full match</mark> |
 | `90003` | route ปกติมี liquidity เป็นศูนย์ตอน submit | Refresh route inquiry หรือรอ liquidity |
 | `90004` | จำนวนต่ำกว่าขั้นต่ำ | ใช้ `minimum_amount` จาก inquiry ปรับจำนวน |
 | `90006` | Trading/White Glove inquiry ไม่ได้ route candidates จาก Remarketer | Client แสดง no available route และ retry inquiry |

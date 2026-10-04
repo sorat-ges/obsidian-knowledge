@@ -12,7 +12,7 @@ documentType: flow
 
 ## Purpose and scope
 
-อธิบาย read flow ของ asset portfolio, fiat wallet overview และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยครอบคลุม fiat หลายสกุลและการค้นหาลูกค้าโดยรหัส customer/account ด้วย ไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service` สถานะ `closed` ถูกตัดออกจาก account/portfolio query ที่เปลี่ยนในรอบนี้ ส่วน status อื่นที่ไม่ใช่ `closed` ยังอยู่ใน read path เหล่านั้นได้
+อธิบาย read flow ของ asset portfolio, fiat wallet overview และ monthly reporting ตั้งแต่ตรวจสถานะบัญชี รวมยอด ประเมินมูลค่าเป็น THB จนคืน portfolio overview หรือสร้าง statement โดยครอบคลุม fiat หลายสกุลและการค้นหาลูกค้าโดยรหัส customer/account ด้วย ไม่ใช้เป็นหลักฐานแทน operation-level trading/withdrawal rule ของ `order-service` <mark class="changed-feature" data-updated-on="2026-10-02">สถานะ `closed` ถูกตัดออกจาก account/portfolio query ที่เปลี่ยนในรอบนี้ ส่วน status อื่นที่ไม่ใช่ `closed` ยังอยู่ใน read path เหล่านั้นได้</mark>
 
 สำหรับ monthly statement ที่ให้ RM เลือกลูกค้า `asset-service` มี endpoint `GET /api/v1/customer/rm-owner` ที่คืน `customer_status` และตัดเฉพาะ `rejected` กับ `onboarding` ออกจากรายการเลือก นี่เป็นกฎของ customer-selection endpoint ไม่ใช่หลักฐานว่าทุก portfolio หรือ report-generation query ตัดสถานะเดียวกัน
 
@@ -71,14 +71,14 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - Digital Asset market value แสดงเป็น THB
 - `Unrealized P/L = (NAV - AverageCost) * UnitBalance`
 - Mark-to-Market แปลงสินทรัพย์ทุกประเภทเป็น THB เพื่อหา Total Equity
-- `GetFiatBalanceByAccountID` รวม fiat portfolio ตาม product/currency และใช้ `NavPU` จาก `dw_product.product_fx_mark_to_market` เมื่อมี FX row รวมถึง THB; ถ้าไม่มี THB row จะ fallback เป็น rate `1`, ส่วน currency อื่นที่ไม่มี rate จะถูกข้าม แล้ว `AmountTHB` ปัดลงสองตำแหน่ง
-- Portfolio mapper ที่รับ asset list ใช้ FX `NavPU` ของ USD และ THB โดยตรงตาม `AssetCode` และ override market price ของ product เมื่อมี row ที่ตรงกัน; เมื่อไม่มี FX row จะไม่มี direct-FX override เพิ่ม
-- Fiat `in_order` ใน portfolio ใช้ `in_order × market price` แล้วปัดลงสองตำแหน่ง ไม่ใช้จำนวนหน่วยดิบของ USD แทนมูลค่า THB
+- <mark class="changed-feature" data-updated-on="2026-10-02">`GetFiatBalanceByAccountID` รวม fiat portfolio ตาม product/currency และใช้ `NavPU` จาก `dw_product.product_fx_mark_to_market` เมื่อมี FX row รวมถึง THB; ถ้าไม่มี THB row จะ fallback เป็น rate `1`, ส่วน currency อื่นที่ไม่มี rate จะถูกข้าม แล้ว `AmountTHB` ปัดลงสองตำแหน่ง</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-02">Portfolio mapper ที่รับ asset list ใช้ FX `NavPU` ของ USD และ THB โดยตรงตาม `AssetCode` และ override market price ของ product เมื่อมี row ที่ตรงกัน; เมื่อไม่มี FX row จะไม่มี direct-FX override เพิ่ม</mark>
+- <mark class="changed-feature" data-updated-on="2026-09-25">Fiat `in_order` ใน portfolio ใช้ `in_order × market price` แล้วปัดลงสองตำแหน่ง ไม่ใช้จำนวนหน่วยดิบของ USD แทนมูลค่า THB</mark>
 - ถ้า FX record ของ currency ใดไม่มี `NavPU`, `asset-service` log และข้ามเฉพาะ balance รายการนั้น; error จากการอ่าน portfolio/product/FX repository ทำให้ wallet request ล้มเหลว
 - Trading wallet overview คืนเฉพาะรายการ THB; White Glove wallet overview คืน fiat balance ทุก currency พร้อม native amount, THB equivalent และ `in_order`
-- Fiat balance response เรียงรายการ THB ไว้ลำดับแรกเมื่อมี THB row; ลำดับของ currency อื่นคงตามข้อมูลที่อ่านได้
+- <mark class="changed-feature" data-updated-on="2026-10-02">Fiat balance response เรียงรายการ THB ไว้ลำดับแรกเมื่อมี THB row; ลำดับของ currency อื่นคงตามข้อมูลที่อ่านได้</mark>
 - Current trading/White Glove portfolio valuation ใช้ `NavPU`; `OriginalNavPU` ที่ `asset-consumer` persist ไม่ได้ถูกเลือกใน mapper ของ asset-service path นี้
-- ก่อนอ่าน portfolio state, `asset-consumer` materialize logical-ledger `AVAILABLE` + `INCREASE` ที่มี `ProductType = FIAT` ด้วย `average_cost = 1` และ `total_cost = 1`; จึงไม่ใช้ชื่อ symbol เป็นตัวตัดสินว่า USD หรือ fiat อื่นต้องถูกคำนวณเป็น crypto cost
+- <mark class="changed-feature" data-updated-on="2026-09-29">ก่อนอ่าน portfolio state, `asset-consumer` materialize logical-ledger `AVAILABLE` + `INCREASE` ที่มี `ProductType = FIAT` ด้วย `average_cost = 1` และ `total_cost = 1`; จึงไม่ใช้ชื่อ symbol เป็นตัวตัดสินว่า USD หรือ fiat อื่นต้องถูกคำนวณเป็น crypto cost</mark>
 - Portfolio list path เก็บแถว fiat ที่มี `UnitBalance = 0` ไว้ได้ เพื่อให้ product/currency fiat ยังปรากฏในผลลัพธ์ ขณะที่ zero-balance asset ประเภทอื่นถูกกรองตาม path ที่ใช้ `WithoutZeroUnitBalance`
 
 ### 4. Return portfolio overview
@@ -89,7 +89,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 สำหรับ `GET /api/v2/trading/asset/customer/wallet/overview` และ `GET /api/v2/white-glove/asset/customer/wallet/overview/{identification_id}`, `asset-service` คืน fiat balance ตาม contract ของแต่ละ endpoint; `web-portal` ใช้ White Glove response แยกตาราง fiat ออกจาก crypto/digital-token portfolio และเปิด deposit/withdraw action เฉพาะแถว THB ใน client
 
-สำหรับ White Glove portfolio allocation overview, `GetTradingPortfolioOverview` อ่าน digital-asset portfolio แล้วเลือกเฉพาะ asset value ที่มี `ProductType = FIAT` และ allocation ไม่เป็นศูนย์ จากนั้นรวมสัดส่วน fiat ทุก currency เป็นแถวเดียวที่ `AssetGroupCode = FIAT` และ `AssetGroup = FIAT`; ไม่คืนแถวแยกตาม product code เช่น `THB` หรือ `USD` ใน overview นี้ สัดส่วน `Crypto` ถูกคำนวณเป็น `100 - total fiat - digital token` เมื่อมี crypto portfolio row ให้ปรับ และการอ่าน digital account/portfolio ที่เป็น optional ล้มเหลวจะ log แล้วคืน overview เดิมโดยไม่เติม fiat row แทนการใช้ THB fallback
+สำหรับ White Glove portfolio allocation overview, `GetTradingPortfolioOverview` อ่าน digital-asset portfolio แล้วเลือกเฉพาะ asset value ที่มี `ProductType = FIAT` และ allocation ไม่เป็นศูนย์ <mark class="changed-feature" data-updated-on="2026-09-27">จากนั้นรวมสัดส่วน fiat ทุก currency เป็นแถวเดียวที่ `AssetGroupCode = FIAT` และ `AssetGroup = FIAT`; ไม่คืนแถวแยกตาม product code เช่น `THB` หรือ `USD` ใน overview นี้ สัดส่วน `Crypto` ถูกคำนวณเป็น `100 - total fiat - digital token` เมื่อมี crypto portfolio row ให้ปรับ และการอ่าน digital account/portfolio ที่เป็น optional ล้มเหลวจะ log แล้วคืน overview เดิมโดยไม่เติม fiat row แทนการใช้ THB fallback</mark>
 
 ### 5. Select customers for monthly statement
 
@@ -97,7 +97,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 
 **Executing service: `asset-service`**
 
-`GET /api/v1/customer/rm-owner` query ลูกค้าที่เป็นเจ้าของโดย RM พร้อมค้นหาและ pagination โดย repository ปัจจุบันใช้ `status NOT IN ('rejected', 'onboarding')` และ response map `customer_status` ให้ client ทราบสถานะของแต่ละรายการ การค้นหาใช้ชื่อ/อีเมล/มือถือ, `xspring_customer_code` และ account code ใน `customer_account.xpg_account_code` หรือ `investment_account_code`
+`GET /api/v1/customer/rm-owner` query ลูกค้าที่เป็นเจ้าของโดย RM พร้อมค้นหาและ pagination โดย repository ปัจจุบันใช้ <mark class="changed-feature" data-updated-on="2026-10-02">`status NOT IN ('rejected', 'onboarding')` และ response map `customer_status` ให้ client ทราบสถานะของแต่ละรายการ</mark> การค้นหาใช้ชื่อ/อีเมล/มือถือ, `xspring_customer_code` และ <mark class="changed-feature" data-updated-on="2026-09-25">account code ใน `customer_account.xpg_account_code` หรือ `investment_account_code`</mark>
 
 **Executing client: `web-portal`**
 
@@ -121,7 +121,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 | `freeze` | อ่าน portfolio/account ได้ใน query ที่ตัดเฉพาะ `closed`; การแสดงผลไม่ปลดล็อก order operation ที่ backend block ไว้ | `customer-service` สำหรับ status; `asset-service` สำหรับ read; `order-service` สำหรับ order operation |
 | `closed` | ไม่ถูกเลือกใน account/portfolio query ที่ใช้ not-closed predicate; การปิดบัญชีต้องมียอดสินทรัพย์เป็น 0 | `customer-service` สำหรับ lifecycle; `asset-service` สำหรับ read filter |
 
-- RM customer-selection query ของ `asset-service` ตัด `rejected` และ `onboarding` แต่ยังคืน status อื่นที่ไม่ถูก exclude และส่ง `customer_status` กลับให้ client แสดงผล
+- <mark class="changed-feature" data-updated-on="2026-10-02">RM customer-selection query ของ `asset-service` ตัด `rejected` และ `onboarding` แต่ยังคืน status อื่นที่ไม่ถูก exclude และส่ง `customer_status` กลับให้ client แสดงผล</mark>
 - RM customer-selection query ค้นหาได้ด้วย `xspring_customer_code`, `xpg_account_code` และ `investment_account_code` ผ่าน account existence check; การค้นหา account code ไม่ได้เปลี่ยน owner ของ customer status
 - กฎ selection ข้างต้นไม่ควรถูกขยายเป็นกฎของทุก portfolio read หรือ monthly statement data query โดยไม่มี source ยืนยัน
 - Wallet fiat valuation ใช้ `NavPU` ปัจจุบันของ FX mark-to-market; THB balance ใช้ row ที่อ่านได้ก่อน fallback เป็น `1`; source รอบนี้ไม่ยืนยันการใช้ `OriginalNavPU` เป็น valuation สำหรับ trading หรือ White Glove wallet/portfolio

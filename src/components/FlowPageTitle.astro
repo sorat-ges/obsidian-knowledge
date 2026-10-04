@@ -8,8 +8,33 @@ const {
   aliases = [],
   errorCodes = [],
   status = "active",
+  lastUpdated,
 } = entry.data;
+const updatedOn =
+  lastUpdated instanceof Date
+    ? lastUpdated.toISOString().slice(0, 10)
+    : typeof lastUpdated === "string"
+      ? lastUpdated.slice(0, 10)
+      : undefined;
 ---
+
+<script>
+  import { isRecentlyUpdated } from "../utils/document-updates";
+
+  function updateRecentFeatureHighlights() {
+    document
+      .querySelectorAll<HTMLElement>("mark.changed-feature[data-updated-on]")
+      .forEach((element) => {
+        element.classList.toggle(
+          "is-recent",
+          isRecentlyUpdated(element.dataset.updatedOn),
+        );
+      });
+  }
+
+  updateRecentFeatureHighlights();
+  document.addEventListener("astro:page-load", updateRecentFeatureHighlights);
+</script>
 
 <h1 id="_top" data-pagefind-weight="10">{title}</h1>
 
@@ -60,7 +85,13 @@ const {
       <div class="metadata-group search-aliases">
         <dt>คำค้น</dt>
         <dd data-pagefind-weight="10" data-pagefind-meta="alias">
-          {aliases.join(", ")}
+          <details class="search-alias-disclosure">
+            <summary
+              aria-label={`แสดงหรือซ่อนคำค้นทั้งหมด ${aliases.length} รายการ`}
+              data-count={aliases.length}
+            ></summary>
+            <div class="search-alias-list">{aliases.join(", ")}</div>
+          </details>
         </dd>
       </div>
     )
@@ -92,6 +123,16 @@ const {
       {status}
     </dd>
   </div>
+  {
+    updatedOn && (
+      <div class="metadata-group">
+        <dt>อัปเดตล่าสุด</dt>
+        <dd>
+          <time datetime={`${updatedOn}T00:00:00Z`}>{updatedOn}</time>
+        </dd>
+      </div>
+    )
+  }
 </dl>
 
 <style>

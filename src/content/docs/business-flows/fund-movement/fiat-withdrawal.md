@@ -83,7 +83,7 @@ Current behavior ของ audit path คือ:
 - ถ้า lookup เพื่อ enrich audit ล้มเหลว ระบบคง error เดิมของ token/validation ไว้ ไม่เปลี่ยนให้ approval ผ่าน และการบันทึก audit เป็น best effort
 - Audit จะเริ่มด้วยผล `fail` และเปลี่ยนเป็น `success` หลัง decision สำเร็จและ confirmation token ถูกใช้แล้ว; metadata enrichment นี้ไม่เปลี่ยน state หรือ recovery ของ withdrawal เอง
 
-White Glove status inquiry `GET /api/v1/white-glove/order-fiat/{identification_id}/withdraw/status` แสดง `special_fee_approver_name` และ `special_fee_approver_email` เฉพาะเมื่อ order อยู่ `waiting-fee-approve`; ค่ามาจาก special-fee approver configuration และ field ที่ว่างจะถูกละจาก response. นี่เป็น read-only status display ไม่เปลี่ยน approval decision หรือ ledger
+<mark class="changed-feature" data-updated-on="2026-10-03">White Glove status inquiry `GET /api/v1/white-glove/order-fiat/{identification_id}/withdraw/status` แสดง `special_fee_approver_name` และ `special_fee_approver_email` เฉพาะเมื่อ order อยู่ `waiting-fee-approve`; ค่ามาจาก special-fee approver configuration และ field ที่ว่างจะถูกละจาก response. นี่เป็น read-only status display ไม่เปลี่ยน approval decision หรือ ledger</mark>
 
 ### 3. Confirm identity and submit
 

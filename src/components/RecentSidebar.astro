@@ -1,0 +1,86 @@
+---
+import { getCollection } from "astro:content";
+import MobileMenuFooter from "virtual:starlight/components/MobileMenuFooter";
+import SidebarPersister from "@astrojs/starlight/components/SidebarPersister.astro";
+import SidebarSublist from "@astrojs/starlight/components/SidebarSublist.astro";
+import {
+  documentDateOnly,
+  isRecentlyUpdated,
+  sidebarPathForDocumentId,
+} from "../utils/document-updates";
+
+const { sidebar } = Astro.locals.starlightRoute;
+const documents = await getCollection(
+  "docs",
+  ({ data }) => data.status !== "draft",
+);
+const updateDatesByPath = new Map(
+  documents.map(({ id, data }) => [
+    sidebarPathForDocumentId(id),
+    documentDateOnly(data.lastUpdated),
+  ] as const),
+);
+
+function normalizedPath(href: string): string {
+  const pathname = new URL(href, Astro.url).pathname;
+  return pathname.endsWith("/") ? pathname : `${pathname}/`;
+}
+
+function addRecentBadges(entries: typeof sidebar): typeof sidebar {
+  return entries.map((entry) => {
+    if (entry.type === "group") {
+      return { ...entry, entries: addRecentBadges(entry.entries) };
+    }
+
+    const updatedOn = updateDatesByPath.get(normalizedPath(entry.href));
+    if (!updatedOn) return entry;
+
+    return {
+      ...entry,
+      attrs: {
+        ...entry.attrs,
+        "data-document-last-updated": updatedOn,
+      },
+      ...(isRecentlyUpdated(updatedOn)
+        ? {
+            badge: {
+              text: "NEW",
+              variant: "tip",
+              class: "recent-update-badge",
+            },
+          }
+        : {}),
+    };
+  });
+}
+
+const sidebarWithRecentBadges = addRecentBadges(sidebar);
+---
+
+<SidebarPersister>
+  <SidebarSublist sublist={sidebarWithRecentBadges} />
+</SidebarPersister>
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>
+
+<script>
+  import { isRecentlyUpdated } from "../utils/document-updates";
+
+  function hideExpiredBadges() {
+    document
+      .querySelectorAll<HTMLElement>(
+        "a[data-document-last-updated] .recent-update-badge",
+      )
+      .forEach((badge) => {
+        const updatedOn = badge.parentElement?.getAttribute(
+          "data-document-last-updated",
+        );
+        badge.hidden = !isRecentlyUpdated(updatedOn);
+      });
+  }
+
+  hideExpiredBadges();
+  document.addEventListener("astro:page-load", hideExpiredBadges);
+</script>

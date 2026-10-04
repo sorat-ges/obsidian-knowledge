@@ -120,7 +120,7 @@ Apply movement เข้า source/destination portfolio และอัปเ�
 - Treasury-transfer selector ใช้เฉพาะ destination identification ที่มี active configuration จาก configured treasury source และไม่คืน source treasury account เอง
 - Read-path account filtering เป็นเพียง precondition ของ selector; create endpoint ต้อง revalidate pair และ product ทุกครั้ง
 - Standard Mode ใช้ average cost ของ source portfolio เมื่อไม่มี override
-- เมื่อ product response ถูกเรียกด้วย `order_type=transfer`, `order-service` จัด FIAT (`ProductTypeCode = 5002`) ไว้ก่อน แล้วเรียง AvailableUnitBalance มากไปน้อย และ Symbol ตามตัวอักษรเมื่อยอดเท่ากัน; order type อื่นใช้ sort มาตรฐานเดิม
+- <mark class="changed-feature" data-updated-on="2026-10-03">เมื่อ product response ถูกเรียกด้วย `order_type=transfer`, `order-service` จัด FIAT (`ProductTypeCode = 5002`) ไว้ก่อน แล้วเรียง AvailableUnitBalance มากไปน้อย และ Symbol ตามตัวอักษรเมื่อยอดเท่ากัน; order type อื่นใช้ sort มาตรฐานเดิม</mark>
 - ใน client ปัจจุบัน `product_type_code = 5002` (FIAT) ซ่อน cost input และใช้ cost `1`/`1.00` ตาม transfer endpoint; non-FIAT ใช้ต้นทุนที่ผู้ใช้กรอก
 - การแสดง cost ใน history เป็น presentation ของ `web-portal`: `THB`/`USD` ใช้ symbol ของ asset ส่วน symbol อื่น fallback เป็น `THB`; กฎนี้ไม่ใช่หลักฐานว่า backend คำนวณหรือเก็บ cost เป็นหน่วยเดียวกัน
 - Hold และ settle ต้องรักษา movement สองฝั่งให้สอดคล้องตาม [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)

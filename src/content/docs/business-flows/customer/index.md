@@ -12,7 +12,7 @@ documentType: flow
 Flow หลัก:
 
 - [Onboarding Status and Suitability](/business-flows/customer/onboarding-status-and-suitability/) — ติดตามขั้น onboarding, คำนวณ suitability สำหรับ Traditional/Digital และยืนยันเพื่อเดิน registration ต่อ
-- [Customer Bank Account Change and FundConnext Sync](/business-flows/customer/bank-account-change-and-fundconnext-sync/) — เปลี่ยนบัญชี SUB/RED, sync account/unitholder ไป FundConnext และอัปเดต read model ของ order-consumer
+- <mark class="changed-feature" data-updated-on="2026-10-02">[Customer Bank Account Change and FundConnext Sync](/business-flows/customer/bank-account-change-and-fundconnext-sync/) — เปลี่ยนบัญชี SUB/RED, sync account/unitholder ไป FundConnext และอัปเดต read model ของ order-consumer</mark>
 - [Onboarding Reminder Email](/business-flows/customer/onboarding-reminder-email/) — ส่งอีเมลเตือน draft onboarding และแจ้ง IT เมื่อส่งรายใดล้มเหลว
 - [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/) — เจ้าหน้าที่ส่ง application กลับให้ลูกค้าถ่ายบัตรใหม่, เทียบข้อมูล DOPA และส่งกลับเข้า review
 - [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) — คำนวณวันหมดอายุจากบัตรประชาชน, CDD และ suitability ก่อนระงับลูกค้า รวมถึง rejection ที่ทำให้ existing/re-KYC account เป็น `freeze`

@@ -229,7 +229,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - Backend claim เป็นแหล่ง `identification_id`; request ไม่เลือก customer เอง
 - Step completion ต้องมี required sub-status ครบ ไม่ใช่ดูเฉพาะ current status
 - เมื่อเจ้าหน้าที่ request retake ระบบสร้าง completed history สำหรับ personal/address/work/background/suitability/bank ของ flow ที่เลือก แล้วตั้ง current step กลับไป `identity-verification/front-card-scan`
-- Complete-draft retake ใช้ `RetakeWatchlistTypes` ซึ่งไม่รวม `maximum_age`; field นี้คำนวณได้ผ่าน explicit KYC approval `refresh_watchlist` ตาม check set ที่ request ส่ง
+- <mark class="changed-feature" data-updated-on="2026-10-03">Complete-draft retake ใช้ `RetakeWatchlistTypes` ซึ่งไม่รวม `maximum_age`; field นี้คำนวณได้ผ่าน explicit KYC approval `refresh_watchlist` ตาม check set ที่ request ส่ง</mark>
 - Application type `re-kyc` ใช้ `retake-re-kyc` ตอนเริ่ม retake; application type อื่นใช้ `retake`
 - Default bank account ที่ไม่มีชื่อเปลี่ยนทำให้ status response ไม่แสดง bank-account step; ถ้าชื่อบัญชีเปลี่ยน (`name_changed`) bank-account step ยัง required แม้มี default account
 - Bank grace-period acceptance เป็น transaction ของ `onboarding-service` ที่บันทึก acceptance และสร้าง bank-account history ก่อนเดิน registration ต่อ; mobile เป็นเพียง client trigger

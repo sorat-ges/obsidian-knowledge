@@ -19,7 +19,7 @@ documentType: flow
 
 **Owner service: `order-service`**
 
-หลัง trade fill, producer จะส่ง hedge event เมื่อเปิด `FEATURE_PRODUCE_FX_MOVEMENT_HEDGE_TRANSACTION`, มี exchange อย่างน้อยหนึ่งรายการ, customer quote currency ไม่ใช่ USD และ exchange รายการแรกเป็น USD pair. การไม่ผ่านข้อใดข้อหนึ่งจะไม่ส่ง `order-hedge-transaction`.
+<mark class="changed-feature" data-updated-on="2026-10-03">หลัง trade fill, producer จะส่ง hedge event เมื่อเปิด `FEATURE_PRODUCE_FX_MOVEMENT_HEDGE_TRANSACTION`, มี exchange อย่างน้อยหนึ่งรายการ, customer quote currency ไม่ใช่ USD และ exchange รายการแรกเป็น USD pair. การไม่ผ่านข้อใดข้อหนึ่งจะไม่ส่ง `order-hedge-transaction`.</mark>
 
 ## Participating services
 
@@ -38,7 +38,7 @@ documentType: flow
 
 **Executing service: `order-service`**
 
-เมื่อเงื่อนไขใน Trigger ผ่าน producer ส่ง transaction ID และ activity ของ exchange รายการแรกไป Kafka topic `order-hedge-transaction`. การ publish failure ถูก log หลัง trade flow ทำงานต่อ; ไม่ยืนยันว่ามี hedge movement ถูกสร้างจาก event นั้น.
+<mark class="changed-feature" data-updated-on="2026-10-03">เมื่อเงื่อนไขใน Trigger ผ่าน producer ส่ง transaction ID และ activity ของ exchange รายการแรกไป Kafka topic `order-hedge-transaction`. การ publish failure ถูก log หลัง trade flow ทำงานต่อ; ไม่ยืนยันว่ามี hedge movement ถูกสร้างจาก event นั้น.</mark>
 
 ### 2. Forward the movement request
 
@@ -65,10 +65,10 @@ Weighted Average Cost ใช้เมื่อ position ขยายในทิ
 
 **Owner service: `order-service`**
 
-- Customer-triggered activity ใช้ `FxMovementAutoHedgeThreshold`.
-- Scheduled hedge ใช้ `FxMovementScheduleHedgeThreshold`.
-- ทั้งสอง path เปรียบเทียบค่าสัมบูรณ์ของ `OsBalance`; ถ้ายังต่ำกว่า threshold จะเก็บ movement แล้วจบโดยไม่ส่ง hedge.
-- เมื่อ `abs(OsBalance)` เท่ากับหรือมากกว่า threshold จะเดินต่อไปประเมิน hedge.
+- <mark class="changed-feature" data-updated-on="2026-10-03">Customer-triggered activity ใช้ `FxMovementAutoHedgeThreshold`.</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">Scheduled hedge ใช้ `FxMovementScheduleHedgeThreshold`.</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">ทั้งสอง path เปรียบเทียบค่าสัมบูรณ์ของ `OsBalance`; ถ้ายังต่ำกว่า threshold จะเก็บ movement แล้วจบโดยไม่ส่ง hedge.</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">เมื่อ `abs(OsBalance)` เท่ากับหรือมากกว่า threshold จะเดินต่อไปประเมิน hedge.</mark>
 
 ### 5. Send hedge instruction
 
@@ -85,14 +85,14 @@ FX transaction ถูกบันทึกใน `order_fx_transaction`; movemen
 
 **Owner service: `order-service`**
 
-`GET /api/v1/fx-management/information` เป็น read-only dashboard endpoint ที่ต้องใช้ `PortalClaims` และรับปีตั้งแต่ 2025 เป็นต้นไป. FX mark-to-market response map `Buy` จาก `OriginalNavBuy` และ `Sell` จาก `OriginalNavPU`; implementation ไม่ได้ใช้ `OriginalNavSell` สำหรับ field `Sell` นี้.
+<mark class="changed-feature" data-updated-on="2026-10-03">`GET /api/v1/fx-management/information` เป็น read-only dashboard endpoint ที่ต้องใช้ `PortalClaims` และรับปีตั้งแต่ 2025 เป็นต้นไป. FX mark-to-market response map `Buy` จาก `OriginalNavBuy` และ `Sell` จาก `OriginalNavPU`; implementation ไม่ได้ใช้ `OriginalNavSell` สำหรับ field `Sell` นี้.</mark>
 
 ## Business rules
 
-- Event producer guard ต้องผ่านทุกเงื่อนไขก่อน publish; การเป็น USD pair อย่างเดียวไม่พอ.
-- Customer-triggered และ scheduled path ใช้คนละ threshold configuration.
-- `OsBalance` ใช้ absolute value ตัดสิน threshold; direction ของคำสั่ง hedge ใช้ sign ของ balance.
-- `GET /api/v1/fx-management/information` แสดง `Sell = OriginalNavPU` ตาม current mapping.
+- <mark class="changed-feature" data-updated-on="2026-10-03">Event producer guard ต้องผ่านทุกเงื่อนไขก่อน publish; การเป็น USD pair อย่างเดียวไม่พอ.</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">Customer-triggered และ scheduled path ใช้คนละ threshold configuration.</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">`OsBalance` ใช้ absolute value ตัดสิน threshold; direction ของคำสั่ง hedge ใช้ sign ของ balance.</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">`GET /api/v1/fx-management/information` แสดง `Sell = OriginalNavPU` ตาม current mapping.</mark>
 
 ## State transitions
 

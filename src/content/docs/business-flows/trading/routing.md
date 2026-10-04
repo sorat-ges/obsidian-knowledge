@@ -85,7 +85,7 @@ Flow นี้ไม่ใช่ execution engine และไม่รับป
 3. ถ้าไม่มี valid `mixed` ให้เลือก candidate ตัวแรกตามลำดับ net amount ที่ `HasOrder=true` และ Full Match
 4. ย้าย candidate ที่เลือกมาไว้ลำดับแรก
 
-ดังนั้น “best route” หมายถึง valid `mixed` ก่อน แล้วจึงใช้ net amount สูงสุดในกลุ่ม valid non-mixed ไม่ใช่เลือก rate สูงสุดหรือต่ำสุดโดยตรง ถ้าไม่มี Full Match candidate ระบบยังคืน route ตาม fallback ของ channel โดยไม่มี best marker; candidate ที่เป็น partial จึงไม่ใช่ route ที่พร้อม submit และไม่ได้กลายเป็น best route
+ดังนั้น “best route” หมายถึง valid `mixed` ก่อน แล้วจึงใช้ net amount สูงสุดในกลุ่ม valid non-mixed ไม่ใช่เลือก rate สูงสุดหรือต่ำสุดโดยตรง <mark class="changed-feature" data-updated-on="2026-10-03">ถ้าไม่มี Full Match candidate ระบบยังคืน route ตาม fallback ของ channel โดยไม่มี best marker; candidate ที่เป็น partial จึงไม่ใช่ route ที่พร้อม submit และไม่ได้กลายเป็น best route</mark>
 
 ### 5. Apply channel visibility
 
@@ -105,7 +105,7 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 - Trading Web ใช้ route ที่ `isBestRoute=true` หรือ fallback เป็นรายการแรก และ refresh เมื่อ countdown หมด
 - Mobile App ให้ valid `mixed` มาก่อน, พยายามคง route ที่ผู้ใช้เลือกไว้ถ้ายัง available, จากนั้นจึงใช้ best route; auto refresh สามารถกลับไปเลือก best route
-- Mobile App จัด route ที่ไม่มี order หรือไม่เป็น full match เป็น unavailable และไม่ auto-select; ถ้า route ที่เลือกอยู่ไม่ผ่านจะแสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap
+- <mark class="changed-feature" data-updated-on="2026-10-03">Mobile App จัด route ที่ไม่มี order หรือไม่เป็น full match เป็น unavailable และไม่ auto-select; ถ้า route ที่เลือกอยู่ไม่ผ่านจะแสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap</mark>
 - `web-portal` White Glove เริ่มจาก route แรก, คง route เดิมเมื่อชื่อยังอยู่ใน inquiry response และให้ RM เลือกผ่าน route selection; เมื่อมี Dealer Execute permission จะแสดง `exchange_fee_amount`
 - Clients ส่ง `route`, `price`, estimated receive และ fee จาก quote กลับมาใน create request; White Glove เพิ่ม `exchange_fee_rate` และ `exchange_fee_amount`
 
@@ -117,7 +117,7 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 1. ถ้าไม่พบชื่อ route: `no route for <route>`; `Route` เป็น optional ใน request แต่เมื่อไม่ส่งและไม่มี route ตรงกัน current path อาจ dereference nil; ยังไม่มี error contract ที่ยืนยันได้สำหรับกรณีนี้
 2. ถ้าไม่ใช่ `mixed` และ liquidity เป็น 0: `insufficient liquidity`
-3. `HasOrder=false` หรือ `MatchResult().IsFullMatched()` เป็น false คืน `insufficient order book`; Partial Match และ no match จึงไม่ผ่าน
+3. <mark class="changed-feature" data-updated-on="2026-10-03">`HasOrder=false` หรือ `MatchResult().IsFullMatched()` เป็น false คืน `insufficient order book`; Partial Match และ no match จึงไม่ผ่าน</mark>
 4. ถ้าผ่าน: อนุญาตให้สร้าง order
 
 ขั้นนี้ตรวจ availability เท่านั้น ไม่ได้คืน quote ใหม่และไม่ได้ overwrite `price`, estimated receive หรือ fee ใน create payload
@@ -126,8 +126,8 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 - Route ranking ใช้ net amount หลัง fee ไม่ใช่ rate อย่างเดียว
 - Valid `mixed` มี priority สูงกว่า valid single route โดยไม่คำนึงถึง net-amount rank
-- `mixed` ข้าม liquidity-zero check ตอน submit แต่ยังต้องมี `HasOrder=true` และ full match
-- Standard non-bulk Market path รับ route เฉพาะเมื่อมี order และ full match; Limit และ bulk trade ออกจาก `CanSwap` ก่อนเรียก `checkRoute`
+- <mark class="changed-feature" data-updated-on="2026-10-03">`mixed` ข้าม liquidity-zero check ตอน submit แต่ยังต้องมี `HasOrder=true` และ full match</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">Standard non-bulk Market path รับ route เฉพาะเมื่อมี order และ full match; Limit และ bulk trade ออกจาก `CanSwap` ก่อนเรียก `checkRoute`</mark>
 - Retail visibility ถูกลดเหลือหนึ่ง routeที่ backend; Dealer visibility ได้หลาย routeแต่ไม่มี `IsBestRoute` marker
 - Minimum failure คืน response สำเร็จที่มี route ว่าง ไม่ใช่ `90006`
 - `90006` หมายถึง Remarketer ไม่มี source candidates ใน Trading/White Glove handler ไม่ได้ครอบคลุมทุกกรณีที่ candidate ใช้งานไม่ได้
@@ -156,10 +156,10 @@ inquiry received
 | `90000` | maintenance validation | หยุด inquiry/submit และ refresh maintenance state |
 | `90004` | create validation พบ amount ต่ำกว่าขั้นต่ำ | ใช้ minimum จาก inquiry แล้วขอ route ใหม่ |
 | `90006` | Trading/White Glove inquiry ได้ `no sources available` | แสดง no available route และ retry inquiry |
-| `90002` | หลังผ่าน liquidity check แล้ว create-time route recheck พบ no order หรือ match ไม่ใช่ full match | refresh inquiry และส่งใหม่เมื่อ route มี full match |
+| `90002` | <mark class="changed-feature" data-updated-on="2026-10-03">หลังผ่าน liquidity check แล้ว create-time route recheck พบ no order หรือ match ไม่ใช่ full match</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">refresh inquiry และส่งใหม่เมื่อ route มี full match</mark> |
 | `90003` | create-time route recheck พบ liquidity เป็น 0 | refresh inquiry หรือรอ liquidity |
 | `no fee rate available` | ไม่มี fee configuration ที่ตรง candidate | candidate calculation ล้มเหลว; ต้องแก้ fee configuration ไม่ใช่บังคับเลือก route |
-| `no route for <route>` | ไม่พบชื่อ route ในผล re-query; omitted `Route` อาจเข้าทาง nil dereference จึงไม่มี stable error contract ที่ยืนยันได้ | ขอ quote ใหม่; กรณี omitted `Route` ต้องยืนยัน error behavior กับเจ้าของระบบ |
+| `no route for <route>` | <mark class="changed-feature" data-updated-on="2026-10-03">ไม่พบชื่อ route ในผล re-query; omitted `Route` อาจเข้าทาง nil dereference จึงไม่มี stable error contract ที่ยืนยันได้</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">ขอ quote ใหม่; กรณี omitted `Route` ต้องยืนยัน error behavior กับเจ้าของระบบ</mark> |
 
 Frontend ควร treat quote หมดอายุหรือ create failure เป็นเหตุให้ refresh route ไม่ควร submit ซ้ำด้วย payload เดิมโดยอัตโนมัติ
 
@@ -170,7 +170,7 @@ Frontend ควร treat quote หมดอายุหรือ create failure 
 - Minimum ไม่ผ่าน: ได้ routes ว่างพร้อมค่าขั้นต่ำ
 - ไม่มี source หรือคำนวณ route ไม่ได้: inquiry ล้มเหลวและไม่มี order ถูกสร้าง
 - Create-time revalidation ผ่าน: selected route ถูก persist และ flow ส่งต่อไป asynchronous execution
-- Mobile App จัด route ที่ไม่มี order หรือไม่ใช่ full match เป็น unavailable; ถ้า route ที่เลือกไม่ผ่านจะแสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap
+- <mark class="changed-feature" data-updated-on="2026-10-03">Mobile App จัด route ที่ไม่มี order หรือไม่ใช่ full match เป็น unavailable; ถ้า route ที่เลือกไม่ผ่านจะแสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap</mark>
 
 ## Related shared rules
 

@@ -38,10 +38,10 @@ documentType: shared-rule
 
 ## ต้นทุน Swap BUY ที่ quote เป็น USD
 
-- `order-service` แนบ `rate_symbol_pair` ที่เป็นบวกกับ Swap BUY fill เมื่อ quote เป็น USD; THB quote ไม่ส่ง rate field นี้
-- `asset-consumer` หา USD `HOLD_IN_ORDER / DECREASE` ที่ตรง customer account, order และ batch เดียวกัน แล้วคูณ amount ด้วย `rate_symbol_pair` เพื่อคำนวณ cost
-- ถ้าไม่พบ cost movement ที่ตรงเงื่อนไข consumer ใช้ผลรวม THB `xd_main` available increase กับ THB `xd_fee` order-fee increase เป็น fallback
-- USD cost ที่มี rate จะถูกแปลงเป็น local-currency cost ก่อนรวม `TotalCost`/`AverageCost` ใน portfolio
+- <mark class="changed-feature" data-updated-on="2026-10-03">`order-service` แนบ `rate_symbol_pair` ที่เป็นบวกกับ Swap BUY fill เมื่อ quote เป็น USD; THB quote ไม่ส่ง rate field นี้</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">`asset-consumer` หา USD `HOLD_IN_ORDER / DECREASE` ที่ตรง customer account, order และ batch เดียวกัน แล้วคูณ amount ด้วย `rate_symbol_pair` เพื่อคำนวณ cost</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">ถ้าไม่พบ cost movement ที่ตรงเงื่อนไข consumer ใช้ผลรวม THB `xd_main` available increase กับ THB `xd_fee` order-fee increase เป็น fallback</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-03">USD cost ที่มี rate จะถูกแปลงเป็น local-currency cost ก่อนรวม `TotalCost`/`AverageCost` ใน portfolio</mark>
 
 ## กฎ Financial Integrity
 

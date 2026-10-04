@@ -16,9 +16,9 @@ documentType: flow
 | :--- | :--- | :--- |
 | [Payment Request and Bank Transfer](/business-flows/payment/payment-request-and-transfer/) | ระบบต้นทางเรียก `POST /api/v1/payment` เพื่อสร้างรายการ `IMBANK` | `payment-gateway` (umbrella), `payment-core-service`, `payment-adaptor-service-scb` |
 | [Payment Inquiry and Callback](/business-flows/payment/payment-inquiry-and-callback/) | inquiry worker consume Payment Request หรือ Payment Transaction event | `payment-gateway` (umbrella), `payment-inquiry-service` |
-| [Customer Payment Receipt Report](/business-flows/payment/customer-payment-receipt-report/) | พนักงานเลือก offering project และช่วงวันที่เพื่อ preview/download รายงาน Excel | `order-service`, `web-portal` |
+| <mark class="changed-feature" data-updated-on="2026-09-20">[Customer Payment Receipt Report](/business-flows/payment/customer-payment-receipt-report/)</mark> | <mark class="changed-feature" data-updated-on="2026-09-20">พนักงานเลือก offering project และช่วงวันที่เพื่อ preview/download รายงาน Excel</mark> | `order-service`, `web-portal` |
 
-Payment Request และ Payment Inquiry ต่อกันผ่าน Kafka: core publish request, SCB adapter publish transaction result และ inquiry worker รวมสถานะก่อน callback กลับระบบต้นทาง โดยชื่อ adapter/worker ใช้ระบุ ownership ภายใน Flow ไม่ได้แยกเป็นโครงสร้าง navigation ส่วน Customer Payment Receipt Report เป็น read/report path แยกจาก settlement และ callback
+Payment Request และ Payment Inquiry ต่อกันผ่าน Kafka: core publish request, SCB adapter publish transaction result และ inquiry worker รวมสถานะก่อน callback กลับระบบต้นทาง โดยชื่อ adapter/worker ใช้ระบุ ownership ภายใน Flow ไม่ได้แยกเป็นโครงสร้าง navigation <mark class="changed-feature" data-updated-on="2026-09-20">ส่วน Customer Payment Receipt Report เป็น read/report path แยกจาก settlement และ callback</mark>
 
 ## Context ที่เกี่ยวข้อง
 

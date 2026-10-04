@@ -53,7 +53,7 @@ Mobile เรียก `POST /api/v1/customer/bank-account-setting` ด้วย
 
 **Executing service: `onboarding-service`**
 
-`RequestBankChangeSetting` อ่าน before/after lists จาก change-request log แล้วบันทึก investment-bank-account links และ default bank-account values ใน database transaction ก่อนส่ง account update ไป `FundConnext`. จากนั้นตั้ง application เป็น `single-form-sync` พร้อม action `proceed`
+<mark class="changed-feature" data-updated-on="2026-10-02">`RequestBankChangeSetting` อ่าน before/after lists จาก change-request log แล้วบันทึก investment-bank-account links และ default bank-account values ใน database transaction ก่อนส่ง account update ไป `FundConnext`. จากนั้นตั้ง application เป็น `single-form-sync` พร้อม action `proceed`</mark>
 
 ### 3. Update FundConnext accounts and amendment form
 
@@ -71,7 +71,7 @@ Mobile เรียก `POST /api/v1/customer/bank-account-setting` ด้วย
 
 **Executing service: `onboarding-service` เรียก `FundConnext`**
 
-เมื่อ account-update flags ของทุกรายการไม่ค้าง ระบบหา `customer_account_unitholder` ที่เกี่ยวข้องกับ customer accounts แล้วเลือกเฉพาะ active SEG records ที่ไม่อยู่ใน excluded unitholder list. สำหรับแต่ละ record ระบบอ่าน active customer account, investment bank accounts และ active customer bank accounts แล้วสร้าง request ที่มีข้อมูล SUB/RED, default flags, account code, AMC code และ `approved = true`
+<mark class="changed-feature" data-updated-on="2026-10-02">เมื่อ account-update flags ของทุกรายการไม่ค้าง ระบบหา `customer_account_unitholder` ที่เกี่ยวข้องกับ customer accounts แล้วเลือกเฉพาะ active SEG records ที่ไม่อยู่ใน excluded unitholder list. สำหรับแต่ละ record ระบบอ่าน active customer account, investment bank accounts และ active customer bank accounts แล้วสร้าง request ที่มีข้อมูล SUB/RED, default flags, account code, AMC code และ `approved = true`</mark>
 
 `onboarding-service` ส่ง `PUT /api/customer/unitholders` ไป `FundConnext`, บันทึก request/response log และ audit result ต่อ unitholder; failure เก็บ `is_upload_unitholder` และ `error_upload_unitholder`
 
@@ -81,7 +81,7 @@ Mobile เรียก `POST /api/v1/customer/bank-account-setting` ด้วย
 
 **Executing service: `onboarding-service`**
 
-เมื่อ account-update gate ผ่านและ unitholder sync ไม่คืน error ระบบเปลี่ยน application เป็น `completed` ด้วย action `synced-fcn`, ส่ง customer capture เป็น `EndFlow` แล้วเปรียบเทียบข้อมูล investment bank account ปัจจุบันกับข้อมูลก่อนหน้า หากมีข้อมูลเปลี่ยนจะ publish Kafka event `UpdateInvestmentBankAccount` ไป `TopicCustomerToOrder`
+<mark class="changed-feature" data-updated-on="2026-10-02">เมื่อ account-update gate ผ่านและ unitholder sync ไม่คืน error ระบบเปลี่ยน application เป็น `completed` ด้วย action `synced-fcn`, ส่ง customer capture เป็น `EndFlow` แล้วเปรียบเทียบข้อมูล investment bank account ปัจจุบันกับข้อมูลก่อนหน้า หากมีข้อมูลเปลี่ยนจะ publish Kafka event `UpdateInvestmentBankAccount` ไป `TopicCustomerToOrder`</mark>
 
 ### 6. Materialize the order-consumer read model
 
@@ -89,7 +89,7 @@ Mobile เรียก `POST /api/v1/customer/bank-account-setting` ด้วย
 
 **Executing service: `order-consumer`**
 
-`order-consumer` dispatch `UpdateInvestmentBankAccount`, อ่าน customer accounts จาก message แล้ว upsert investment-bank-account rows ภายใน database transaction. ขั้นนี้อัปเดต read model ของ order domain; source นี้ไม่แสดง ledger หรือ balance movement
+<mark class="changed-feature" data-updated-on="2026-10-02">`order-consumer` dispatch `UpdateInvestmentBankAccount`, อ่าน customer accounts จาก message แล้ว upsert investment-bank-account rows ภายใน database transaction. ขั้นนี้อัปเดต read model ของ order domain; source นี้ไม่แสดง ledger หรือ balance movement</mark>
 
 ### 7. Retry failed FundConnext work
 
@@ -103,11 +103,11 @@ Service endpoint `POST /api/v1/customer/unitholders/bank-account` เป็น�
 
 ## Business rules
 
-- Local bank-account defaults และ investment-bank-account links ถูก persist ก่อน external FundConnext calls
+- <mark class="changed-feature" data-updated-on="2026-10-02">Local bank-account defaults และ investment-bank-account links ถูก persist ก่อน external FundConnext calls</mark>
 - Account updates และ amendment forms ถูกบันทึกเป็นคนละ pending flag; amendment form ถูกส่งเมื่อเป็น new redemption investment-bank account
 - Unitholder payload รวม active SUB/RED investment bank accounts ที่เชื่อมกับ active customer bank accounts และตั้ง `approved = true`
 - Direct unitholder-sync endpoint เลือกเฉพาะ active SEG records ที่ผ่าน excluded-unitholder filter; ถ้าไม่พบ active records service คืน success โดยไม่มี sync request
-- `UpdateInvestmentBankAccount` ใช้เมื่อ `CompareDataInvestmentBankAccount` พบข้อมูลเปลี่ยน; `order-consumer` เป็น executor ของ read-model upsert ไม่ใช่ business owner ของ bank-account change
+- <mark class="changed-feature" data-updated-on="2026-10-02">`UpdateInvestmentBankAccount` ใช้เมื่อ `CompareDataInvestmentBankAccount` พบข้อมูลเปลี่ยน; `order-consumer` เป็น executor ของ read-model upsert ไม่ใช่ business owner ของ bank-account change</mark>
 - Bank-account setting ไม่มี ledger หรือ balance effect ที่ source นี้ยืนยัน
 
 ## State transitions

@@ -2,7 +2,7 @@
 title: Maintaining Documentation
 description: โครงสร้างและกติกาสำหรับเพิ่มหรือแก้เอกสารใน Gus Knowledge
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-10-03
 documentType: developer-guide
 ---
 
@@ -22,6 +22,18 @@ Implementation plan และเอกสารสำหรับ AI ต้อ�
 ## Frontmatter ที่ต้องมี
 
 ทุกหน้าต้องมี `title`, `description`, `status`, `lastUpdated` และ `documentType` โดย `status` ใช้ได้เฉพาะ `draft`, `active` หรือ `deprecated` และ `lastUpdated` ใช้รูปแบบ `YYYY-MM-DD`
+
+## วันที่อัปเดตและป้าย NEW
+
+- ตั้ง `lastUpdated` เป็นวันที่ตามเวลา `Asia/Bangkok` ที่แก้เนื้อหาหน้านั้นจริง โดยใช้ `YYYY-MM-DD`
+- อัปเดตวันที่เมื่อแก้หรือยืนยันข้อมูลที่หน้าเผยแพร่ เช่น Business Rule, ลำดับ Flow, State, Error, Service ownership, Alias หรือลิงก์ที่เกี่ยวข้อง
+- ไม่เปลี่ยน `lastUpdated` เมื่อ source code เปลี่ยนแต่เอกสารไม่เปลี่ยน หรือเมื่อแก้เฉพาะรูปแบบที่ไม่กระทบเนื้อหา
+- แสดงวันที่ `lastUpdated` ใต้ชื่อหน้าเพื่อให้ผู้อ่านเห็นว่าเนื้อหาอัปเดตเมื่อใด
+- เมนูแสดงป้าย `NEW` เมื่อวันที่ `lastUpdated` อยู่ระหว่างวันนี้ย้อนหลังไม่เกิน 14 วันปฏิทิน (นับรวมวันที่ 14); วันที่ในอนาคตไม่แสดงป้าย
+- ระบบคำนวณอายุป้ายตามวันที่ `Asia/Bangkok` และซ่อนป้ายเมื่อพ้นช่วง 14 วัน
+- ครอบข้อความเฉพาะ feature หรือ business behavior ที่เปลี่ยนด้วย `<mark class="changed-feature" data-updated-on="YYYY-MM-DD">...</mark>` โดยใส่วันที่ที่เปลี่ยนจริงเป็นวันที่ `Asia/Bangkok`; สี highlight จะแสดงในช่วง 14 วันเดียวกับป้าย `NEW` และจะไม่แสดงอีกหลังหมดช่วง แม้ markup จะยังอยู่ในเอกสาร
+- ใช้ highlight กับข้อความที่เปลี่ยนจริงเท่านั้น ไม่ครอบทั้งหน้า และใส่วันที่ใหม่เฉพาะข้อความที่เปลี่ยนในรอบนั้น เพื่อไม่ให้ข้อความเก่ากลับมา highlight เมื่อมีการแก้หน้าในอนาคต
+- อัปเดต `lastUpdated` เฉพาะหน้าที่แก้จริง ไม่เลื่อนวันที่ของหน้าอื่นเพื่อให้ได้ป้าย `NEW`
 
 หน้า Business Flow ต้องมีเพิ่ม:
 

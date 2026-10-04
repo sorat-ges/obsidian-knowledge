@@ -70,7 +70,7 @@ Agreement list เริ่มด้วย `FactSheet`, เพิ่ม `HigherR
 
 **Executing service: `xspring-mobile-app` สำหรับการแสดงผลและสร้าง payload; `order-service` สำหรับรับและบันทึก acknowledgement ใน create-order path**
 
-ใน confirmation sheet ของ buy, mobile map ทุก key ใน `agreementList` เป็น bullet ตามลำดับที่ backend ส่ง; ใน sell mobile แสดง `FactSheet`, estimated NAV, amount-change risk และเพิ่ม FX/complexity risk เมื่อ key นั้นอยู่ใน response โดยไม่แสดง `HigherRiskLevel` ในชุด sell นี้. Link ของ factsheet เปิด PDF เมื่อมี URL และแสดง `Fund Fact Sheet Not Found` เมื่อ URL ว่าง
+<mark class="changed-feature" data-updated-on="2026-09-19">ใน confirmation sheet ของ buy, mobile map ทุก key ใน `agreementList` เป็น bullet ตามลำดับที่ backend ส่ง; ใน sell mobile แสดง `FactSheet`, estimated NAV, amount-change risk และเพิ่ม FX/complexity risk เมื่อ key นั้นอยู่ใน response โดยไม่แสดง `HigherRiskLevel` ในชุด sell นี้. Link ของ factsheet เปิด PDF เมื่อมี URL และแสดง `Fund Fact Sheet Not Found` เมื่อ URL ว่าง</mark>
 
 เมื่อผู้ใช้กดยืนยัน mobile สร้าง `acceptAcknowledge` จาก `agreementList` และ order type แล้วส่งไป create-order endpoint; `order-service` เป็นผู้รับผิดชอบ backend validation/override behavior และการบันทึก audit fields ต่อไป
 
@@ -83,8 +83,8 @@ Agreement list เริ่มด้วย `FactSheet`, เพิ่ม `HigherR
 - `risk_detail.is_show_risk_detail` เป็น `true` เฉพาะ complex product และ `is_required_knowledge_assessment` เป็น `true` เมื่อไม่พบ customer traditional knowledge
 - `minimum_sell_amount_validation` และ `minimum_sell_unit_validation` ใช้ค่าจาก mark-to-market เมื่อค่าดังกล่าวมากกว่าศูนย์; ค่าอื่นมาจาก product extension
 - Agreement/risk flags เป็น display/preparation contract; final order validation, cutoff, account status และ ledger effect อยู่ใน flow create order ของ backend
-- สำหรับ buy, mobile แสดงหนึ่ง bullet ต่อหนึ่ง key ที่ backend ส่ง รวมถึง `AMT_CHANGE_RISK` หาก key นี้ปรากฏจริง; current `order-service` agreement builder ที่ตรวจพบยังสร้างเฉพาะ `FactSheet`, risk keys และ `DefaultAgreement`
-- สำหรับ sell, mobile แสดง factsheet, estimated NAV และ amount-change risk เป็นชุดคงที่ และเพิ่มเฉพาะ FX/complexity ตาม `agreementList`; `HigherRiskLevel` ไม่ถูกนำมาแสดงในชุดนี้
+- <mark class="changed-feature" data-updated-on="2026-09-19">สำหรับ buy, mobile แสดงหนึ่ง bullet ต่อหนึ่ง key ที่ backend ส่ง รวมถึง `AMT_CHANGE_RISK` หาก key นี้ปรากฏจริง; current `order-service` agreement builder ที่ตรวจพบยังสร้างเฉพาะ `FactSheet`, risk keys และ `DefaultAgreement`</mark>
+- <mark class="changed-feature" data-updated-on="2026-09-19">สำหรับ sell, mobile แสดง factsheet, estimated NAV และ amount-change risk เป็นชุดคงที่ และเพิ่มเฉพาะ FX/complexity ตาม `agreementList`; `HigherRiskLevel` ไม่ถูกนำมาแสดงในชุดนี้</mark>
 - การเปิด factsheet เป็น user-visible action ของ mobile; หาก URL ว่างจะแสดง not-found dialog และไม่เปลี่ยน order/payment/ledger state
 
 ## State transitions

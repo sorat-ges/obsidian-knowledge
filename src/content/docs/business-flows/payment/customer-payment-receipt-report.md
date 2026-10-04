@@ -57,7 +57,7 @@ documentType: flow
 1. Client เรียก `/api/report/customer_payment_receipt_report/preview` พร้อม `project_id`, `date_from`, `date_to` และ `page`
 2. BFF proxy ไป `GET /api/v1/report/preview/{report_type}`
 3. `order-service` เรียก `GetDataOrderOfferingTransaction` โดยปรับ `date_to` ให้ครอบคลุมวันสุดท้ายใน query และใช้ Asia/Bangkok เป็นขอบเขตวัน
-4. Repository query เรียง offering orders ตาม `order_date` แล้ว `id`; เมื่อ `page > 0` จำกัด 10 order requests ต่อหน้า
+4. Repository query เรียง offering orders ตาม `order_date` แล้ว `id`; <mark class="changed-feature" data-updated-on="2026-09-20">เมื่อ `page > 0` จำกัด 10 order requests ต่อหน้า</mark>
 5. Service โหลด order details และ payment details, group รายการตาม `OrderID`, สร้าง preview row และสร้าง header ของ product symbols ที่ไม่ซ้ำจากข้อมูลที่อ่านได้
 6. Client แสดง preview และเปลี่ยน page เพื่อ query หน้าถัดไป
 
@@ -69,15 +69,15 @@ documentType: flow
 
 1. Client ส่ง `POST /api/report/customer_payment_receipt_report/download` พร้อม report type, project และ date range
 2. BFF ส่งต่อไป `POST /api/v1/report/payment-receipt/generate`
-3. Download path เรียก report query โดยไม่ส่ง `Page` ทำให้ repository ไม่ใส่ `LIMIT/OFFSET` และอ่านรายการตาม filter ทั้งชุด
-4. `GenerateReportCustomerPaymentReceiptData` ใช้ header product symbol เป็นลำดับคอลัมน์ แล้ว map แต่ละ row ด้วย `ProductSymbol` แทนการอาศัยตำแหน่งใน array; product ที่ไม่มีใน row นั้นเว้น cell ว่าง
-5. จำนวนคอลัมน์ token/value และตำแหน่ง money total formula คำนวณตามจำนวน product ใน header จริง ไม่ใช้จำนวนคงที่
+3. <mark class="changed-feature" data-updated-on="2026-09-20">Download path เรียก report query โดยไม่ส่ง `Page` ทำให้ repository ไม่ใส่ `LIMIT/OFFSET` และอ่านรายการตาม filter ทั้งชุด</mark>
+4. <mark class="changed-feature" data-updated-on="2026-09-20">`GenerateReportCustomerPaymentReceiptData` ใช้ header product symbol เป็นลำดับคอลัมน์ แล้ว map แต่ละ row ด้วย `ProductSymbol` แทนการอาศัยตำแหน่งใน array; product ที่ไม่มีใน row นั้นเว้น cell ว่าง</mark>
+5. <mark class="changed-feature" data-updated-on="2026-09-20">จำนวนคอลัมน์ token/value และตำแหน่ง money total formula คำนวณตามจำนวน product ใน header จริง ไม่ใช้จำนวนคงที่</mark>
 6. `order-service` คืนไฟล์ `.xlsx` พร้อม filename รูปแบบ `<project>_Payment_<DDMMYYYY>.xlsx`; BFF ส่ง blob ให้ browser ดาวน์โหลด
 
 ## Business rules
 
-- Header เป็น source ของลำดับ product columns; row data ที่สลับลำดับไม่ทำให้ token/value ไปอยู่ใต้ product ผิดตัว
-- Product symbol ที่ไม่มีใน row ไม่ถูกเลื่อนค่าของ product อื่นมาแทน และ cell ของ token/value ถูกเว้นว่าง
+- <mark class="changed-feature" data-updated-on="2026-09-20">Header เป็น source ของลำดับ product columns; row data ที่สลับลำดับไม่ทำให้ token/value ไปอยู่ใต้ product ผิดตัว</mark>
+- <mark class="changed-feature" data-updated-on="2026-09-20">Product symbol ที่ไม่มีใน row ไม่ถูกเลื่อนค่าของ product อื่นมาแทน และ cell ของ token/value ถูกเว้นว่าง</mark>
 - Report download ใช้ข้อมูลทั้งช่วงที่ query ได้ ส่วน preview ใช้ pagination 10 order requests เมื่อส่ง `page > 0`
 - `date_to` เป็น inclusive ตามวันใน timezone `Asia/Bangkok` ก่อน query backend
 - การแก้ไขนี้เปลี่ยนรูปแบบ/ความถูกต้องของ report output เท่านั้น ไม่เปลี่ยน order status, payment state, ledger หรือ balance

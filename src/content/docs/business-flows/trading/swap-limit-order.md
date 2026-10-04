@@ -139,7 +139,7 @@ Remarketer เรียก `POST /api/v1/order-trade/webhook`:
 
 Webhook quantity และ price ที่ execute จริงเป็น source of truth ของ settlement ไม่ใช่ estimate ตอนสร้าง order
 
-หลัง insert fill, `order-service` เขียน quantity point สำหรับ 24-hour display volume เฉพาะเมื่อ customer-account lookup สำเร็จและ account ไม่ใช่ Dealer tier; account missing/lookup error ข้าม point และ time-series write error ถูก log โดยไม่ fail fill
+<mark class="changed-feature" data-updated-on="2026-10-03">หลัง insert fill, `order-service` เขียน quantity point สำหรับ 24-hour display volume เฉพาะเมื่อ customer-account lookup สำเร็จและ account ไม่ใช่ Dealer tier; account missing/lookup error ข้าม point และ time-series write error ถูก log โดยไม่ fail fill</mark>
 
 ### 6. Cancel an open Limit Order
 

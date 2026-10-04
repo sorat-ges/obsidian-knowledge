@@ -189,7 +189,7 @@ Remarketer เรียก `POST /api/v1/order-trade/webhook`:
 
 Webhook เป็นจุดยืนยันผล trade จริง; preview/create response ไม่ใช่ final trade outcome
 
-หลัง insert fill, `order-service` ไม่เขียน quantity point สำหรับ 24-hour display volume ให้ Dealer-tier account; account lookup ที่ไม่สำเร็จหรือ time-series write error ถูก log/ข้ามและไม่ย้อนผล fill
+<mark class="changed-feature" data-updated-on="2026-10-03">หลัง insert fill, `order-service` ไม่เขียน quantity point สำหรับ 24-hour display volume ให้ Dealer-tier account; account lookup ที่ไม่สำเร็จหรือ time-series write error ถูก log/ข้ามและไม่ย้อนผล fill</mark>
 
 ## Business rules
 
