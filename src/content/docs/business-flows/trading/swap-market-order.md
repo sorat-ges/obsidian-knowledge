@@ -4,10 +4,10 @@ description: Flow การซื้อขาย Swap แบบ Market ตั้
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial route rejected, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ไม่รับ route จับคู่บางส่วน, สมุดคำสั่งไม่พอ]
+aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial execution warning, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
 errorCodes: ["60002", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-04
 documentType: flow
 ---
 
@@ -62,7 +62,7 @@ Mobile อ่าน Digital Asset account status ระหว่างเตร�
 4. Client ใช้ `isBestRoute` หรือรายการแรกเป็น route ปัจจุบัน แสดง rate, estimated receive และ fee; <mark class="changed-feature" data-updated-on="2026-10-03">White Glove route response ยังมี `quote_currency` และ `rate_thb`</mark>
 5. Trading Web refresh quote เมื่อ countdown หมด; Mobile App refresh และพยายามคง route เดิมถ้ายัง available โดยให้ `mixed` route มาก่อน; `web-portal` refresh ตาม timer และคง route เดิมด้วยชื่อ route ถ้ายังอยู่ใน response
 
-<mark class="changed-feature" data-updated-on="2026-10-03">Mobile App จัด route ที่ไม่มี order หรือ `MatchResult` ไม่ใช่ full match เป็น unavailable และไม่ auto-select route เหล่านั้น ถ้า route ที่เลือกอยู่ไม่ผ่านเงื่อนไขนี้ หน้า Market แสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap; ไม่มี partial-execution warning ในหน้า Market หรือ confirmation</mark>
+<mark class="changed-feature" data-updated-on="2026-10-04">Mobile App ถือ route ที่ไม่มี order หรือมี `MatchResult=no` ว่า unavailable; route ที่มี order และ partial match ไม่ถูก block ด้วย order-book check และเมื่อเป็น best route จะแสดง partial-execution warning ในหน้า Market และ confirmation โดยยังต้องผ่าน validation อื่น</mark>
 
 <mark class="changed-feature" data-updated-on="2026-10-03">White Glove order-book `GET /api/v1/white-glove/products/{symbol}/order-book` รับ `quote_currency` เป็น `THB` หรือ `USD`; ถ้าไม่ส่งจะใช้ `THB` และ currency อื่นคืน HTTP `400`. Backend ใช้ currency นี้อ่าน bids/asks; Dealer order book ต้องมี `customer_account_id` และ `route` ด้วย เงื่อนไขนี้ยืนยันเฉพาะ order-book read contract ไม่ได้เปลี่ยน quote pair ที่ route inquiry ใช้สร้าง Swap</mark>
 
@@ -83,7 +83,7 @@ fee_amount, fee_rate,
 exchange_fee_rate, exchange_fee_amount (Dealer/White Glove เท่านั้น)
 ```
 
-<mark class="changed-feature" data-updated-on="2026-10-03">Backend re-query Remarketer แล้วตรวจ route ชื่อเดียวกันอีกครั้ง: route ที่ไม่ใช่ `mixed` ต้องมี liquidity มากกว่า 0; route ต้องมี `HasOrder=true` และ `MatchResult=full` เท่านั้น ส่วน `partial` และ `no` ถูกปฏิเสธด้วย `insufficient order book`. การตรวจนี้อยู่ใน non-bulk Market path; Limit และ bulk trade ออกจาก `CanSwap` ก่อนถึงการตรวจ route นี้</mark>
+<mark class="changed-feature" data-updated-on="2026-10-04">Backend re-query Remarketer แล้วตรวจ route ชื่อเดียวกันอีกครั้ง: route ที่ไม่ใช่ `mixed` ต้องมี liquidity มากกว่า 0; route ต้องมี `HasOrder=true` และ Full หรือ Partial Match; no match ถูกปฏิเสธด้วย `insufficient order book`. การตรวจนี้อยู่ใน non-bulk Market path; Limit และ bulk trade ออกจาก `CanSwap` ก่อนถึงการตรวจ route นี้</mark>
 
 production path ปัจจุบันไม่ได้แทนที่ `price`, `estimate_received_quantity`, `fee_amount` หรือ `fee_rate` ด้วยค่าที่คำนวณใหม่จาก re-query ค่าที่ client ส่งจึงถูก persist ลง order หลัง validation
 
@@ -151,9 +151,9 @@ production path ปัจจุบันไม่ได้แทนที่ `pr
 
 - Market route ต้องมีชื่อตรงกับ route ที่ Remarketer คืนใน create-time recheck
 - route ปกติต้องมี liquidity มากกว่า 0; `mixed` route ข้ามเฉพาะ liquidity-zero check แต่ยังต้อง `HasOrder=true`
-- <mark class="changed-feature" data-updated-on="2026-10-03">Standard non-bulk Market Swap ผ่าน route recheck เฉพาะเมื่อ route name ตรงกัน, liquidity ผ่าน (ยกเว้น mixed), `HasOrder=true` และ `MatchResult=full`; `partial`/`no` ถูกปฏิเสธ</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-04">Standard non-bulk Market Swap ผ่าน route recheck เมื่อ route name ตรงกัน, liquidity ผ่าน (ยกเว้น mixed), `HasOrder=true` และ Full หรือ Partial Match; no match ถูกปฏิเสธ</mark>
 - <mark class="changed-feature" data-updated-on="2026-10-03">Limit และ bulk trade ออกจาก `CanSwap` ก่อน validation route นี้; อย่านำกฎ Market route recheck ไปใช้กับสอง path ดังกล่าว</mark>
-- <mark class="changed-feature" data-updated-on="2026-10-03">Mobile App มอง route ที่ไม่มี order หรือไม่ full-match เป็น unavailable; ข้อความ insufficient-order-book และการปิดปุ่ม Swap เป็น client feedback ก่อน submit</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-04">Mobile App มอง route ที่ไม่มี order หรือ `MatchResult=no` เป็น unavailable; Partial Match ที่มี order ใช้งานได้และแสดง partial-execution warning</mark>
 - Client quote เป็นค่าประมาณและอาจเปลี่ยนก่อน submit; create-time recheck ยืนยัน availability แต่ไม่ re-price payload
 - Available balance ถูกตรวจทั้งก่อนสร้าง order และก่อน hold โดย `order-consumer`
 - <mark class="changed-feature" data-updated-on="2026-10-03">24-hour display-volume point ไม่ถูกเขียนสำหรับ Dealer account; account lookup/write failure ถูก log/ข้ามโดยไม่ย้อน trade fill</mark>
@@ -184,7 +184,7 @@ draft → open → processing → filling → sync-ledger → filled
 | :--- | :--- | :--- |
 | `90000` | คู่สินทรัพย์อยู่ใน maintenance | Client refresh maintenance state และไม่ submit |
 | `90001` | available asset ไม่พอตอนสร้าง order | เพิ่มยอดหรือลดจำนวนแล้วส่งใหม่ |
-| `90002` | <mark class="changed-feature" data-updated-on="2026-10-03">หลังผ่าน liquidity check แล้ว selected route ไม่มี order หรือ `MatchResult` ไม่ใช่ full match ตอน submit</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">Refresh route inquiry ก่อนส่งใหม่; ส่งได้เมื่อ route มี order และ full match</mark> |
+| `90002` | <mark class="changed-feature" data-updated-on="2026-10-04">หลังผ่าน liquidity check แล้ว selected route ไม่มี order หรือ `MatchResult=no` ตอน submit</mark> | <mark class="changed-feature" data-updated-on="2026-10-04">Refresh route inquiry ก่อนส่งใหม่; Full และ Partial Match ส่งได้เมื่อ route มี order</mark> |
 | `90003` | route ปกติมี liquidity เป็นศูนย์ตอน submit | Refresh route inquiry หรือรอ liquidity |
 | `90004` | จำนวนต่ำกว่าขั้นต่ำ | ใช้ `minimum_amount` จาก inquiry ปรับจำนวน |
 | `90006` | Trading/White Glove inquiry ไม่ได้ route candidates จาก Remarketer | Client แสดง no available route และ retry inquiry |
@@ -219,12 +219,13 @@ Trading Web map code ที่รู้จักไป error modal และ ref
 - `order-service/handler/order_trade_dto.go`
 - `order-service/pkg/order_trade/swap_service.go`
 - `order-service/pkg/order_trade/webhook_service.go`
-- `order-service/pkg/order_trade/service.go`: `checkRoute` full-match/order/liquidity recheck
+- `order-service/pkg/order_trade/service.go`: `checkRoute` full/partial-match, order และ liquidity recheck
+- `order-service/internal/constants/enum/order_trade_enum.go`: `IsMatched()` รับ Full และ Partial Match
 - `order-service/internal/domain/ledger_fx_rate.go`: quote-currency rule for USD `rate_symbol_pair`
 - `order-consumer/pkg/digital-asset-order-request/swap.go`
 - `asset-consumer/pkg/customer-logical-entry/service.go`
 - `xspring-mobile-app/lib/domains/digital_portal/swap/controller.dart`
-- `xspring-mobile-app/lib/domains/digital_portal/swap/models/swap_route.dart`: partial/no-order route unavailable predicate
+- `xspring-mobile-app/lib/domains/digital_portal/swap/models/swap_route.dart`: no-match/no-order unavailable predicate; Partial Match with order remains available
 - `xspring-mobile-app/lib/domains/digital_portal/swap/widgets/swap_market.dart`: insufficient-order-book text and submit gating context
 - `xspring-mobile-app/lib/domains/digital_portal/swap/service.dart`
 - `trading-web/src/features/trade/hooks/swap/use-swap.ts`

@@ -1,13 +1,13 @@
 ---
 title: Trading Route Selection
-description: Flow การขอ คำนวณ จัดอันดับ แสดงผล และตรวจ route ซ้ำสำหรับ Swap Market โดยรับเฉพาะ route ที่มี full match ตอน submit
+description: Flow การขอ คำนวณ จัดอันดับ แสดงผล และตรวจ route ซ้ำสำหรับ Swap Market โดยรับ route ที่มี full หรือ partial match ตอน submit
 capability: Trading
 services: [order-service, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer]
-aliases: [routing, swap routing, best route, mixed route, route inquiry, route revalidation, partial route rejected, partial match rejected, partial order book, insufficient order book, quote_currency, white-glove order-book, customer_account_id, เส้นทางซื้อขาย, เลือกตลาด, เส้นทางที่ดีที่สุด, order book จับคู่บางส่วน, ไม่รับ route จับคู่บางส่วน, สมุดคำสั่งไม่พอ]
+aliases: [routing, swap routing, best route, mixed route, route inquiry, route revalidation, partial match accepted, partial order book, partial execution warning, insufficient order book, quote_currency, white-glove order-book, customer_account_id, เส้นทางซื้อขาย, เลือกตลาด, เส้นทางที่ดีที่สุด, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
 errorCodes: ["90000", "90002", "90003", "90004", "90006"]
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-04
 documentType: flow
 ---
 
@@ -83,9 +83,10 @@ Flow นี้ไม่ใช่ execution engine และไม่รับป
 1. เรียง candidates ด้วย `NetAmount` จากมากไปน้อย
 2. หา `mixed` candidate ตัวแรกที่ `HasOrder=true` และ Full Match; candidate นี้ชนะ route อื่นแม้หลังเรียง net amount แล้วจะไม่ได้อยู่ลำดับแรก
 3. ถ้าไม่มี valid `mixed` ให้เลือก candidate ตัวแรกตามลำดับ net amount ที่ `HasOrder=true` และ Full Match
-4. ย้าย candidate ที่เลือกมาไว้ลำดับแรก
+4. <mark class="changed-feature" data-updated-on="2026-10-04">ถ้าไม่มี candidate ที่มี order และ Full Match ให้ใช้ candidate ที่ `NetAmount` สูงสุดเป็น fallback</mark>
+5. ย้าย candidate ที่เลือกมาไว้ลำดับแรก
 
-ดังนั้น “best route” หมายถึง valid `mixed` ก่อน แล้วจึงใช้ net amount สูงสุดในกลุ่ม valid non-mixed ไม่ใช่เลือก rate สูงสุดหรือต่ำสุดโดยตรง <mark class="changed-feature" data-updated-on="2026-10-03">ถ้าไม่มี Full Match candidate ระบบยังคืน route ตาม fallback ของ channel โดยไม่มี best marker; candidate ที่เป็น partial จึงไม่ใช่ route ที่พร้อม submit และไม่ได้กลายเป็น best route</mark>
+ดังนั้น “best route” หมายถึง valid `mixed` ก่อน แล้วจึงใช้ net amount สูงสุดในกลุ่ม valid non-mixed ไม่ใช่เลือก rate สูงสุดหรือต่ำสุดโดยตรง
 
 ### 5. Apply channel visibility
 
@@ -93,9 +94,9 @@ Flow นี้ไม่ใช่ execution engine และไม่รับป
 
 - Retail: ตั้ง `IsBestRoute=true` ให้ candidate ที่เลือกและคืนเพียงหนึ่ง route
 - Dealer: คืน routes ทั้งหมดหลังเรียงและย้าย candidate ที่เลือกขึ้นหน้า แต่ production path ไม่ตั้ง `IsBestRoute=true` ให้ Dealer route
-- ถ้าไม่มี candidate ใด Full Match/มี order: Retail ยังได้ candidate แรกหลัง sort หนึ่งรายการ ส่วน Dealer ได้ทั้งหมด โดยไม่มี best-route marker
+- <mark class="changed-feature" data-updated-on="2026-10-04">ถ้าไม่มี Full Match candidate: Retail ได้ candidate `NetAmount` สูงสุดเพียงรายการเดียวพร้อม `IsBestRoute=true` แม้ candidate นั้นจะเป็น partial, no match หรือไม่มี order; Dealer ได้ candidates ทั้งหมด เรียงรายการ `NetAmount` สูงสุดไว้ก่อนโดยไม่มี best-route marker</mark>
 
-Client ต้องตรวจ `HasOrder` และ `MatchResult`; การมี route ใน response ไม่ได้แปลว่า route พร้อม execute เสมอ
+<mark class="changed-feature" data-updated-on="2026-10-04">Client ต้องตรวจ `HasOrder` และ `MatchResult`: backend ยอมรับ Full หรือ Partial Match เมื่อ `HasOrder=true`; no match หรือไม่มี order ยัง submit ไม่ได้ แม้ Retail fallback จะติด `IsBestRoute=true`</mark>
 
 ### 6. Refresh and select on the client
 
@@ -105,7 +106,7 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 - Trading Web ใช้ route ที่ `isBestRoute=true` หรือ fallback เป็นรายการแรก และ refresh เมื่อ countdown หมด
 - Mobile App ให้ valid `mixed` มาก่อน, พยายามคง route ที่ผู้ใช้เลือกไว้ถ้ายัง available, จากนั้นจึงใช้ best route; auto refresh สามารถกลับไปเลือก best route
-- <mark class="changed-feature" data-updated-on="2026-10-03">Mobile App จัด route ที่ไม่มี order หรือไม่เป็น full match เป็น unavailable และไม่ auto-select; ถ้า route ที่เลือกอยู่ไม่ผ่านจะแสดง `The selected exchange has insufficient order book.` และปิดปุ่ม Swap</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-04">Mobile App ถือ route ที่ไม่มี order หรือมี `MatchResult=no` ว่า unavailable; route ที่มี order และ partial match ไม่ถูก block ด้วย order-book check และเมื่อเป็น best route จะแสดง partial-execution warning ในหน้า Market และ confirmation โดยยังต้องผ่าน validation อื่น</mark>
 - `web-portal` White Glove เริ่มจาก route แรก, คง route เดิมเมื่อชื่อยังอยู่ใน inquiry response และให้ RM เลือกผ่าน route selection; เมื่อมี Dealer Execute permission จะแสดง `exchange_fee_amount`
 - Clients ส่ง `route`, `price`, estimated receive และ fee จาก quote กลับมาใน create request; White Glove เพิ่ม `exchange_fee_rate` และ `exchange_fee_amount`
 
@@ -117,7 +118,7 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 1. ถ้าไม่พบชื่อ route: `no route for <route>`; `Route` เป็น optional ใน request แต่เมื่อไม่ส่งและไม่มี route ตรงกัน current path อาจ dereference nil; ยังไม่มี error contract ที่ยืนยันได้สำหรับกรณีนี้
 2. ถ้าไม่ใช่ `mixed` และ liquidity เป็น 0: `insufficient liquidity`
-3. <mark class="changed-feature" data-updated-on="2026-10-03">`HasOrder=false` หรือ `MatchResult().IsFullMatched()` เป็น false คืน `insufficient order book`; Partial Match และ no match จึงไม่ผ่าน</mark>
+3. <mark class="changed-feature" data-updated-on="2026-10-04">`HasOrder=false` หรือ `MatchResult().IsMatched()` เป็น false คืน `insufficient order book`; `IsMatched()` รับทั้ง Full และ Partial Match</mark>
 4. ถ้าผ่าน: อนุญาตให้สร้าง order
 
 ขั้นนี้ตรวจ availability เท่านั้น ไม่ได้คืน quote ใหม่และไม่ได้ overwrite `price`, estimated receive หรือ fee ใน create payload
@@ -126,8 +127,8 @@ Client ต้องตรวจ `HasOrder` และ `MatchResult`; การม
 
 - Route ranking ใช้ net amount หลัง fee ไม่ใช่ rate อย่างเดียว
 - Valid `mixed` มี priority สูงกว่า valid single route โดยไม่คำนึงถึง net-amount rank
-- <mark class="changed-feature" data-updated-on="2026-10-03">`mixed` ข้าม liquidity-zero check ตอน submit แต่ยังต้องมี `HasOrder=true` และ full match</mark>
-- <mark class="changed-feature" data-updated-on="2026-10-03">Standard non-bulk Market path รับ route เฉพาะเมื่อมี order และ full match; Limit และ bulk trade ออกจาก `CanSwap` ก่อนเรียก `checkRoute`</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-04">`mixed` ข้าม liquidity-zero check ตอน submit แต่ยังต้องมี `HasOrder=true` และ Full หรือ Partial Match</mark>
+- <mark class="changed-feature" data-updated-on="2026-10-04">Standard non-bulk Market path รับ route เมื่อมี order และ Full หรือ Partial Match; no match ถูกปฏิเสธ ส่วน Limit และ bulk trade ออกจาก `CanSwap` ก่อนเรียก `checkRoute`</mark>
 - Retail visibility ถูกลดเหลือหนึ่ง routeที่ backend; Dealer visibility ได้หลาย routeแต่ไม่มี `IsBestRoute` marker
 - Minimum failure คืน response สำเร็จที่มี route ว่าง ไม่ใช่ `90006`
 - `90006` หมายถึง Remarketer ไม่มี source candidates ใน Trading/White Glove handler ไม่ได้ครอบคลุมทุกกรณีที่ candidate ใช้งานไม่ได้
@@ -156,7 +157,7 @@ inquiry received
 | `90000` | maintenance validation | หยุด inquiry/submit และ refresh maintenance state |
 | `90004` | create validation พบ amount ต่ำกว่าขั้นต่ำ | ใช้ minimum จาก inquiry แล้วขอ route ใหม่ |
 | `90006` | Trading/White Glove inquiry ได้ `no sources available` | แสดง no available route และ retry inquiry |
-| `90002` | <mark class="changed-feature" data-updated-on="2026-10-03">หลังผ่าน liquidity check แล้ว create-time route recheck พบ no order หรือ match ไม่ใช่ full match</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">refresh inquiry และส่งใหม่เมื่อ route มี full match</mark> |
+| `90002` | <mark class="changed-feature" data-updated-on="2026-10-04">หลังผ่าน liquidity check แล้ว create-time recheck พบ no order หรือ `MatchResult=no`; Partial Match ไม่ใช่ error กรณีนี้</mark> | <mark class="changed-feature" data-updated-on="2026-10-04">refresh inquiry และส่งใหม่เมื่อ route มี order และ Full หรือ Partial Match</mark> |
 | `90003` | create-time route recheck พบ liquidity เป็น 0 | refresh inquiry หรือรอ liquidity |
 | `no fee rate available` | ไม่มี fee configuration ที่ตรง candidate | candidate calculation ล้มเหลว; ต้องแก้ fee configuration ไม่ใช่บังคับเลือก route |
 | `no route for <route>` | <mark class="changed-feature" data-updated-on="2026-10-03">ไม่พบชื่อ route ในผล re-query; omitted `Route` อาจเข้าทาง nil dereference จึงไม่มี stable error contract ที่ยืนยันได้</mark> | <mark class="changed-feature" data-updated-on="2026-10-03">ขอ quote ใหม่; กรณี omitted `Route` ต้องยืนยัน error behavior กับเจ้าของระบบ</mark> |
@@ -184,9 +185,11 @@ Frontend ควร treat quote หมดอายุหรือ create failure 
 - `order-service/handler/order_trade_handler.go`
 - `order-service/handler/trading_handler.go`
 - `order-service/handler/white_glove_handler.go`: White Glove order-book inquiry รองรับ `quote_currency=THB|USD`; ว่างใช้ THB และ Dealer ต้องส่ง `customer_account_id` กับ `route`
-- `order-service/pkg/order_trade/service.go`: market route acceptance requires full match
+- `order-service/pkg/order_trade/service.go`: route ranking fallback และ create-time validation สำหรับ Full/Partial Match
+- `order-service/internal/constants/enum/order_trade_enum.go`: `IsMatched()` รับ Full และ Partial Match
 - `order-service/pkg/order_trade/swap_service.go`
 - `xspring-mobile-app/lib/domains/digital_portal/swap/controller.dart`
+- `xspring-mobile-app/lib/domains/digital_portal/swap/models/swap_route.dart`: no-order/no-match availability predicate
 - `xspring-mobile-app/lib/domains/digital_portal/swap/service.dart`
 - `trading-web/src/features/trade/hooks/swap/use-swap.ts`
 - `web-portal/src/app/features/white-glove/hooks/useTrading.ts`
