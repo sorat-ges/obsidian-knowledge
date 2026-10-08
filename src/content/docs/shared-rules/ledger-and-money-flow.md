@@ -2,7 +2,7 @@
 title: Ledger and Money Flow
 description: บทบาทบัญชี ประเภท Ledger และกฎความถูกต้องของการเคลื่อนไหวเงินและสินทรัพย์
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-08
 documentType: shared-rule
 ---
 
@@ -42,6 +42,15 @@ documentType: shared-rule
 - <mark class="changed-feature" data-updated-on="2026-10-03">`asset-consumer` หา USD `HOLD_IN_ORDER / DECREASE` ที่ตรง customer account, order และ batch เดียวกัน แล้วคูณ amount ด้วย `rate_symbol_pair` เพื่อคำนวณ cost</mark>
 - <mark class="changed-feature" data-updated-on="2026-10-03">ถ้าไม่พบ cost movement ที่ตรงเงื่อนไข consumer ใช้ผลรวม THB `xd_main` available increase กับ THB `xd_fee` order-fee increase เป็น fallback</mark>
 - <mark class="changed-feature" data-updated-on="2026-10-03">USD cost ที่มี rate จะถูกแปลงเป็น local-currency cost ก่อนรวม `TotalCost`/`AverageCost` ใน portfolio</mark>
+
+## Dealer Swap `EXCHANGE_FEE` rounding
+
+`order-service` สร้าง external `EXCHANGE_FEE` movement เฉพาะ Dealer customer tier (`IsDealerOrder`); non-Dealer ได้ยอดศูนย์แม้ webhook ส่ง `MatchedFee` มา สำหรับแต่ละ fill ระบบรวม `ExchangeFeeCharged` กับ `MatchedFee` ก่อนคำนวณยอด ledger:
+
+- เมื่อ transaction `SymbolPair` เป็น USD (หรือ field ว่างและ product-pair symbol เป็น USD) ให้คง decimal precision เดิมและรวมยอดโดยไม่ปัดต่อ fill
+- คู่ที่ไม่ใช่ USD ปัดค่ารวมของแต่ละ fill เป็น 2 ตำแหน่งก่อนรวม
+
+กฎนี้ใช้กับการสร้าง external fee ledger ของ Dealer Swap; display fee ที่แสดงใน order detail มี helper ปัดแยกต่างหาก จึงไม่ควรอนุมานว่า display rounding เป็นยอด ledger
 
 ## กฎ Financial Integrity
 

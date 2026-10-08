@@ -2,12 +2,12 @@
 title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
-services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal]
-aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal, xspring-mobile-app]
+aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, อัปเดต suitability, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
 integrations: [FundConnext, Kafka]
-errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002"]
+errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002", ID_CARD_EXPIRED, SUIT_EXPIRED]
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-08
 documentType: flow
 ---
 
@@ -214,6 +214,30 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | `FundConnext` | existing-customer rejection ที่มี XAM account มี type `re-kyc-rejected`; KYC expiry `Suspended by System` path ที่ตรวจไม่พบการส่ง Freeze/Suspended callback | `onboarding-service` เรียก integration; downstream FCN behavior ต้องยืนยันกับเจ้าของ integration |
 | Email/notification | rejection/re-KYC path ที่ตรวจพบส่ง customer notification/email และบาง onboarding rejection ส่ง AML email; shared application email path ใช้ customer เป็น `To` และส่ง prospect/RM/extra rejection recipients เป็น `Bcc` ตาม channel/config; ไม่พบ Freeze-specific recipients/template สำหรับ AML+CU และ RM/WS/ACM | `onboarding-service` เป็น executor ของ current email path |
 
+### 12. Expiry status and MF order precheck
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+`GET /api/v1/customer/status` ของ `onboarding-service` คืน `expirations` 3 ประเภท: `id-card-update` จาก `CardExpiryDate`, `traditional-suit-update` และ `digital-suit-update` จาก suitability evaluation date บวก 2 ปี สถานะเป็น `allow`, `warning` หรือ `expired`; warning เริ่ม 30 วันก่อนวันหมดอายุ และวันหมดอายุเองถือเป็น `expired` เมื่อไม่มี profile/suitability data หรืออ่านข้อมูลไม่ได้ response ใช้ `allow` สำหรับประเภทนั้น
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`**
+
+เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด `order-service.ValidateOrder` ตรวจ expiry ก่อน Buy/Switch validation; Sell ผ่าน check นี้โดยตรง Traditional Suitability ที่เลยวันหมดอายุคืน `SUIT_EXPIRED`; เมื่อ ID card หมดอายุ ระบบอ่าน unitholder โดยไม่สร้างใหม่ และอนุญาตเฉพาะ unitholder ที่เปิดอยู่ (`UnitholderID` ไม่ใช่ `OMN` หรือ `SEG`) มิฉะนั้นคืน `ID_CARD_EXPIRED` วันที่เท่ากับวันนี้ยังไม่ถือว่า past
+
+Mobile อ่าน `expirations` จาก `/api/v1/customer/status` และใช้ warning/expired เพื่อ block operation บางประเภท แต่ modal selector สำหรับ order action เลือกเฉพาะ type `id-card-update` และ `suitability-update` และเฉพาะสถานะ `expired`; backend ส่ง `traditional-suit-update`/`digital-suit-update` และ ID-card warning สามารถ block ได้ก่อน modal จึงเป็น client/backend inconsistency ส่วน order error mapping ของ Mobile รู้จัก `ID_CARD_EXPIRED` และ `SUIT_EXPIRED` แต่ screen path ที่เปิดจริงยังต้องตรวจใน [Customer Identity Update Request](/business-flows/customer/identity-update/)
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `xspring-mobile-app`**
+
+Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile source ที่ตรวจพบ expiry precheck ของ Fund Portal ใช้ `DigitalAssetOrderType.none` และไม่พบ call site ที่ส่ง digital asset operation type; การ block Digital Asset order ด้วย expiry response ยังยืนยันไม่ได้
+
+ยังมี validation boundary ใน order-service: `/api/v1/order/validate` เรียก `ValidateOrder`, แต่ production `OrderBuy` create path เรียก `validateBuyOrder` โดยตรงและไม่เรียก expiry branch นี้ ขณะที่ switch create path เรียก `ValidateOrder` ดังนั้นการ precheck ของ Buy กับการ enforce ตอน create ยังไม่ตรงกันและต้องยืนยันกับเจ้าของ `order-service`.
+
 ### Unresolved implementation boundaries
 
 - `order-consumer` จะ trigger cancellation สำหรับค่า status ใด ๆ ที่ไม่ใช่ `active` แต่ enum constants ที่ประกาศมีเพียง `active`, `suspended`, `closed`, `freeze`; behavior ของ unknown status ยังต้องยืนยันกับเจ้าของระบบ
@@ -221,6 +245,8 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `IsMutualFundNotAllowOrder` ทิ้ง lookup error สำหรับ order type ที่ไม่ใช่ `sell` และ status ว่างถูกประเมินเป็น not allowed สำหรับ buy/switch; เอกสารนี้จึงแยก intended status matrix ออกจาก defect/inconsistency นี้
 - `ProcessFreezeCustomerStatus` มี implementation ใน `onboarding-service` แต่ไม่พบ production caller ใน tree ที่ตรวจ; freeze ที่ยืนยันในรอบนี้มาจาก rejection calculation path
 - `asset-service` ตัด `closed` ออกจาก portfolio/account query หลายกลุ่ม แต่ monthly statement และ direct account-ID read ใช้ method ที่ไม่มี predicate ใหม่ จึงยังไม่ยืนยันว่า `closed` ถูกตัดจากทุก asset endpoint
+- Mobile modal selector ใช้ชื่อ `suitability-update` แต่ `onboarding-service` ส่ง `traditional-suit-update`/`digital-suit-update`; warning/expired gate และ modal จึงไม่ใช้ type/status set เดียวกัน
+- `OrderBuy` create path ไม่เรียก expiry precheck ที่ `/api/v1/order/validate` ใช้; การ enforce Buy เมื่อ feature เปิดต้องยืนยันกับเจ้าของ `order-service`
 
 ## Business rules
 
@@ -314,6 +340,8 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `pkg/feature/constants.go`, `pkg/feature/feature.go`: `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` และ feature-toggle parsing
 - `pkg/customer/identification/identification-repo/identification-repository.go`: `GetListWithExistsCustomer` candidate predicate สำหรับ Phase 1
 - `pkg/customer/kyc-expiry/service.go`: CDD/suitability expiry periods
+- `handler/customer-handler.go`, `handler/customer_dto.go`: `/api/v1/customer/status` และ `expirations` response mapping
+- `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: ID-card/suitability expiry status
 - `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application/cancellation processing และ `sendReKycForce` ที่อ่าน `KycExpiryDate`
 - `internal/storages/postgres/applicationrepository/application_repository.go`: active-identification และ active-account selection สำหรับ expiry suspension
 - `pkg/customer/application/customer-application-repo/customer-application-repository.go`: current re-KYC application lookup และ suspension candidates
@@ -322,6 +350,8 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 - `pkg/customer/application-email/email-application-service.go`: application email recipient mapping และ BCC behavior
 - `internal/constants/enum/xpg-customer-status.go`: customer identification status enum
 - `internal/constants/enum/customer_account.go`: customer account status enum
+- `internal/constants/enum/response_enum.go`: `ID_CARD_EXPIRED` and `SUIT_EXPIRED` response codes
+- `pkg/customer/id-update/service.go`: ID Update request state creation
 - `pkg/customer/customer-process/process-delete.go`: scoped registration-history deletion และ restore entry point
 - `pkg/customer/customer-process/customer-process-service.go`: capture restore mapping รวม account, suitability และ watchlist report
 - `pkg/customer/application/service.go`: `OldCaptureId` ที่ผูกกับ application ใหม่, `patchDataCustomerChangeRequestLog` และ `applyApprovalPatchByStatus`

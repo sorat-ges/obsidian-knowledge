@@ -4,10 +4,10 @@ description: Flow การซื้อขาย Swap แบบ Market ตั้
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial execution warning, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
+aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, Dealer EXCHANGE_FEE, MatchedFee, exchange fee precision, ค่าธรรมเนียม Dealer USD, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial execution warning, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
 errorCodes: ["60002", "80003", "80004", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-10-04
+lastUpdated: 2026-10-08
 documentType: flow
 ---
 
@@ -132,6 +132,8 @@ production path ปัจจุบันไม่ได้แทนที่ `pr
 <mark class="changed-feature" data-updated-on="2026-10-03">หลัง insert trade transaction, `order-service` เขียน quantity point สำหรับ 24-hour display volume เฉพาะเมื่อ lookup customer account สำเร็จและ account ไม่ใช่ Dealer tier; account missing/lookup error จะข้าม point ส่วน time-series write error ถูก log และไม่ทำให้ callback ล้มเหลว</mark>
 
 รายละเอียด movement และ double-entry contract อยู่ที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
+
+สำหรับ Dealer `order-service` ลงยอด `EXCHANGE_FEE` จาก `ExchangeFeeCharged + MatchedFee`; USD symbol pair คง precision ก่อนรวม ส่วนคู่สกุลอื่นปัดทีละ fill ดู [กฎ Dealer Swap EXCHANGE_FEE](/shared-rules/ledger-and-money-flow/)
 
 ### 6. Materialize portfolio and expose the result
 

@@ -3,10 +3,10 @@ title: Mutual Fund Product Order Detail
 description: Read-only contract สำหรับ product conditions, fund availability, risk agreement และ penalty ที่ใช้เตรียมคำสั่งกองทุนรวม รวมถึงเงื่อนไขที่ mobile แสดงก่อนยืนยันคำสั่ง
 capability: Trading
 services: [order-service, xspring-mobile-app]
-aliases: [mutual fund product order detail, product order detail v2, product detail v2, mutual fund order conditions, fund availability, fund order eligibility, order acknowledgement, agreementList, FactSheet, HigherRiskLevel, ExchangeRateRisk, ComplexityRisk, DefaultAgreement, AMT_CHANGE_RISK, fund fact sheet, P0337, api v2 products, รายละเอียดกองทุนก่อนทำรายการ, เงื่อนไขการซื้อขายกองทุน, เงื่อนไขยืนยันคำสั่ง, ความเสี่ยงจำนวนเงินเปลี่ยนแปลง, ความพร้อมกองทุน]
+aliases: [mutual fund product order detail, product order detail v2, product detail v2, mutual fund order conditions, fund availability, fund order eligibility, order acknowledgement, agreementList, FactSheet, HigherRiskLevel, ExchangeRateRisk, ComplexityRisk, DefaultAgreement, AMT_CHANGE_RISK, IPO offering period, ipo-period, ipo-period-over-cut-off-time, offering_begin_date, offering_end_date, fund fact sheet, P0337, api v2 products, รายละเอียดกองทุนก่อนทำรายการ, เงื่อนไขการซื้อขายกองทุน, เงื่อนไขยืนยันคำสั่ง, ความเสี่ยงจำนวนเงินเปลี่ยนแปลง, ช่วงเสนอขาย IPO, วันเสนอขาย IPO, ความพร้อมกองทุน]
 errorCodes: ["400", "401", "500"]
 status: active
-lastUpdated: 2026-09-19
+lastUpdated: 2026-10-08
 documentType: flow
 ---
 
@@ -21,6 +21,7 @@ documentType: flow
 **Owner and executing service: `order-service`**
 
 - Caller ต้องมี `PortalClaims` และส่ง `product_id` ที่เป็น UUID
+- `GET /api/v1/products/{product_id}` ถูกถอดออกจาก route; product-order detail contract ปัจจุบันอยู่ที่ `GET /api/v2/products/{product_id}`
 - `order-service` ต้องอ่าน customer identification จาก claims, product, mark-to-market, `product_mf_extension`, keyword tags และ customer background knowledge ได้
 - Customer risk level ใช้สร้าง agreement list; customer knowledge ที่ไม่พบทำให้ response ระบุว่าต้องทำ knowledge assessment
 - Endpoint นี้ไม่สร้าง order, ไม่เปลี่ยน order/payment/ledger state และไม่คำนวณ cutoff time; cutoff เป็น contract แยกของ `GET /api/v1/order/available-trade-date`
@@ -60,7 +61,7 @@ Fund fact sheet URL ถูกอ่านแบบ best effort; ถ้า docume
 
 **Owner and executing service: `order-service`**
 
-Response คืน product description, risk detail, asset group, fact sheet, agreement list, minimum/step/balance values, `maximum_qr_payment`, penalty และ fund availability flags โดย V2 ตัด `cut_off_time_buy`, `cut_off_time_sell` และ over-cutoff flags ออกจาก response
+Response คืน product description, risk detail, asset group, fact sheet, agreement list, minimum/step/balance values, `maximum_qr_payment`, penalty และ fund availability flags โดย V2 ตัด `cut_off_time_buy`, `cut_off_time_sell` และ over-cutoff flags ออกจาก response เมื่ออยู่ใน IPO offering period, V2 ระบุ `is_offering_period=true` และคืน `offering_begin_date`/`offering_end_date`; นอกช่วง active จะไม่ใส่วันเริ่ม/สิ้นสุดใน response
 
 Agreement list เริ่มด้วย `FactSheet`, เพิ่ม `HigherRiskLevel` เมื่อ product risk สูงกว่าเพดานของ customer risk, เพิ่ม `ExchangeRateRisk` เมื่อเป็น FX risk, เพิ่ม `ComplexityRisk` เมื่อ product complexity เป็น `Complex` และปิดท้ายด้วย `DefaultAgreement`
 
@@ -74,6 +75,16 @@ Agreement list เริ่มด้วย `FactSheet`, เพิ่ม `HigherR
 
 เมื่อผู้ใช้กดยืนยัน mobile สร้าง `acceptAcknowledge` จาก `agreementList` และ order type แล้วส่งไป create-order endpoint; `order-service` เป็นผู้รับผิดชอบ backend validation/override behavior และการบันทึก audit fields ต่อไป
 
+### 5. Resolve Buy effective date during an IPO offering period
+
+**Owner service: `order-service`**
+
+**Executing service: `order-service`; `xspring-mobile-app` เป็น supporting client**
+
+Mobile แยกเรียก `GET /api/v1/order/available-trade-date` สำหรับ Buy โดย `order-service` ตรวจ trade calendar/holiday ก่อน แล้วตรวจวันและ cutoff ของ offering period แบบ inclusive ตามวันปัจจุบันเมื่อ begin/end dates มีค่าที่ใช้ได้ หากอยู่ในช่วงและยังไม่เลย cutoff response คืน `show_modal=ipo-period` กับ effective date วันนี้; ถ้าเลย cutoff คืนวันทำการถัดไปกับ `show_modal=ipo-period-over-cut-off-time`; ถ้าเป็นวันสุดท้ายของ offering แล้วเลย cutoff ใช้ `show_modal=trade-calendar` แทน
+
+Current mobile response model และ `showForTradeDate` รองรับ `holiday`, `cut-off-time` และ `trade-calendar` เท่านั้น ไม่รู้จัก `ipo-period` หรือ `ipo-period-over-cut-off-time`; controller จึงไม่แสดง IPO modal และ modal flag ที่ไม่ว่างยังทำให้ไม่เข้า no-modal path ที่ตั้ง effective date ปกติ Contract ระหว่าง backend กับ mobile ต้องยืนยันก่อนถือว่า client แสดงผล IPO flow ได้ครบ
+
 ## Business rules
 
 - `UseFundAvailable` เป็น `true` เมื่อ product เป็น complex หรือเปิด `is_check_holding_periods`
@@ -83,6 +94,7 @@ Agreement list เริ่มด้วย `FactSheet`, เพิ่ม `HigherR
 - `risk_detail.is_show_risk_detail` เป็น `true` เฉพาะ complex product และ `is_required_knowledge_assessment` เป็น `true` เมื่อไม่พบ customer traditional knowledge
 - `minimum_sell_amount_validation` และ `minimum_sell_unit_validation` ใช้ค่าจาก mark-to-market เมื่อค่าดังกล่าวมากกว่าศูนย์; ค่าอื่นมาจาก product extension
 - Agreement/risk flags เป็น display/preparation contract; final order validation, cutoff, account status และ ledger effect อยู่ใน flow create order ของ backend
+- `is_offering_period` และ offering dates เป็น read response; modal/effective-date behavior สำหรับ IPO Buy มาจากแยก `available-trade-date` response ไม่ใช่ product-detail state
 - <mark class="changed-feature" data-updated-on="2026-09-19">สำหรับ buy, mobile แสดงหนึ่ง bullet ต่อหนึ่ง key ที่ backend ส่ง รวมถึง `AMT_CHANGE_RISK` หาก key นี้ปรากฏจริง; current `order-service` agreement builder ที่ตรวจพบยังสร้างเฉพาะ `FactSheet`, risk keys และ `DefaultAgreement`</mark>
 - <mark class="changed-feature" data-updated-on="2026-09-19">สำหรับ sell, mobile แสดง factsheet, estimated NAV และ amount-change risk เป็นชุดคงที่ และเพิ่มเฉพาะ FX/complexity ตาม `agreementList`; `HigherRiskLevel` ไม่ถูกนำมาแสดงในชุดนี้</mark>
 - การเปิด factsheet เป็น user-visible action ของ mobile; หาก URL ว่างจะแสดง not-found dialog และไม่เปลี่ยน order/payment/ledger state
@@ -112,6 +124,7 @@ request received
 - Fact sheet document lookup failure: คืน `fund_fact_sheet` เป็นค่าว่างแบบ best effort และยังคืน product detail ได้
 - `xspring-mobile-app` เปิด factsheet ไม่ได้เมื่อ URL ว่าง: แสดง `Fund Fact Sheet Not Found` และหยุดเฉพาะ document action; ไม่ได้ยืนยันว่า create-order ถูกยกเลิกจากกรณีนี้
 - Current contract boundary: buy UI สามารถ render `AMT_CHANGE_RISK` หาก backend ส่ง key แต่ current mobile `acceptAmtChangeRisk` ยังเป็น `false` สำหรับ buy ขณะที่ current `order-service` agreement builder ไม่ส่ง key นี้; หาก key ถูกส่งในอนาคตต้องยืนยัน contract กับเจ้าของระบบก่อนสรุปผล acknowledgement
+- IPO Buy modal contract ยังไม่ครบใน Mobile: Backend flags `ipo-period` และ `ipo-period-over-cut-off-time` ไม่อยู่ใน enum/model ที่ client render; last-day-after-cutoff ใช้ trade-calendar
 - Endpoint failure ไม่สร้างหรือเปลี่ยน order state จึงไม่ต้อง rollback business state
 
 ## Final outcomes
@@ -137,6 +150,7 @@ request received
 - `handler/product_handler_response.go`: V2 response mapping
 - `pkg/product/service.go`: `GetProductOrderDetailV2`
 - `pkg/product/transform_data.go`: product detail, `MapFundAvailable`, `MapPenaltyDetail` and `GetOrderAgreement`
+- `pkg/product/service.go`, `pkg/product/service_helper.go`: offering-period response and Buy trade-availability decision
 - `internal/entities/product.go`: product extension and response domain fields
 - `pkg/customer/service.go`: customer knowledge lookup used by risk/assessment flags
 
@@ -145,6 +159,8 @@ request received
 - `lib/domains/fund_order/confirm/confirm_order_view.dart`: ส่ง `agreementList`, order type และ factsheet link เข้า confirmation sheet
 - `lib/domains/fund_order/widgets/confirm_order_bottom_sheet/order_terms_acknowledgement_widget.dart`: buy/sell term mapping และ factsheet interaction
 - `lib/domains/fund_order/controller.dart`: สร้าง `acceptAcknowledge` สำหรับ buy/sell และ switch
+- `lib/models/order/available_trade_date_response_model.dart`: modal values ที่ Mobile รู้จักสำหรับ trade-date response
+- `lib/domains/fund_order/widgets/order_notice_bottom_sheet.dart`: modal dispatch สำหรับ trade-date response
 
 Cross-service acknowledgement contract:
 

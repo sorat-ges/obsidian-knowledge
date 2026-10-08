@@ -3,7 +3,7 @@ title: Error Code Registry (Diagnostic Guide)
 description: Registry รหัสข้อผิดพลาดของ Trading, KYC retake และ Yield Payment Setup พร้อมสาเหตุและแนวทางวินิจฉัย
 tags: [logic, error, debug, troubleshooting]
 status: active
-lastUpdated: 2026-08-27
+lastUpdated: 2026-10-08
 documentType: shared-rule
 ---
 
@@ -35,6 +35,17 @@ documentType: shared-rule
 | **60002** | `ErrorCustomerSuspend` | Account status ไม่อนุญาต operation ที่ขอ; inbound operation ถูก block เมื่อ `suspended`, `closed` หรือ `freeze`, ขณะที่บาง outbound operation ยังผ่านได้เมื่อ `suspended` | ตรวจ `customer_account.status` ของ product ที่เกี่ยวข้อง และ operation ที่ handler ส่งให้ status validator |
 
 `60002` ใช้ร่วมกันโดย Mutual Fund และ Digital Asset handlers; message ของ MF path คือ `customer account is suspended` ส่วน Digital Asset path ใช้ `customer is <status>.` ตาม status ที่ backend อ่านได้ ดู [Order State Machine](/shared-rules/order-state-machine/) และ [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
+
+### Mutual Fund order expiry validation
+
+เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด `order-service.ValidateOrder` อาจคืน:
+
+| Error Code | Constant Name | ความหมายใน Flow | Recovery |
+| :--- | :--- | :--- | :--- |
+| `SUIT_EXPIRED` | `ErrorOrderSuitExpired` | Traditional Suitability expiry date ผ่านแล้ว | ทำ suitability update ให้สำเร็จก่อนส่ง Buy/Switch ใหม่ |
+| `ID_CARD_EXPIRED` | `ErrorOrderIDCardExpired` | ID card หมดอายุและ Backend ไม่พบ unitholder ที่เปิดอยู่ตาม validation | อัปเดตบัตรและยืนยัน unitholder eligibility ก่อนส่งคำสั่งใหม่ |
+
+วันที่เท่ากับวันปัจจุบันยังไม่ถือว่า expired; ดู [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) สำหรับ validation boundary ระหว่าง precheck กับ Buy create path
 
 ## หมวดหมู่ Yield Payment Setup
 

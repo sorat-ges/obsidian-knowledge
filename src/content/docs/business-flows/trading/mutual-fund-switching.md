@@ -3,11 +3,11 @@ title: Mutual Fund Switching
 description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจวันมีผลและ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
 services: [order-service, order-consumer, xspring-mobile-app]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, "91000", trade calendar not configured, no trade date config, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ไม่มีปฏิทินวันซื้อขาย, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, ID_CARD_EXPIRED, SUIT_EXPIRED, expiry validation, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, "91000", trade calendar not configured, no trade date config, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ไม่มีปฏิทินวันซื้อขาย, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
 integrations: [FundConnext]
-errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007", "91000"]
+errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007", "91000", "ID_CARD_EXPIRED", "SUIT_EXPIRED"]
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-08
 documentType: flow
 ---
 
@@ -119,14 +119,17 @@ Holiday มี priority เหนือ cutoff สำหรับวันเด
 `OrderSwitch` เรียก `ValidateOrder` ซ้ำก่อนสร้างข้อมูล โดยลำดับที่ source ยืนยันคือ:
 
 1. ตรวจ account suspension เมื่อมี `account_code`
-2. ตรวจ target product และ target investor class
-3. ตรวจ switching pair
-4. ปฏิเสธ past effective date
-5. ถ้า effective date เป็นวันนี้ ตรวจ source switch-out holiday และ cutoff; ถ้า settlement day เป็นศูนย์จะเปรียบเทียบ source sell cutoff กับ target buy cutoff
-6. ตรวจ tax restriction ของ source/target
-7. ตรวจจำนวนเงินหรือจำนวน unit กับ portfolio และ mark-to-market ของทั้งสองฝั่ง
+2. เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด ตรวจ Traditional Suitability และ ID-card expiry/unitholder eligibility; expiry error อาจเป็น `SUIT_EXPIRED` หรือ `ID_CARD_EXPIRED`
+3. ตรวจ target product และ target investor class
+4. ตรวจ switching pair
+5. ปฏิเสธ past effective date
+6. ถ้า effective date เป็นวันนี้ ตรวจ source switch-out holiday และ cutoff; ถ้า settlement day เป็นศูนย์จะเปรียบเทียบ source sell cutoff กับ target buy cutoff
+7. ตรวจ tax restriction ของ source/target
+8. ตรวจจำนวนเงินหรือจำนวน unit กับ portfolio และ mark-to-market ของทั้งสองฝั่ง
 
 ถ้า source fund เป็น holiday ในวันเดียวกัน ระบบคืน `ErrorValidateOrder` (`60005`) พร้อม `switch order cannot use holiday date`
+
+เมื่อ expiry feature เปิด, `order-service` ยังเป็นผู้ตัดสินผลหลัง Mobile precheck; expiry fields และ status mapping อธิบายไว้ใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) ส่วนการเปิด ID Update screen จาก error ยังมี unresolved client path ตาม [Customer Identity Update Request](/business-flows/customer/identity-update/)
 
 ### 4. Create the switching order request
 

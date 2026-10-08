@@ -3,10 +3,10 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, complete draft, completed-draft, registration confirm, retake watchlist completion, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, ยืนยันการลงทะเบียน, complete draft onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, complete draft หลังแก้ข้อมูล, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, complete draft, completed-draft, registration confirm, retake watchlist completion, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, AgeCondition, minimum age rejection, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, ยืนยันการลงทะเบียน, complete draft onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, complete draft หลังแก้ข้อมูล, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-08
 documentType: flow
 ---
 
@@ -256,6 +256,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่/เป็น record-not-found และ V1 มี `SuitabilityVersionID` ที่ใช้ได้
 - ในการ map answer จาก v2 หากมี Traditional answers จะเลือกชุดนั้นก่อน Digital answers; หากทั้งสองชุดว่างจะคืน answer ว่างโดยไม่แต่งข้อมูลเพิ่ม
 - Product-service risk เป็น component ของ CDD calculation ไม่ใช่ suitability score; product mix XAM/XD เป็นตัวเลือก score/case/data ที่ถูก persist ใน CDD risk/detail
+- หลัง onboarding DOPA verification อัปเดต customer data, `onboarding-service` พยายามคำนวณและบันทึก `AgeCondition` watchlist ก่อนเรียก minimum-age rejection; calculation error ถูก log และยังดำเนิน `rejectApplicationUnderMinAge` ต่อ
 
 ## State transitions
 
@@ -328,6 +329,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - `handler/suitability-handler.go`: v2 submit/confirm handlers
 - `pkg/suitability/suitability-service.go`: score, persistence และ confirmation behavior
 - `pkg/kyc/watchlist.go`: stored DOPA flag filtering และ watchlist refresh orchestration
+- `pkg/ekyc/ekyc-verification/service.go`: AgeCondition watchlist calculation ก่อน minimum-age rejection
 - `pkg/kyc/helper.go`: `filterPassedWatchlistTypes`
 - `pkg/kyc/kyc-service.go`: legacy watchlist save และ pre-create ของ customer/spouse background risk
 - `internal/models/customer-background-db-model.go`: unmarshal และ composite calculation ของ `VulnerableDetail`
