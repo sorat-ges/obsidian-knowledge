@@ -3,7 +3,7 @@ title: Third-Party Integrations Profile
 description: บทบาทและกฎการเชื่อมต่อกับ Partner ภายนอกและ object storage ที่ใช้ใน Business Flow
 tags: [architecture, integration, external, sdk]
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-10-11
 documentType: system-context
 ---
 
@@ -16,7 +16,7 @@ documentType: system-context
 | :--- | :--- | :--- |
 | **Remarketer** | Trading & Liquidity | Smart Order Routing (SOR) และการ Execute คำสั่งเทรด |
 | **Fireblocks** | Asset Custody | ดูแล Vault, ตรวจสอบ Blockchain Transaction และ Withdrawal |
-| **Payment Gateway** | Fiat Transfer | จัดการการถอนเงินบาท (SCB/KBank) และแจ้งสถานะ |
+| **Payment Gateway** | Fiat Transfer and Dealer FX | จัดการการถอนเงินบาท (SCB/KBank) และรับ submit/accept request ของ White Glove USD/THB FX deal จาก `order-service` โดยส่ง `bank_gateway` เป็น `ktb`; contract และการประมวลผลภายใน Gateway ต้องยืนยันจาก Payment backend |
 | **KTB SmartFX** | FX Rate Streaming | ส่งอัตรา FX ผ่าน STOMP over WebSocket และควบคุม subscription quota ต่อ integration identity |
 | **Thai Bulk** | OTP Service | ส่งรหัส OTP ผ่าน SMS/Email เพื่อยืนยันตัวตน |
 | **Credential Centric** | Identity & KYC | ยืนยันตัวตนและข้อมูลโปรไฟล์ลูกค้า |

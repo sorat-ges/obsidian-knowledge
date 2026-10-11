@@ -2,7 +2,7 @@
 title: Ledger and Money Flow
 description: บทบาทบัญชี ประเภท Ledger และกฎความถูกต้องของการเคลื่อนไหวเงินและสินทรัพย์
 status: active
-lastUpdated: 2026-10-08
+lastUpdated: 2026-10-11
 documentType: shared-rule
 ---
 
@@ -85,6 +85,7 @@ documentType: shared-rule
 - [Swap Market Order](/business-flows/trading/swap-market-order/)
 - [Swap Limit Order](/business-flows/trading/swap-limit-order/)
 - [Big Lot](/business-flows/trading/big-lot/)
+- [White Glove Dealer FX Trade](/business-flows/trading/dealer-fx-trade/)
 - [Crypto Deposit and Withdrawal](/business-flows/fund-movement/crypto-deposit-and-withdrawal/)
 
 ## จุดอ้างอิงในโค้ด
