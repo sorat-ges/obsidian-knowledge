@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, complete draft retake, retake watchlist completion, auto-reject complete draft, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, FundConnext customer sync, FundConnext account sync, FundConnext account IC name, FundConnext IC license mismatch, customer account IcLicense, customer account IcName, relationship manager lookup, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, refresh watchlist report, refresh_watchlist, refresh action audit, ActionReviewed approval actionflow, WatchlistTypes, RetakeWatchlistTypes, maximum_age, investment_experience, disability, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, refresh watchlist แบบเลือก field, complete draft retake หลังแก้ข้อมูล, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ชื่อ IC จาก FundConnext, sync ชื่อ IC ตาม IcLicense, relationship manager ตาม IC, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์, TriggerReKycNationalityEnabled, re-KYC nationality reset, post-DOPA watchlist best effort, IdentityVerificationAppmanUnderMinAge, ล้างสัญชาติเมื่อเริ่ม re-KYC, watchlist หลัง DOPA, อายุไม่ถึงเกณฑ์ KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, complete draft retake, retake watchlist completion, auto-reject complete draft, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, product_code, product_type, hide_enhance_button, disable_reject_button, submit_as_approve_button, application_actions, FundConnext customer sync, FundConnext account sync, FundConnext account IC name, FundConnext IC license mismatch, customer account IcLicense, customer account IcName, relationship manager lookup, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, refresh watchlist report, refresh_watchlist, refresh action audit, ActionReviewed approval actionflow, WatchlistTypes, RetakeWatchlistTypes, maximum_age, investment_experience, disability, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, refresh watchlist แบบเลือก field, complete draft retake หลังแก้ข้อมูล, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ชื่อ IC จาก FundConnext, sync ชื่อ IC ตาม IcLicense, relationship manager ตาม IC, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์, TriggerReKycNationalityEnabled, re-KYC nationality reset, post-DOPA watchlist best effort, IdentityVerificationAppmanUnderMinAge, ล้างสัญชาติเมื่อเริ่ม re-KYC, watchlist หลัง DOPA, อายุไม่ถึงเกณฑ์ KYC]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak, FundConnext]
 errorCodes: ["1000", "200", "2009", "400", "401", "403", "4001", "4409", "500", "6600", "INVALID_APPLICATION_STATUS", "INVALID_REQUEST", "permission not found"]
 status: active
-lastUpdated: 2026-10-08
+lastUpdated: 2026-10-14
 documentType: flow
 ---
 
@@ -276,10 +276,10 @@ KYC approval อ่าน suitability ตาม account-opening intent โดย
 
 - อ่าน investment-bank-account details และ customer accounts เพื่อผูก account กับ company
 - คืนเฉพาะรายการที่ `Default = true` และมี customer account ที่ map ได้
-- จัด XAM เป็น `Fund` และ XD เป็น `Digital`; รวม RED/SUB ต่อ customer account และคืน account code จาก XPG/investment account code
+- จัด XAM เป็น `Fund` และ XD เป็น `Digital`; รวม RED/SUB ต่อ customer account และคืน account code จาก XPG/investment account code พร้อม `product_code` และ `product_type` จาก customer-account data
 - ถ้า Fund ไม่มี SUB ระบบเติม object ว่างให้ ส่วนรายการที่ไม่ใช่ default หรือ map company ไม่ได้จะไม่ถูกส่งออก
 
-`web-portal` route `/api/customer/{userId}/bank-account` เป็น proxy ของ endpoint นี้และไม่เปลี่ยน payload/ผลลัพธ์
+`web-portal` route `/api/customer/{userId}/bank-account` เป็น supporting client route ของ endpoint นี้. Backend response ปัจจุบันมี `product_code` และ `product_type`; display/rendering behavior ของ field ใหม่ใน client ยังไม่ยืนยันจาก current frontend source
 
 CDD date ที่ส่งใน current/previous KYC information ถูก truncate เป็นวันที่เวลา 00:00 ใน business timezone ก่อน map เป็น `cdd_date`; read model จึงสื่อเฉพาะวัน ไม่ใช่เวลาที่คำนวณ
 
@@ -328,6 +328,14 @@ CDD date ที่ส่งใน current/previous KYC information ถูก tru
 KYC approval map reason code ที่รู้จักเป็นคำอธิบาย และ join เป็นรูปแบบ `code - description`; reason code ที่ไม่มี mapping จะถูกส่งต่อเป็น code เดิม
 
 `web-portal` แสดง forgery result/reason/date/by/memo ใน KYC detail, แสดง warning เมื่อ result เป็น `reject`, และ disable submit/enhance/reject/approve เมื่อ result เป็น `error`; client mapping เหล่านี้เป็น user-visible behavior เท่านั้น ไม่ใช่ backend authorization หรือ state owner
+
+### 12. Load approval actions for unchanged ID-card update
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service` สำหรับ response flags; `web-portal` เป็น supporting client**
+
+`GET /web/api/v2/kyc/{application_id}/application-info` คืน `application_actions.hide_enhance_button`, `disable_reject_button` และ `submit_as_approve_button`. เมื่อ application เป็น `id-card-update` และ change-request log ไม่มี name/address/CDD data change, Backend ตั้ง flags ทั้งสามเป็น `true`; read path นี้ไม่เปลี่ยน application state. Current `web-portal` rendering/click behavior ของ flags เหล่านี้ยังไม่ยืนยันจาก client source
 
 ## Business rules
 
@@ -522,13 +530,15 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `xspring-mobile-app/lib/domains/re_kyc/re_kyc_required_step/controller.dart`: selected-step guard สำหรับ `disableAddressOnIdCardSection`
 - `xspring-mobile-app/lib/widgets/bank_account/bank_account_name_change_warning_section.dart`: shared warning presentation
 - `pkg/customer/kyc_approver/helper.go`: stored capture mapping และ partial watchlist report
-- `handler/webportal/kyc-approve-dto.go`: map watchlist report ไปยัง approval response
+- `handler/webportal/kyc-approve-dto.go`: map watchlist report และ application action flags ไปยัง approval response
 - `onboarding-service/pkg/customer/kyc_approver/customer-service.go`: KYC customer list scope, capture selection และ default investment-bank account output
 - `pkg/customer/customer-repo/customer-repository.go`: KYC customer-list status/deleted predicate
-- `onboarding-service/pkg/customer/kyc_approver/service.go`: suitability V1 fallback และ risk/answer mapping
+- `onboarding-service/pkg/customer/kyc_approver/service.go`: suitability V1 fallback, risk/answer mapping และ unchanged ID-card action flags
 - `onboarding-service/handler/webportal/kyc-customer-handler.go`: investment-bank-account endpoint
 - `pkg/customer/application/service.go`: `ProcessApproveApplicationCustomer` และ non-fatal `step_check_account_error` handling
 - `pkg/customer/customer-process/customer-process-service.go`: `CheckAndCreateCustomerInvestmentBankAccount` และ non-closed account selection
+- `pkg/customer/kyc_approver/customer-service.go` and `pkg/customer/kyc_approver/service_output.go`: investment-bank-account item mapping with product metadata
+- `handler/webportal/kyc-customer-dto.go`: KYC approval response fields `product_code` and `product_type`
 - `pkg/customer/customer-account/customer-account-repo/customer-account-repository.go`: `GetListByIdentificationByNotStatus`
 - `pkg/fundconnextprocess/service.go`: `GetCustomer`, profile/account sync และ new/existing account branching
 - `pkg/customer/customer-process/customer-process-service.go`: `CreateCustomerAccountFromFCN` และ IC-name lookup เมื่อ materialize FundConnext accounts

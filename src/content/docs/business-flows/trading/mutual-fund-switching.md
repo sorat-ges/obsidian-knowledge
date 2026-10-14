@@ -7,7 +7,7 @@ aliases: [mutual fund switching, MF switching, switch order, switching order, Sw
 integrations: [FundConnext]
 errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007", "91000", "ID_CARD_EXPIRED", "SUIT_EXPIRED"]
 status: active
-lastUpdated: 2026-10-08
+lastUpdated: 2026-10-14
 documentType: flow
 ---
 
@@ -129,7 +129,7 @@ Holiday มี priority เหนือ cutoff สำหรับวันเด
 
 ถ้า source fund เป็น holiday ในวันเดียวกัน ระบบคืน `ErrorValidateOrder` (`60005`) พร้อม `switch order cannot use holiday date`
 
-เมื่อ expiry feature เปิด, `order-service` ยังเป็นผู้ตัดสินผลหลัง Mobile precheck; expiry fields และ status mapping อธิบายไว้ใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/) ส่วนการเปิด ID Update screen จาก error ยังมี unresolved client path ตาม [Customer Identity Update Request](/business-flows/customer/identity-update/)
+เมื่อ expiry feature เปิด, `order-service` ยังเป็นผู้ตัดสินผลหลัง Mobile precheck; expiry fields และ status mapping อธิบายไว้ใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/). Mobile expiry sheet นำผู้ใช้จาก ID-card update action ไป `IdCardRequiredScreen`; order-action path ใช้ standard ID-card sheet โดย default ส่วน Home banner จะเลือก retake-specific sheet เมื่อ `flowType` เป็น retake ID-card update. การใช้ retake-specific sheet หลัง order error ยังไม่ยืนยันใน client path ที่ตรวจ ดู [Customer ID Card Update and Retake](/business-flows/customer/identity-update/)
 
 ### 4. Create the switching order request
 

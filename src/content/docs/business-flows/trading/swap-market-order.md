@@ -4,10 +4,10 @@ description: Flow การซื้อขาย Swap แบบ Market ตั้
 capability: Trading
 services: [order-service, order-consumer, asset-service, asset-consumer, xspring-mobile-app, trading-web, web-portal]
 integrations: [Remarketer, kafka]
-aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, Dealer EXCHANGE_FEE, MatchedFee, exchange fee precision, ค่าธรรมเนียม Dealer USD, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial execution warning, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
+aliases: [swap, market order, market swap, instant swap, best route, quote currency, USD swap, USD quote precision, Dealer EXCHANGE_FEE, MatchedFee, exchange fee precision, ค่าธรรมเนียม Dealer USD, คำนวณ Swap USD แบบไม่ปัด, multi-currency swap, digital asset account freeze, suspended swap sell, suspended swap buy warning, partial order book, partial match, partial execution warning, insufficient order book, ซื้อขายทันที, แลกสินทรัพย์, คำสั่งมาร์เก็ต, สกุลเงินอ้างอิง, Swap USD, Swap หลายสกุล, Swap เมื่อระงับบัญชี, order book จับคู่บางส่วน, ส่งคำสั่งเมื่อจับคู่บางส่วน, คำเตือน execute บางส่วน, สมุดคำสั่งไม่พอ]
 errorCodes: ["60002", "80003", "80004", "90000", "90001", "90002", "90003", "90004", "90006", "90010"]
 status: active
-lastUpdated: 2026-10-08
+lastUpdated: 2026-10-14
 documentType: flow
 ---
 
@@ -133,7 +133,7 @@ production path ปัจจุบันไม่ได้แทนที่ `pr
 
 รายละเอียด movement และ double-entry contract อยู่ที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
-สำหรับ Dealer `order-service` ลงยอด `EXCHANGE_FEE` จาก `ExchangeFeeCharged + MatchedFee`; USD symbol pair คง precision ก่อนรวม ส่วนคู่สกุลอื่นปัดทีละ fill ดู [กฎ Dealer Swap EXCHANGE_FEE](/shared-rules/ledger-and-money-flow/)
+สำหรับ USD quote, `order-service` คง precision ของ executed/received fiat quantity, Order Fee และ VAT ใน webhook fill และไม่ปัด Dealer exchange fee ก่อนรวม ledger; quote อื่นยังใช้ rounding 2 ตำแหน่งตามเดิม. กฎ Order Fee/VAT อยู่ที่ [Trading Fees and Campaigns](/shared-rules/trading-fees-and-campaigns/) และ external `EXCHANGE_FEE` ledger อยู่ที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
 ### 6. Materialize portfolio and expose the result
 
@@ -157,6 +157,7 @@ production path ปัจจุบันไม่ได้แทนที่ `pr
 - <mark class="changed-feature" data-updated-on="2026-10-03">Limit และ bulk trade ออกจาก `CanSwap` ก่อน validation route นี้; อย่านำกฎ Market route recheck ไปใช้กับสอง path ดังกล่าว</mark>
 - <mark class="changed-feature" data-updated-on="2026-10-04">Mobile App มอง route ที่ไม่มี order หรือ `MatchResult=no` เป็น unavailable; Partial Match ที่มี order ใช้งานได้และแสดง partial-execution warning</mark>
 - Client quote เป็นค่าประมาณและอาจเปลี่ยนก่อน submit; create-time recheck ยืนยัน availability แต่ไม่ re-price payload
+- สำหรับ fill ที่ `ProductPairSymbol()` เป็น `USD`, backend รักษา decimal precision ของ execution quantities, Order Fee, VAT และ Dealer exchange fee; quote currency อื่นยังปัด fiat amount เป็น 2 ตำแหน่ง
 - Available balance ถูกตรวจทั้งก่อนสร้าง order และก่อน hold โดย `order-consumer`
 - <mark class="changed-feature" data-updated-on="2026-10-03">24-hour display-volume point ไม่ถูกเขียนสำหรับ Dealer account; account lookup/write failure ถูก log/ข้ามโดยไม่ย้อน trade fill</mark>
 - Market order ไม่มี customer-cancel path; cancel predicate ฝั่ง backendอนุญาตเฉพาะ `order_type=limit`

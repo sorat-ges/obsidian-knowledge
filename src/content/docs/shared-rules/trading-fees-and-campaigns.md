@@ -2,7 +2,7 @@
 title: Trading Fees and Campaigns
 description: กฎการเลือก Fee, Campaign, Additional Fee และสูตรค่าธรรมเนียมสำหรับ Trading
 status: active
-lastUpdated: 2026-07-27
+lastUpdated: 2026-10-14
 documentType: shared-rule
 ---
 
@@ -35,7 +35,9 @@ documentType: shared-rule
 | Webhook | BUY | `ExecutedQty * (FeeRate / 100)` |
 | Webhook | SELL | `(ReceivedQty + ExchangeFee) * (FeeRate / 100)` |
 
-Order Fee ทุกสูตรใช้ `RoundDown(result, 2)` ส่วน VAT ใช้สูตร `OrderFee * 7 / 107` และ `Round(result, 2)`
+สำหรับ inquiry และ Swap fill ที่ quote ไม่ใช่ USD, Order Fee ทุกสูตรใช้ `RoundDown(result, 2)` ส่วน VAT ใช้สูตร `OrderFee * 7 / 107` และ `Round(result, 2)`. เมื่อ quote currency เป็น USD, `order-service` คง precision ของ fiat executed/received quantity, Order Fee และ VAT ใน webhook fill โดยไม่ปัด 2 ตำแหน่ง; inquiry calculation ยังใช้ rounding ตามสูตรเดิม
+
+Dealer exchange fee ใน USD quote คง precision เช่นกันทั้งตอนคำนวณ fee จาก execution และตอนรวม external `EXCHANGE_FEE` ledger ต่อ fill. สำหรับ quote อื่นยังปัดแต่ละ fee ตามกฎเดิม; ดู ledger movement ที่ [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
 Net Amount:
 
@@ -57,6 +59,7 @@ Route แบบ `dealer` ใช้ `MIN_FEE_RATE`; route แบบ `exchange` �
 - [Swap Limit Order](/business-flows/trading/swap-limit-order/)
 - [Big Lot](/business-flows/trading/big-lot/)
 - [Routing](/business-flows/trading/routing/)
+- [Ledger and Money Flow](/shared-rules/ledger-and-money-flow/)
 
 ## จุดอ้างอิงในโค้ด
 

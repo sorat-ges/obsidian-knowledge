@@ -1,13 +1,13 @@
 ---
 title: White Glove Dealer FX Trade
-description: Flow ขอราคาและยืนยันรายการ USD/THB ผ่าน Dealer ตั้งแต่ตรวจคำขอและ hold ยอดจนถึง ledger, portfolio และผลจาก Gateway
+description: Flow ขอราคาและยืนยันรายการ USD/THB ผ่าน Dealer ตั้งแต่ตรวจคำขอ/ยอดรับสุทธิและแสดงจำนวนมีสกุลเงิน จนถึง hold, ledger และ portfolio
 capability: Trading
-services: [order-service, asset-consumer]
+services: [order-service, product-service, asset-consumer]
 integrations: [Kafka, Payment Gateway, KTB]
-aliases: [White Glove FX Trade, dealer FX trade, FX trade, FX-trade submit, order_fx_trade, bank_gateway, order_side, ซื้อขาย FX แบบ Dealer, รายการ FX สำหรับ Dealer, ซื้อขาย USD/THB, คำสั่ง FX ของ White Glove]
+aliases: [White Glove FX Trade, dealer FX trade, FX trade, FX-trade submit, order_fx_trade, order_fx_trade_id, bank_gateway, order_side, net receive, amount_display, FX amount currency, ซื้อขาย FX แบบ Dealer, รายการ FX สำหรับ Dealer, ซื้อขาย USD/THB, คำสั่ง FX ของ White Glove, ยอดรับสุทธิ, ยอดค่าธรรมเนียม FX]
 errorCodes: ["400", "401", "403", "404", "409", "500", "504"]
 status: active
-lastUpdated: 2026-10-11
+lastUpdated: 2026-10-14
 documentType: flow
 ---
 
@@ -26,13 +26,14 @@ Flow นี้ครอบคลุมพฤติกรรมฝั่ง `orde
 - ผู้เรียกส่ง `POST /api/v1/white-glove/fx-trade/deal/submit` พร้อม `identification_id`, `quantity`, `deal_type`, `symbol`, `side` และ optional `is_refresh`; Handler ต้องได้รับ `PortalClaims` ที่มี `Subject` และ UUID ของ identification ที่ถูกต้อง
 - Backend รับเฉพาะ `quantity > 0`, `symbol = USD`, `deal_type` เป็น `SPOT`, `TODAY` หรือ `TOM`, และ `side` เป็น `BUY` หรือ `SELL` โดยตรวจ side/symbol แบบไม่สนตัวพิมพ์เล็กใหญ่
 - `order-service` ใช้ identification กับ employee `Subject` เพื่อ resolve digital-asset customer account และใช้ transaction-fee configuration สำหรับ `trade_fx` เพื่อ resolve bank fee และ transfer fee ของ side นั้น
-- `POST /api/v1/white-glove/fx-trade/deal/accept` รับ `trade_id` และ `identification_id`; รายการต้องยังมีสถานะ `created` และ customer ต้องมียอด `available` เพียงพอในสกุลเงินและจำนวนที่ต้องจ่ายรวม fee
+- `POST /api/v1/white-glove/fx-trade/deal/accept` รับ `order_fx_trade_id` และ `identification_id`; รายการต้องยังมีสถานะ `created` และ customer ต้องมียอด `available` เพียงพอในสกุลเงินและจำนวนที่ต้องจ่ายรวม fee
 
 ## Participating services
 
 | Service / integration | Responsibility |
 | :--- | :--- |
 | `order-service` | เป็น owner ของ Dealer FX order, ตรวจ request และ balance, บันทึก state, เรียก FX Gateway, สร้าง logical-ledger transactions และ publish customer-ledger event |
+| `product-service` | ให้ currency decimal configuration ที่ `order-service` ใช้จัดรูป `amount_display` ของ submit response; ไม่ใช่ owner ของ order หรือ fee decision |
 | `asset-consumer` | Consume customer logical-ledger event, เก็บ ledger projection และปรับ customer asset portfolio |
 | Payment Gateway / KTB | รับคำขอ submit quote และ accept/inquiry จาก adapter ใน `order-service`; behavior ภายใน Gateway ไม่ได้ยืนยันจาก source repository ที่มีในรอบนี้ |
 | Kafka topic ที่ตั้งค่าด้วย `KAFKA_TOPIC_ORDER_ASSET_CUSTOMER_LEDGER_ENTRY` | ส่ง customer logical-ledger data จาก `order-service` ไปยัง consumer `customer-logical-entry` ของ `asset-consumer` |
@@ -47,9 +48,11 @@ Flow นี้ครอบคลุมพฤติกรรมฝั่ง `orde
 
 **Executing service: `order-service`**
 
-Handler ส่งคำขอไป `SubmitDeal`. หลัง validation และ resolve account/fee แล้ว `order-service` เรียก Hedge Gateway ด้วย USD/THB, `direction` แบบ lowercase, จำนวนที่ปัดสองตำแหน่ง และ `is_auto_accept = false`. สำหรับ SELL จำนวนที่ส่งเป็น capture amount หลังหัก transfer fee; สำหรับ BUY ใช้ quantity ที่ส่งมา
+Handler ส่งคำขอไป `SubmitDeal`. หลัง validation และ resolve account/fee แล้ว `order-service` เรียก Hedge Gateway ด้วย USD/THB, `direction` แบบ lowercase และ `is_auto_accept = false`. สำหรับ SELL จำนวนที่ส่งเป็น `quantity - transfer_fee`; สำหรับ BUY ใช้ quantity ที่ส่งมา
 
-เมื่อ Gateway ตอบสำเร็จ `order-service` บันทึก `order_fx_trade` สถานะ `created`, เก็บ request/ref/deal IDs, rate, amount, fee และเวลา expiry แล้วคืนค่าให้ caller ใช้ยืนยัน deal. ระบบยังไม่ accept อัตโนมัติ
+หลัง Gateway ตอบสำเร็จ `order-service` คำนวณ `net_receive` จริงจาก response ก่อนบันทึก order: BUY ใช้ capture amount หัก transfer fee; SELL ใช้ contra amount หัก bank fee. ถ้า `net_receive <= 0`, service ไม่สร้าง local `order_fx_trade` row และคืน error แม้ bank-side deal อาจถูกสร้างแล้ว; ถ้าผ่านจึงบันทึก row สถานะ `created` พร้อม request/ref/deal IDs, rate, amount, fee และเวลา expiry
+
+Submit response คืน amount fields (`bank_fee`, `transfer_fee`, `you_pay`, `you_buy`, `you_sell`, `you_receive`, `net_receive`) เป็น object ที่มี `amount`, `currency` และ `amount_display`; display digits อ่านจาก currency decimal configuration ของ `product-service` เมื่อมีข้อมูล และใช้ fallback ของ `order-service` เมื่ออ่านไม่ได้. ระบบยังไม่ accept อัตโนมัติ
 
 ### 2. ผู้เรียกยืนยัน deal และ Backend ตรวจยอด
 
@@ -57,7 +60,7 @@ Handler ส่งคำขอไป `SubmitDeal`. หลัง validation แล
 
 **Executing service: `order-service`**
 
-เมื่อรับ `POST /api/v1/white-glove/fx-trade/deal/accept`, service ตรวจว่า order ยัง `created`, มี bank request/ref IDs ที่ใช้ต่อได้ และมี customer account ที่ระบุได้ จากนั้นตรวจ `available_unit_balance` ของสกุลเงินที่ต้องจ่ายรวม fee:
+เมื่อรับ `POST /api/v1/white-glove/fx-trade/deal/accept` พร้อม `order_fx_trade_id`, service ตรวจว่า order ยัง `created`, มี bank request/ref IDs ที่ใช้ต่อได้ และมี customer account ที่ระบุได้ จากนั้นตรวจ `available_unit_balance` ของสกุลเงินที่ต้องจ่ายรวม fee:
 
 - BUY: THB จำนวน contra amount บวก bank fee
 - SELL: USD จำนวน capture amount บวก transfer fee
@@ -120,12 +123,14 @@ Service-account endpoint `POST /api/v1/white-glove/fx-trade/deal/expire` เป�
 
 **Executing service: `order-service`**
 
-`GET /api/v1/white-glove/fx-trade/order-history` map counterparty เป็น `KTB` และ direction เป็น `Buy`/`Sell`. `GET /api/v1/white-glove/fx-trade/{order_id}` ก็จัดรูป counterparty และ direction เป็น display format; ผู้ใช้จึงไม่ได้รับ raw lowercase จาก row ผ่าน detail response
+`GET /api/v1/white-glove/fx-trade/order-history` map counterparty เป็น `KTB` และ direction เป็น `Buy`/`Sell`. `GET /api/v1/white-glove/fx-trade/{order_id}` ก็จัดรูป counterparty/direction และคืน `created_by` เป็นชื่อผู้สร้าง. ใน order detail, SELL แสดง placed amount เป็น capture amount บวก transfer fee และ received amount เป็น contra amount; BUY แสดง placed amount เป็น contra amount บวก bank fee และ received amount เป็น capture amount. วันที่ detail serialize เป็น JSON time value แทน formatted date string
 
 ## Business rules
 
 - Submit รับเฉพาะ USD และ deal type `SPOT`, `TODAY`, `TOM`; Side รับ `BUY`/`SELL` แบบ case-insensitive
 - Fee ถูกหาแยกตาม `side`; bank fee ต้องเป็น THB และ transfer fee ต้องเป็น USD. ถ้าไม่มี fee row ที่ match side จะใช้ active fee ที่ match เงื่อนไขว่างได้
+- Submit ต้องได้ net receive มากกว่า 0 หลังรับ Gateway response จึงจะ persist local order; SELL capture amount ที่ส่งไป Gateway เป็น quantity ลบ transfer fee แม้ผลลบหรือศูนย์ แล้วปล่อยให้ Gateway/การตรวจ net receive ตัดสินผล
+- Submit amount fields มี `amount`, `currency`, `amount_display`; precision สำหรับ display ใช้ currency decimal configuration หากได้จาก `product-service` และ fallback ของ order-service เมื่อ configuration lookup ล้มเหลว
 - Submit quote ตั้ง `is_auto_accept = false`; order เริ่ม `created` และต้องผ่าน accept endpoint แยกต่างหาก
 - `order_side` และ `bank_gateway` ใน `order_fx_trade` ใหม่ถูก persist เป็น lowercase. Accept request ส่ง `bank_gateway = ktb`; list/detail API แปลงค่าที่แสดงกลับเป็น `KTB` และ `Buy`/`Sell`
 - จัดการ pending hold และ settlement จากผลที่ Backend จำแนก; ห้ามสรุปว่า HTTP success ของ submit เท่ากับ completed trade
@@ -149,15 +154,17 @@ created → expired                                [expire endpoint; deal_expire
 ## Error and recovery behavior
 
 - Request/side/quantity/symbol/deal type ไม่ผ่าน validation: submit handler คืน HTTP `400`; ไม่มีหลักฐานว่า order ถูกสร้างก่อน validation ผ่าน
+- หลัง Gateway สำเร็จ หาก `net_receive <= 0`, local order row ไม่ถูกสร้างและ handler คืน HTTP `500` พร้อมข้อความทั่วไป `failed to submit deal`; bank-side deal อาจมีอยู่แล้ว จึงต้อง reconcile ด้วย request/ref/deal identifiers ใน log
+- หาก currency decimal configuration lookup ล้มเหลว, `order-service` log error และยังคืน submit response โดยใช้ fallback decimal digits
 - ไม่มีหรือไม่ผ่าน `PortalClaims`: submit/accept คืน HTTP `401`; service-account expire endpoint มี authorization guard ที่อาจปฏิเสธ request (`401`/`403` ตาม handler contract)
 - ก่อนเรียก accept หาก customer `available` ไม่พอ: คืน HTTP `400` และไม่เริ่ม hold
 - Order ไม่อยู่สถานะ `created` หรือมี accept ซ้ำหลัง finalize: คืน HTTP `409`
 - อ่าน detail ด้วย order ID ที่ไม่พบ: คืน HTTP `404`
 - Gateway ปฏิเสธด้วย `pmg999`/`FAIL` หรือ code `400`: order ถูก finalize เป็น `rejected` และปล่อย hold แต่ handler map Gateway error เป็น HTTP `500`
 - Gateway outcome เป็น `pmg005` หรือ request timeout: ทำ inquiry ได้ไม่เกิน 3 ครั้งตาม configured delay; หากยัง unresolved handler คืน HTTP `504` และ order ยังคง `processing` พร้อม hold
-- Gateway success แต่สร้าง local order row ไม่สำเร็จ: submit คืน error พร้อม log request/ref/deal identifiers เพราะ bank-side deal อาจมีอยู่แล้วและต้อง reconcile
+- Gateway success และ `net_receive > 0` แต่สร้าง local order row ไม่สำเร็จ: submit คืน error พร้อม log request/ref/deal identifiers เพราะ bank-side deal อาจมีอยู่แล้วและต้อง reconcile
 - Gateway success แต่ local finalize/ledger transaction ล้มเหลว: accept คืน error; transaction rollback ทำให้ order ยัง `processing` และ hold จาก transaction ก่อนหน้าอยู่ โดย source ที่ตรวจไม่ยืนยัน automatic recovery
-- สำหรับ SELL, net receive ถูกคำนวณจาก contra amount หัก bank fee หลัง Gateway response; ถ้าไม่เป็นบวก row จะถูก persist แล้ว service คืน validation error
+- Net receive ถูกคำนวณหลัง Gateway response: BUY = capture amount − transfer fee; SELL = contra amount − bank fee. ถ้าผลไม่เป็นบวก service คืน error ก่อน local row จะถูก persist
 - Failure ระหว่าง accept, logical-ledger creation หรือ event publish ถูกส่งกลับจาก `order-service`; source ที่ตรวจไม่ยืนยัน retry/DLQ หรือ automatic recovery สำหรับ failure เหล่านี้
 - `asset-consumer` บันทึก ledger projection และ update portfolio ใน consumer transaction; retry/offset behavior ของ runtime ไม่สรุปจาก business service อย่างเดียว
 
@@ -182,7 +189,9 @@ created → expired                                [expire endpoint; deal_expire
 - `order-service/handler/white_glove_fx_trade_handler.go`: submit, accept, history/detail and expire handlers
 - `order-service/handler/white_glove_dto.go`: request/response fields and display casing
 - `order-service/pkg/order_fx_trade/service_submit.go`: validation, fee resolution, Gateway submit and lowercase persistence
+- `order-service/pkg/order_fx_trade/service_submit.go`: post-Gateway net-receive guard, currency decimal lookup and amount display mapping
 - `order-service/pkg/order_fx_trade/service.go`: accept balance check and accept request mapping
+- `order-service/pkg/order_fx_trade/service.go`: order detail amount/currency mapping and creator display name
 - `order-service/pkg/order_fx_trade/service_accept_flow.go`: hold, state transition and finalize handling
 - `order-service/pkg/order_fx_trade/service_accept_inquiry.go`: timeout/pending inquiry behavior
 - `order-service/pkg/order_fx_trade/service_ledger.go`: logical-ledger batch and customer event publication

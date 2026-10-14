@@ -1,98 +1,128 @@
 ---
-title: Customer Identity Update Request
-description: Flow เปิดคำขออัปเดตบัตรประชาชนจาก Mobile และสร้าง draft application กับ registration state ใน onboarding-service
+title: Customer ID Card Update and Retake
+description: Flow เริ่ม ID-card update จากวันเตือนหรือ retake ใน Mobile ไปจนถึง DOPA verification, การตรวจ watchlist และการส่ง draft เข้า KYC review เมื่อไม่มีข้อมูลเปลี่ยน
 capability: Customer
-services: [onboarding-service, xspring-mobile-app]
-aliases: [customer identity update, ID update, id-update, identity update request, update ID card, expired ID card update, อัปเดตบัตรประชาชน, อัปเดตข้อมูลบัตร, ต่ออายุบัตรประชาชน, บัตรประชาชนหมดอายุ, ID_CARD_EXPIRED]
+services: [onboarding-service, order-service, xspring-mobile-app]
+integrations: [DOPA]
+aliases: [customer identity update, ID card update, id-card-update, id-update, retake-id-card-update, ID Update, expired ID card update, ID_CARD_EXPIRED, อัปเดตบัตรประชาชน, ขออัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, ถ่ายบัตรประชาชนใหม่, retake บัตรประชาชน]
 errorCodes: ["APPLICATION_NOT_ALLOWED", "ID_CARD_EXPIRED", "400", "401", "500"]
 status: active
-lastUpdated: 2026-10-08
+lastUpdated: 2026-10-14
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบายการเริ่มคำขอ `id-update` ตั้งแต่ Mobile เปิดหน้าอัปเดตบัตรจน `onboarding-service` ตรวจสิทธิ์และสร้าง application สถานะ `draft` พร้อม registration state สำหรับเริ่มยืนยันตัวตนด้วยบัตรใหม่ หน้านี้ยังไม่ยืนยันการส่ง application กลับเข้า KYC review หรือ final outcome เพราะไม่พบ production caller ของ completion method ใน source ปัจจุบัน
+อธิบายการเริ่ม `id-card-update` จาก Mobile, การอ่านสถานะ/วันเตือน, การสร้าง draft, DOPA verification และผลหลังเปรียบเทียบข้อมูลลูกค้า หน้านี้ระบุเส้นทางที่ยืนยันได้ใน `onboarding-service` และ `xspring-mobile-app`; การส่ง application เข้า KYC review ยืนยันได้เฉพาะกรณีที่ verification ไม่พบข้อมูลเปลี่ยน ส่วนเส้นทางหลังพบข้อมูลเปลี่ยนยังมีจุดที่ต้องยืนยันกับเจ้าของระบบ
 
 ## Trigger and preconditions
 
 **Owner service: `onboarding-service`**
 
-- Mobile มีหน้า `UpdateIdScreen`, ขอ current identity-update status ด้วย `GET /api/v1/customer/id-update` เมื่ออ่านหน้า และเรียก `POST /api/v1/customer/id-update` เมื่อเริ่มคำขอ; Backend ปัจจุบันรองรับเฉพาะ POST
-- `onboarding-service` ต้องรับ authenticated `PortalClaims` และแปลง `UserUUID` เป็น identification UUID ได้
-- `ValidateApplicationRequestAllowed` ต้องอนุญาต application type `id-update`; ถ้าถูก block จะคืน `APPLICATION_NOT_ALLOWED` พร้อมชนิด application ที่ block
-- Route ใช้ `APIKeyCustomerIDUpdateRequest`
+**Executing service: `xspring-mobile-app` สำหรับ entry point และ request; `order-service` สำหรับ order expiry validation**
+
+- Mobile แสดง expiry banner จาก `GET /api/v1/customer/status`; เมื่อมีบัตร ID หมดอายุ/ใกล้หมดอายุ ผู้ใช้ไปยังหน้า ID Card Required ได้จาก Home หรือจาก expiry sheet ที่เปิดหลัง order validation
+- `GET /api/v1/customer/id-card-update` อ่าน expiry metadata จาก `customer_background_kyc.kyc_expiry_data`; service เปิดเผย status หลัง `warning_date` ของบัตรผ่านแล้ว และคืน `expiry_date`, `steps` กับ `is_force`
+- `is_force` เป็นจริงเมื่อ expiry date อยู่ก่อนวันที่ปัจจุบัน; วันหมดอายุของวันนี้ยังไม่ผ่านเงื่อนไข “past”
+- `POST /api/v1/customer/id-card-update` ต้องมี authenticated `PortalClaims` และ `ValidateApplicationRequestAllowed` ต้องอนุญาต application type `id-card-update`
+- `order-service` ตรวจ `ID_CARD_EXPIRED` ในบาง order-validation path เมื่อ feature ที่เกี่ยวข้องเปิดและเงื่อนไขบัตร/unitholder ไม่ผ่าน; รายละเอียดอยู่ใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 
 ## Participating services
 
-| Service | Responsibility |
+| Service / integration | Responsibility |
 | :--- | :--- |
-| `onboarding-service` | Business owner และ executor ของ eligibility check, draft application, change-request snapshot และ registration state/history |
-| `xspring-mobile-app` | Supporting client ที่เปิดหน้าคำขอและส่ง POST trigger; client ไม่เป็น owner ของ eligibility หรือ state transition |
+| `onboarding-service` | Business owner และ executor ของ status, application, registration state, DOPA verification completion, watchlist decision และ KYC submission |
+| `xspring-mobile-app` | Supporting client ที่แสดง expiry/retake UI, อ่าน steps และส่ง create request; Backend เป็นผู้ตัดสิน eligibility และ state |
+| `order-service` | ตรวจ expiry ใน order validation และคืน error ที่อาจนำผู้ใช้ไปยัง ID-card update entry point |
+| DOPA | แหล่ง verification ผลบัตรที่ `onboarding-service` ประมวลผล; behavior ภายใน DOPA อยู่นอก source set นี้ |
 
 ## End-to-end sequence
 
-### 1. Open the identity update screen
+### 1. แจ้งผู้ใช้เมื่อถึงช่วงอัปเดตหรือมี retake
 
 **Owner service: `onboarding-service`**
 
 **Executing service: `xspring-mobile-app`**
 
-Mobile มี `UpdateIdScreen` และพยายามอ่าน status ด้วย GET ก่อนส่ง POST เพื่อเริ่มคำขอ อย่างไรก็ตาม route `EntryPointScreen` ที่เชื่อมไปหน้านี้ถูกลงทะเบียนเฉพาะ non-production flavor จึงยังยืนยัน production entry point จาก repository ที่ตรวจไม่ได้; GET นี้ไม่มี route ใน `onboarding-service` ปัจจุบัน
+`onboarding-service` ส่ง ID-card expiry ใน `GET /api/v1/customer/status` จาก metadata ที่เก็บใน `customer_background_kyc.kyc_expiry_data`; Mobile แสดง Home banner และเปิด ID Card Required screen เมื่อผู้ใช้เลือกดำเนินการต่อ หาก `flowType` เป็น retake ของ ID-card update, Home ใช้ retake-specific banner/sheet; หน้า ID Card Required แสดง retake banner เมื่อ flow type อยู่ในกลุ่ม retake
 
-### 2. Authenticate and check application eligibility
+ใน order journey, Mobile แสดง expiry sheet แล้วปุ่มหลักของ ID-card sheet นำไป `IdCardRequiredScreen` และข้าม suitability sheet ที่เหลือในรอบนั้น
 
-**Owner service: `onboarding-service`**
-
-**Executing service: `onboarding-service`**
-
-Handler ตรวจ `PortalClaims`, parse `UserUUID` และเรียก `ValidateApplicationRequestAllowed` ด้วย type `id-update` ก่อนเรียก service สร้างคำขอ Handler บันทึก audit ด้วย sequence `id_update`, action `create-request` และผล success/fail
-
-### 3. Create the draft application and initial actionflow
+### 2. อ่านสถานะ ID-card update
 
 **Owner service: `onboarding-service`**
 
 **Executing service: `onboarding-service`**
 
-ภายใน database transaction ระบบอ่าน latest customer capture แล้วสร้าง application ที่ `status=draft`, `application_type=id-update`, `application_channel=XSPRING_APP` และเชื่อม `OldCaptureId` ไปยัง capture เดิม จากนั้นบันทึก actionflow `created` โดยมี `StartApplicationStatus=request`
+`GET /api/v1/customer/id-card-update` ตรวจ latest registration status/application, อ่าน `IDCardExpiry` จาก background KYC metadata และสร้างรายการ steps จาก registration history กับ change-request log. หากวันปัจจุบันยังไม่เลย `warning_date` ที่เก็บไว้ service คืน error; Handler map service error เป็น HTTP `500`. Response มี `expiry_date`, `steps` และ `is_force`
 
-### 4. Save the customer snapshot and prepare registration steps
+### 3. สร้าง draft application
 
 **Owner service: `onboarding-service`**
 
 **Executing service: `onboarding-service`**
 
-ระบบบันทึก snapshot ว่ามี account XAM/XD ที่เปิดอยู่หรือไม่ พร้อม default-bank flag ใน `CustomerChangeRequestLog`; ล้าง watchlist report เฉพาะ `AgeCondition`, `DOPA`, `IDIsNotExpired` และ `MaximumAge`; และเคลียร์ re-KYC flag ใน background KYC
+เมื่อผู้ใช้กดดำเนินการต่อ Mobile เรียก `POST /api/v1/customer/id-card-update`. Handler ตรวจ `PortalClaims`, parse `UserUUID` และเรียก `ValidateApplicationRequestAllowed` ด้วย application type `id-card-update`; ถ้าผ่าน service สร้าง application ใน database transaction:
 
-Registration state เริ่มที่ `identity-verification/front-card-scan` ภายใต้ `FlowIDUpdate` และสร้าง history สำหรับ identity verification, personal information, suitability และ bank-account steps ตามลำดับที่กำหนดโดย status builder
+1. สร้าง `draft` application ชนิด `id-card-update`, channel `XSPRING_APP` และผูก `OldCaptureId` กับ customer capture ล่าสุด
+2. บันทึก actionflow `created` และ change-request snapshot ของ account XAM/XD กับ default-bank state
+3. ล้าง watchlist report ชนิด `AgeCondition`, `DOPA`, `IDIsNotExpired` และ `MaximumAge` พร้อม clear re-KYC flag ใน background KYC
+4. ตั้ง registration state ที่ `identity-verification/front-card-scan` และสร้าง history สำหรับ identity, personal-information, suitability และ bank-account steps
+
+### 4. ตรวจบัตรด้วย DOPA และเทียบข้อมูลลูกค้า
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+หลัง DOPA verification, `EKycHandler` ส่ง `FlowIDCardUpdate` ไป `CompleteIDCardUpdateVerification`. Service โหลด application/verification, สร้างข้อมูลที่ยืนยันแล้ว, เปรียบเทียบข้อมูลลูกค้าเดิม, บันทึก verified customer data และชื่อใน Keycloak, คำนวณ watchlist ใหม่ และตรวจว่า CDD risk level เปลี่ยนหรือไม่ จากนั้นอัปเดต change-request log และ registration state ไป `identity-verification/ndid`
+
+### 5. เลือกผลจากการเปลี่ยนข้อมูล
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `onboarding-service`**
+
+- **ไม่พบการเปลี่ยนข้อมูล:** เรียก `CompleteDraftIDCardUpdate`, อ่าน watchlist, ประเมิน auto-reject และส่ง application เข้า submission path; เมื่อไม่ auto-reject ระบบส่ง application ไป `to-review` และส่ง `IDCardUpdateWaitingApprove` email/notification
+- **พบการเปลี่ยนข้อมูล:** หากมี personal-information change ระบบ clear FATCA/CRS และ nationality พร้อม soft-delete personal-information history; หากชื่อที่เทียบกับ capture เดิมเปลี่ยน ระบบ soft-delete bank-account history เพื่อให้ registration step นั้นกลับมาทำใหม่
+
+สำหรับกรณีพบการเปลี่ยนข้อมูล ไม่พบ production caller ของ `CompleteDraftIDCardUpdate` นอก no-change branch ใน source tree ที่ตรวจ จึงยังยืนยันการส่ง application เข้า KYC review หลังผู้ใช้ทำ steps ที่ถูก reset ไม่ได้
 
 ## Business rules
 
-- Request eligibility เป็นกฎของ `onboarding-service`; client ไม่มีสิทธิ์ override เมื่อ application อื่น block คำขอ
-- การสร้าง application, actionflow, change-request log และ registration state/history อยู่ใน transaction ของ ID Update service
-- เริ่มด้วย `draft` เท่านั้น; การสร้าง request ไม่ได้ยืนยันว่า identity verification, suitability, bank update หรือ KYC approval เสร็จแล้ว
-- `GET /api/v1/customer/status` ส่ง expiry status แยกต่างหาก; expiry warning/expired ไม่ได้ยืนยันว่า ID Update request ถูกสร้างหรือ submitted
-- KYC approver read path รู้จัก application type `id-update`; การรองรับใน review/read model ไม่ยืนยันว่า request completion หรือ submission path ถูกเชื่อมใช้งานแล้ว
+- `ApplicationFormTypeIDCardUpdate` และ `FlowIDCardUpdate` มีค่า `id-card-update`; retake ใช้ flow type `retake-id-card-update`
+- Backend ตรวจ application eligibility ก่อนสร้าง draft; client ไม่สามารถ override application type ที่กำลัง block request
+- ID-card status endpoint อ่าน expiry metadata จาก background KYC; การไม่มีหรือ parse metadata ไม่ได้ทำให้ status endpoint คำนวณวันจาก profile โดยตรง
+- `AllowEditData` ปิดทุก field สำหรับ ID-card update ที่ไม่มี name/address/CDD data change ใน change-request log; เมื่อมี data change จะเปิด field flags ตาม implementation ปัจจุบัน
+- Auto-reject/watchlist decision อยู่ใน `onboarding-service`; `onboarding-service` เป็น owner ของ application outcome ไม่ใช่ DOPA หรือ Mobile
+- การ rejection และ status/email effects ใช้ rejection path กลางที่สรุปใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 
 ## State transitions
 
 | Trigger | Application | Registration |
 | :--- | :--- | :--- |
-| Mobile POST ผ่าน eligibility check | ไม่มีคำขอที่ block → `draft` (`id-update`) | → `identity-verification/front-card-scan` ใน `FlowIDUpdate`; สร้าง history สำหรับ steps ถัดไป |
+| Mobile POST ผ่าน eligibility | ไม่มี application ที่ block → `draft` (`id-card-update`) | → `identity-verification/front-card-scan`; สร้าง history ของ steps ที่อาจต้องทำ |
+| DOPA verification ไม่พบข้อมูลเปลี่ยน และไม่ auto-reject | `draft` → submission path → `to-review` | `identity-verification` → `ndid`; ส่ง waiting-approve email/notification |
+| DOPA verification พบข้อมูลเปลี่ยน | ยังไม่ยืนยันการ submit ปลายทาง | reset personal-information history เมื่อ personal information เปลี่ยน; reset bank history เมื่อ capture name เปลี่ยน |
+| Watchlist auto-reject | → `rejected` ตาม shared KYC rejection path | ผล downstream ใช้ rejection path กลาง |
 
 ## Error and recovery behavior
 
-- Claims ไม่ใช่ `PortalClaims`: HTTP `401` และไม่สร้าง application
-- `UserUUID` parse ไม่ได้: HTTP `400` และไม่สร้าง application
-- Application type อื่น block คำขอ: HTTP `400`, message เริ่มด้วย `APPLICATION_NOT_ALLOWED`; client ต้องจัดการ application ที่ block ตาม flow ของมันก่อน retry
-- Eligibility lookup หรือการสร้าง request ล้มเหลว: HTTP `500`; service transaction คืน error และ handler บันทึก audit result เป็น fail
-- Audit-log write failure ถูก log แยก และไม่เปลี่ยน response ของ request
+- Invalid/missing `PortalClaims`: HTTP `401`; application ไม่ถูกสร้าง
+- `UserUUID` parse ไม่ได้: HTTP `400`; application ไม่ถูกสร้าง
+- Application type อื่น block คำขอ: HTTP `400` พร้อม `APPLICATION_NOT_ALLOWED`; จัดการ application ที่ block ก่อน retry
+- Eligibility lookup หรือ create transaction ล้มเหลว: HTTP `500`; ตรวจ application/registration state ก่อน retry
+- เรียก `GET /api/v1/customer/id-card-update` ก่อน warning date: service คืน error และ Handler ตอบ HTTP `500`
+- DOPA verification, customer-data update, watchlist calculation หรือ CDD comparison ล้มเหลว: verification completion คืน error; source ที่ตรวจไม่ยืนยัน automatic retry หรือ rollback ครอบคลุม external calls
+- RM/WS rejection-email failure ถูก log โดย rejection path; ไม่เปลี่ยน application rejection response ตาม path ที่ตรวจ
 
 ## Final outcomes
 
-- Success: `onboarding-service` สร้าง draft `id-update` application, เก็บ capture/account snapshot และเริ่ม `FlowIDUpdate` ที่ front-card scan
-- Failure: request คืน HTTP error ตาม validation/service path; ตรวจ registration/application state ปัจจุบันก่อน retry
-- Completion, review submission และการตัดสิน KYC ปลายทางยังต้องยืนยันกับเจ้าของระบบ
+- Mobile แสดงวันหมดอายุ/steps และให้เริ่ม ID-card update เมื่อถึงช่วง warning
+- ผ่าน create request: มี draft `id-card-update` พร้อม registration state สำหรับตรวจบัตรและ steps ต่อไป
+- Verification ไม่พบการเปลี่ยนและไม่ auto-reject: application เข้า `to-review`
+- Verification พบการเปลี่ยน: customer data ถูกบันทึกและบาง registration histories ถูก reset; เส้นทาง submit หลังทำ steps ต่อไปยังต้องยืนยัน
+- Auto-reject หรือ KYC rejection: ยึด state และ communication behavior ใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 
 ## Related shared rules
 
@@ -105,22 +135,29 @@ Registration state เริ่มที่ `identity-verification/front-card-sc
 
 `onboarding-service`:
 
-- `routes/routes.go`: registers `POST /api/v1/customer/id-update` only
-- `handler/customer-id-update-handler.go`: authentication, eligibility check and audit result
-- `pkg/customer/id-update/service.go`: transaction creating application, snapshot and registration history
-- `internal/constants/enum/xpg-customer-registartion-status.go`: ID Update and Retake ID Update step mapping
-- `pkg/customer/registrationcomplete/service.go`: `CompleteDraftIDUpdate` exists, but no production caller was found
+- `routes/routes.go`: registers `GET` and `POST /api/v1/customer/id-card-update`
+- `handler/customer-id-card-update-handler.go`: auth, eligibility, create request and status response
+- `pkg/customer/id-card-update/service.go`: warning-date check, status steps and transaction creating draft/snapshots/history
+- `pkg/ekyc/ekyc-verification/service.go`: `CompleteIDCardUpdateVerification`, data-change comparison and branch behavior
+- `pkg/customer/registrationcomplete/service.go`: `CompleteDraftIDCardUpdate` submission/watchlist path
+- `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: expiry and registration status
+- `pkg/kyc/helper.go`: `AllowEditData` behavior for ID-card update applications
+- `internal/constants/enum/flow-type.go` and `internal/constants/enum/application_type_status.go`: flow/application type values
 
 `xspring-mobile-app`:
 
-- `lib/app.dart`: registers the EntryPoint screen only for non-production flavors
-- `lib/services/id_update/id_update_service.dart`: GET and POST calls to `/api/v1/customer/id-update`
-- `lib/domains/id_update/screen.dart`: ID Update screen
-- `lib/res/components/bottom_sheet/id_card_update_bottom_sheet.dart`: order-error ID update bottom sheet and current Update button behavior
+- `lib/services/id_card_required/service.dart`: GET/POST calls to `/api/v1/customer/id-card-update`
+- `lib/domains/Id_card_required/controller.dart` and `lib/domains/Id_card_required/screen.dart`: status steps and retake banner
+- `lib/domains/app_main_page/home/screen.dart`: expiry and retake-ID-card banners
+- `lib/utils/order_validation_utils.dart`: expiry sheet and navigation to ID Card Required screen
+
+`order-service`:
+
+- `pkg/customer/service.go`: feature-gated ID-card/suitability expiry validation
+- `pkg/order/service.go`: order validation call site
 
 ## Unresolved implementation boundaries
 
-- Mobile also calls `GET /api/v1/customer/id-update` and expects `expiry_date`, `steps`, `is_force` and `flow_type`; current `onboarding-service` registers POST only. Backend and frontend contracts do not match.
-- The app only exposes the current EntryPoint route for non-production flavors; a production user journey to `UpdateIdScreen` is not confirmed.
-- `ID_CARD_EXPIRED` maps to an ID-card bottom sheet whose Update button currently closes the sheet; its description uses the fixed date `12/09/2025` and does not navigate to `UpdateIdScreen`.
-- `CompleteDraftIDUpdate` has no production caller in the current onboarding-service tree, so this page does not claim a final submit, review, approval or rejection transition.
+- `CompleteDraftIDCardUpdate` has a production caller only in the no-change branch; changed-data registration completion and final KYC submission are not connected in the source paths found.
+- `checkIDCardUpdateChanges` resets personal-information data/history for live name, address or CDD changes, while `buildCustomerIDCardUpdateSteps` adds the Personal Information step only when change-request `NameChanged` is true; this log field is set from comparison against the old capture. The address-only/CDD-only step outcome needs confirmation from the system owner.
+- Mobile's order-expiry sheet defaults `isRetakeIdCard` to false; the retake-specific sheet is explicitly selected from the Home banner path. Retake behavior after an order error is not confirmed.
