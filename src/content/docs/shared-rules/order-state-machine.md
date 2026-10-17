@@ -2,7 +2,7 @@
 title: Order State Machine
 description: สถานะ การเปลี่ยนสถานะ และข้อจำกัดของ Swap, Withdrawal และ Fund Order
 status: active
-lastUpdated: 2026-09-29
+lastUpdated: 2026-10-17
 documentType: shared-rule
 ---
 
@@ -102,6 +102,8 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 | Digital Asset: deposit / create ICO / swap buy | อนุญาตตาม validation อื่น | ไม่อนุญาต | ไม่อนุญาต | HTTP `400`, `60002`, message `customer is <status>.` |
 | Digital Asset: withdrawal / swap sell | อนุญาตตาม validation อื่น | อนุญาตตาม validation อื่น | ไม่อนุญาต | HTTP `400`, `60002`, message `customer is <status>.` |
 
+เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด `order-consumer` ยังเรียก cancellation endpoint ได้จาก expiry ที่มากับ `CustomerSync` แม้ account status จะเป็น `active`: Traditional หรือ Digital suitability expiry ที่หาย/เลยวันปัจจุบันเป็น trigger; ID-card expiry เป็น trigger เมื่อมีวันที่และเลยวันปัจจุบัน. `order-consumer` เป็น trigger executor ส่วน `order-service` ตรวจ expiry ปัจจุบันและเลือก order cancellation ตามประเภทที่หมดอายุ
+
 เมื่อ `onboarding-service` publish `CustomerSync` และ `order-consumer` พบ account status ที่ lower-case แล้วไม่ใช่ `active` จะเรียก `POST /api/v1/customer/suspend/cancel-orders` ของ `order-service` โดยการ cancel เป็นรายประเภทและเฉพาะ order ที่เข้า cancellation predicate:
 
 | Account status | Mutual Fund | Digital Asset |
@@ -116,7 +118,7 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 1. ถ้า Keycloak token request ได้ network error, parse error หรือ non-200, consumer คืน error หลัง local transaction commit แล้ว; การ retry/replay ของ message ต้องยึด consumer policy และไม่ควรสมมติว่า local sync rollback แล้ว
 2. เมื่อได้ token แล้ว consumer เรียก `POST /api/v1/customer/{identification_id}/account-unitholder-sync` ของ `order-service`; URL/HTTP error ถูกเขียนเป็น structured log ที่มี prefix `EventCustomerSync` และ `identification_id` แต่ไม่ถูกส่งกลับเป็น error ของ `EventCustomerSync`
 3. กรณี HTTP 200 เขียน structured success log ในชุด `EventCustomerSync` เดียวกัน; current `order-consumer` ไม่สร้าง durable `xpg_order.audit_log` สำหรับผลของ `account-unitholder-sync` แล้ว
-4. หลังจากนั้น status ที่ไม่ใช่ `active` ยังเข้า `cancel-orders` path เดิม โดย error ของ cancellation ถูก log/กลืนตาม current consumer implementation
+4. หลังจากนั้น account status ที่ไม่ใช่ `active` หรือ feature-gated expiry trigger ข้างต้น จะเข้า `cancel-orders` path; error ถูก log/กลืนตาม current consumer implementation
 
 ดังนั้น `order-consumer` เป็น executor ของ local sync และ downstream trigger, `order-service` เป็น executor ของ unitholder-sync/cancellation policy และ structured logs เป็น observability เท่านั้น ไม่ใช่หลักฐาน durable ว่า downstream account state, ledger หรือ order state เปลี่ยนสำเร็จ
 
@@ -132,9 +134,9 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 
 1. ห้ามเปลี่ยนสถานะย้อนกลับ
 2. Terminal state เป็นสถานะสุดท้ายและเปลี่ยนต่อไม่ได้
-3. ตามกฎกลางในแหล่งข้อมูล `completed` หรือ `filled` เกิดได้เมื่อ `sync-ledger` สำเร็จแล้วเท่านั้น หาก Ledger ล้มเหลว คำสั่งต้องค้างไว้หรือเข้าสู่ retry
+3. สถานะ terminal กับ ledger มี transaction boundary ตามแต่ละ flow; ตรวจ production path ก่อนสรุปว่า order จะค้าง/retry หรือ finalize เมื่อ ledger ล้มเหลว
 
-อย่างไรก็ตาม Fund Order success path ที่ระบุในแหล่งข้อมูลเดียวกันไม่มี `sync-ledger` จึงเป็นข้อไม่สอดคล้องที่ยังไม่ได้ข้อสรุป ต้องยืนยันจาก code หรือแหล่งธุรกิจของ Fund ก่อนนำกฎนี้ไปใช้กับ Fund Order และไม่ควรตีความจากเอกสารนี้ว่า Fund ถูกยกเว้น
+Current boundary ที่ยังต้องยืนยัน: Fund Order success path ที่ระบุในเอกสารนี้ไม่มี `sync-ledger`; Dealer FX commit `completed`/`rejected` ก่อนสร้าง settlement/hold-release ledger event. จึงยังไม่ยืนยันกฎกลางเดียวว่า order success ต้องรอ ledger สำหรับทุก capability; ให้ยึด flow เฉพาะและยืนยันพฤติกรรมที่ขัดกันกับ system owner. รายละเอียด Dealer FX อยู่ใน [White Glove Dealer FX Trade](/business-flows/trading/dealer-fx-trade/)
 
 ## จุดอ้างอิงในโค้ด
 
@@ -145,3 +147,5 @@ Mutual Fund Switching ใช้ specialized success mapping ที่ข้า�
 - `order-service/pkg/customer/suspend_service.go`
 - `order-service/handler/digital_asset_suspension.go`
 - `order-consumer/pkg/customer-account/service.go`: `EventCustomerSync`, structured logging และ downstream trigger
+- `order-service/pkg/order_fx_trade/service_accept_flow.go`: FX status commit ก่อน logical-ledger batch
+- `order-service/pkg/order_fx_trade/service_ledger.go`: FX logical-ledger creation และ event publication

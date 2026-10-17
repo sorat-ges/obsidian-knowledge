@@ -4,10 +4,10 @@ description: Flow เริ่ม ID-card update จากวันเตือ�
 capability: Customer
 services: [onboarding-service, order-service, xspring-mobile-app]
 integrations: [DOPA]
-aliases: [customer identity update, ID card update, id-card-update, id-update, retake-id-card-update, ID Update, expired ID card update, ID_CARD_EXPIRED, อัปเดตบัตรประชาชน, ขออัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, ถ่ายบัตรประชาชนใหม่, retake บัตรประชาชน]
+aliases: [customer identity update, ID card update, id-card-update, id-update, retake-id-card-update, ID Update, expired ID card update, ID_CARD_EXPIRED, capture name changed, address changed ID update, CDD risk change ID update, visible_submit_button_for_id_update, default bank ID update step, อัปเดตบัตรประชาชน, ขออัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, ถ่ายบัตรประชาชนใหม่, retake บัตรประชาชน, เปลี่ยนที่อยู่หลังตรวจบัตร, เปลี่ยนระดับความเสี่ยง CDD, เปลี่ยนชื่อจาก capture]
 errorCodes: ["APPLICATION_NOT_ALLOWED", "ID_CARD_EXPIRED", "400", "401", "500"]
 status: active
-lastUpdated: 2026-10-14
+lastUpdated: 2026-10-17
 documentType: flow
 ---
 
@@ -54,7 +54,7 @@ documentType: flow
 
 **Executing service: `onboarding-service`**
 
-`GET /api/v1/customer/id-card-update` ตรวจ latest registration status/application, อ่าน `IDCardExpiry` จาก background KYC metadata และสร้างรายการ steps จาก registration history กับ change-request log. หากวันปัจจุบันยังไม่เลย `warning_date` ที่เก็บไว้ service คืน error; Handler map service error เป็น HTTP `500`. Response มี `expiry_date`, `steps` และ `is_force`
+`GET /api/v1/customer/id-card-update` ตรวจ latest registration status/application, อ่าน `IDCardExpiry` จาก background KYC metadata และสร้างรายการ steps จาก registration history กับ change-request log. Personal Information step ถูกเพิ่มเมื่อ change request มี name/address/CDD data change; Bank step ถูกเพิ่มเมื่อไม่มี default bank หรือเมื่อชื่อ capture เปลี่ยนและมี default bank. หากวันปัจจุบันยังไม่เลย `warning_date` ที่เก็บไว้ service คืน error; Handler map service error เป็น HTTP `500`. Response มี `expiry_date`, `steps` และ `is_force`
 
 ### 3. สร้าง draft application
 
@@ -75,7 +75,7 @@ documentType: flow
 
 **Executing service: `onboarding-service`**
 
-หลัง DOPA verification, `EKycHandler` ส่ง `FlowIDCardUpdate` ไป `CompleteIDCardUpdateVerification`. Service โหลด application/verification, สร้างข้อมูลที่ยืนยันแล้ว, เปรียบเทียบข้อมูลลูกค้าเดิม, บันทึก verified customer data และชื่อใน Keycloak, คำนวณ watchlist ใหม่ และตรวจว่า CDD risk level เปลี่ยนหรือไม่ จากนั้นอัปเดต change-request log และ registration state ไป `identity-verification/ndid`
+หลัง DOPA verification, `EKycHandler` ส่ง flow type ของ request ไป `CompleteIDCardUpdateVerification`. Service โหลด application/verification, สร้างข้อมูลที่ยืนยันแล้ว, เปรียบเทียบข้อมูลลูกค้าเดิม, บันทึก verified customer data และชื่อใน Keycloak, คำนวณ watchlist ใหม่ และตรวจ address change, CDD risk-level change และ capture-name change ก่อนอัปเดต change-request log/registration state
 
 ### 5. เลือกผลจากการเปลี่ยนข้อมูล
 
@@ -84,7 +84,7 @@ documentType: flow
 **Executing service: `onboarding-service`**
 
 - **ไม่พบการเปลี่ยนข้อมูล:** เรียก `CompleteDraftIDCardUpdate`, อ่าน watchlist, ประเมิน auto-reject และส่ง application เข้า submission path; เมื่อไม่ auto-reject ระบบส่ง application ไป `to-review` และส่ง `IDCardUpdateWaitingApprove` email/notification
-- **พบการเปลี่ยนข้อมูล:** หากมี personal-information change ระบบ clear FATCA/CRS และ nationality พร้อม soft-delete personal-information history; หากชื่อที่เทียบกับ capture เดิมเปลี่ยน ระบบ soft-delete bank-account history เพื่อให้ registration step นั้นกลับมาทำใหม่
+- **พบการเปลี่ยนข้อมูล:** cleanup branch ทำงานเมื่อ address เปลี่ยน, CDD risk level เปลี่ยน หรือ capture name เปลี่ยน. ระบบ clear FATCA/CRS/nationality และ soft-delete personal-information history; เมื่อ capture name เปลี่ยนจะ soft-delete bank-account history ด้วย เพื่อให้ steps ที่ต้องทำใหม่ปรากฏอีกครั้ง
 
 สำหรับกรณีพบการเปลี่ยนข้อมูล ไม่พบ production caller ของ `CompleteDraftIDCardUpdate` นอก no-change branch ใน source tree ที่ตรวจ จึงยังยืนยันการส่ง application เข้า KYC review หลังผู้ใช้ทำ steps ที่ถูก reset ไม่ได้
 
@@ -138,6 +138,7 @@ documentType: flow
 - `routes/routes.go`: registers `GET` and `POST /api/v1/customer/id-card-update`
 - `handler/customer-id-card-update-handler.go`: auth, eligibility, create request and status response
 - `pkg/customer/id-card-update/service.go`: warning-date check, status steps and transaction creating draft/snapshots/history
+- `pkg/customer/id-card-update/service.go`: Personal Information/Bank step eligibility from change-request data and default-bank state
 - `pkg/ekyc/ekyc-verification/service.go`: `CompleteIDCardUpdateVerification`, data-change comparison and branch behavior
 - `pkg/customer/registrationcomplete/service.go`: `CompleteDraftIDCardUpdate` submission/watchlist path
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: expiry and registration status
@@ -150,6 +151,7 @@ documentType: flow
 - `lib/domains/Id_card_required/controller.dart` and `lib/domains/Id_card_required/screen.dart`: status steps and retake banner
 - `lib/domains/app_main_page/home/screen.dart`: expiry and retake-ID-card banners
 - `lib/utils/order_validation_utils.dart`: expiry sheet and navigation to ID Card Required screen
+- `lib/utils/order_validation_utils.dart`: ID-card expiry timestamp is shifted by +7 hours before date-only display formatting
 
 `order-service`:
 
@@ -159,5 +161,5 @@ documentType: flow
 ## Unresolved implementation boundaries
 
 - `CompleteDraftIDCardUpdate` has a production caller only in the no-change branch; changed-data registration completion and final KYC submission are not connected in the source paths found.
-- `checkIDCardUpdateChanges` resets personal-information data/history for live name, address or CDD changes, while `buildCustomerIDCardUpdateSteps` adds the Personal Information step only when change-request `NameChanged` is true; this log field is set from comparison against the old capture. The address-only/CDD-only step outcome needs confirmation from the system owner.
+- Change request `NameChanged` ใช้ capture-name comparison และ step builder รวม address/CDD data-change predicates แล้ว; changed-data cleanup ทำงานตาม `addressChanged || cddRiskLevelChanged || captureNameChanged`. อย่างไรก็ตามยังไม่พบ production caller ที่พา changed-data application กลับเข้า `CompleteDraftIDCardUpdate` หลังผู้ใช้ทำ steps ที่ reset แล้ว จึงต้องยืนยันการ submit ปลายทางกับเจ้าของระบบ
 - Mobile's order-expiry sheet defaults `isRetakeIdCard` to false; the retake-specific sheet is explicitly selected from the Home banner path. Retake behavior after an order error is not confirmed.

@@ -3,11 +3,11 @@ title: Mutual Fund Switching
 description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจวันมีผลและ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
 services: [order-service, order-consumer, xspring-mobile-app]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, ID_CARD_EXPIRED, SUIT_EXPIRED, expiry validation, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, "91000", trade calendar not configured, no trade date config, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ไม่มีปฏิทินวันซื้อขาย, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, last trade date, IPO cutoff modal, ipo-period, ipo-period-over-cut-off-time, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, ID_CARD_EXPIRED, SUIT_EXPIRED, expiry validation, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, "91000", trade calendar not configured, no trade date config, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ไม่มีปฏิทินวันซื้อขาย, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันซื้อขายสุดท้าย, ปิดรับคำสั่ง IPO, วันเสนอขาย IPO เลย cutoff, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
 integrations: [FundConnext]
 errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007", "91000", "ID_CARD_EXPIRED", "SUIT_EXPIRED"]
 status: active
-lastUpdated: 2026-10-14
+lastUpdated: 2026-10-17
 documentType: flow
 ---
 
@@ -76,18 +76,22 @@ Mobile ไม่มี holiday cache key แล้ว: ทุกครั้ง�
 
 `GET /api/v1/order/available-trade-date` เป็น read-only contract สำหรับตรวจวันมีผลและเวลาตัดรอบ โดยรับ `order_type=buy|sell|switch`, `product_id` และ `target_product_id` ที่เป็น optional สำหรับ switch; ต้องใช้ `PortalClaims` และไม่สร้างหรือเปลี่ยน order state ผลสำเร็จคืน `show_modal`, `current_date`, `effective_date` และ `cut_off_time` โดยวันที่เป็น `YYYY-MM-DD` และ `cut_off_time` เป็นเวลา Thailand/Asia-Bangkok แบบไม่มี timezone offset
 
+`order-service` อ่าน `LastTradeDate` จากแถวล่าสุดของ `dw_product.product_mf_trade_calendar` เมื่อ trade flag ของ order type เปิดอยู่: Buy ใช้ `SUB`, Sell ใช้ `RED`, และ Switch ใช้ `SWO`. หากไม่พบแถวที่ตรงกับ flag ที่เปิด จะไม่มี `LastTradeDate` ในการตัดสินใจ
+
 ลำดับการตัดสินใจของ Backend คือ:
 
 - Buy/sell และ switch ที่ยังไม่มี `target_product_id` เมื่อไม่มี trade calendar ที่เปิดใช้งาน: `show_modal = trade-calendar` และไม่มี `effective_date`
 - Buy/sell และ switch ที่ยังไม่มี `target_product_id` เมื่อวันปัจจุบันเป็น weekend หรือ holiday: `show_modal = holiday` และ `effective_date` เป็น working day ถัดไป
-- เป็น working day แต่เลย cutoff: `show_modal = cut-off-time` และ `effective_date` เริ่มค้นจากวันถัดไป
+- เป็น working day แต่เลย cutoff: โดยทั่วไป `show_modal = cut-off-time` และ `effective_date` เริ่มค้นจากวันถัดไป; หากวันนี้ตรงกับ `LastTradeDate` จะคืน `show_modal = trade-calendar` แทน เพื่อไม่เสนอวันหลังวันซื้อขายสุดท้าย
 - ก่อน cutoff ใน working day: ไม่แสดง modal และ `effective_date` เป็นวันปัจจุบัน
+
+สำหรับ IPO Buy ที่อยู่ใน offering period, ก่อน cutoff จะคืน `show_modal = ipo-period` พร้อม effective date วันนี้. หลัง cutoff, หากวันนี้เป็นวันสุดท้ายของ offering จะคืน `trade-calendar`; วันอื่นจะคืน `ipo-period-over-cut-off-time` และ effective date วันทำการถัดไป
 
 สำหรับ switch ที่มี `target_product_id`, source code แยกผลของ source switch-out calendar ออกจาก modal ที่ client ใช้แสดง: ถ้า source calendar ไม่ได้ตั้งค่า response คืน `current_date` อย่างเดียว (`show_modal`, `effective_date` และ `cut_off_time` เป็น `nil`); ถ้าวันปัจจุบันเป็น holiday ระบบยังคำนวณ working day ถัดไปและ pair cutoff แต่ล้าง `show_modal` ไม่คืน holiday modal. นี่เป็น behavior ของ availability response เท่านั้น ไม่ได้เปลี่ยน final create validation ของ switch
 
 Holiday มี priority เหนือ cutoff สำหรับวันเดียวกัน สำหรับ switch ที่ไม่มี `target_product_id` ระบบยังไม่คืน cutoff; เมื่อมี target แล้ว `order-service` ใช้ pair rule เดียวกับ precheck: settlement day ที่ไม่ใช่ศูนย์ใช้ source switch-out sell cutoff ส่วน settlement day เป็นศูนย์ใช้ cutoff ที่เร็วกว่า source sell และ target buy ในวันที่ target เปิดทำการ และ fallback เป็น source sell เมื่อ target ไม่มี calendar/เป็น holiday
 
-ปัจจุบัน mobile เรียก contract นี้ใน buy, sell และ switch และเรียกซ้ำเมื่อเลือก target fund เพื่อเก็บ cutoff ที่แสดง (`cutOffTimeBuy`/sell/switch), `current_date`, `effective_date` และสถานะ modal จาก response หาก `show_modal` เป็น `cut-off-time` หรือ `holiday` controller จะแสดง `OrderNoticeBottomSheet` ที่ตรงกับกรณี; หลังยืนยัน mobile ใช้ effective date ที่ response ให้มา โดย buy อาจบังคับ ATS เมื่อเลือกวันข้างหน้า ส่วน switch จะส่ง `target_product_id` เมื่อมี target แล้ว ดังนั้น availability API เป็นตัวขับ modal/effective-date UX ของ mobile ใน source ที่ตรวจรอบนี้แล้ว
+ปัจจุบัน mobile เรียก contract นี้ใน buy, sell และ switch และเรียกซ้ำเมื่อเลือก target fund เพื่อเก็บ cutoff ที่แสดง (`cutOffTimeBuy`/sell/switch), `current_date`, `effective_date` และสถานะ modal จาก response. Controller รองรับ `holiday`, `cut-off-time`, `trade-calendar`, `ipo-period` และ `ipo-period-over-cut-off-time` และแสดง notice/bottom sheet ตาม flag; หลังยืนยัน mobile ใช้ effective date ที่ response ให้มา โดย buy อาจบังคับ ATS เมื่อเลือกวันข้างหน้า ส่วน switch จะส่ง `target_product_id` เมื่อมี target แล้ว ดังนั้น availability API เป็นตัวขับ modal/effective-date UX ของ mobile ใน source ที่ตรวจรอบนี้แล้ว
 
 <mark class="changed-feature" data-updated-on="2026-10-03">เมื่อ switch ไม่มี modal, Mobile ใช้ `effective_date` จาก response เป็น effective date ของฟอร์ม; หาก response ไม่มีวันดังกล่าว controller จะล้าง field และระหว่างโหลดจะแสดง skeleton. นี่เป็น client presentation behavior ไม่ใช่กฎ eligibility เพิ่มเติมของ `order-service`.</mark>
 
@@ -200,6 +204,8 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - Mobile เรียก holiday API ใหม่ทุกครั้งที่ tab/order flow เรียก `getHoliday`; การย้ายออกจากหน้าคำสั่งซื้อจึงเป็นจุดที่ reset bank-account cache ส่วน holiday state ไม่ถูกใช้แทน backend validation
 - Account status event ที่ downstream ได้รับทำให้ `order-service` พยายามยกเลิก pending switch order สำหรับทั้ง `suspended`, `closed` และ `freeze` ตาม predicate ของ switch
 - `GET /api/v1/order/available-trade-date` เป็น read-only availability contract; holiday, cutoff และ target-pair rule ถูกคำนวณโดย `order-service` และไม่เปลี่ยน order state
+- `LastTradeDate` มาจาก `product_mf_trade_calendar` ล่าสุดที่มี trade flag ของ Buy/Sell/Switch เปิดตามลำดับ `SUB`/`RED`/`SWO`; หลัง cutoff ในวันซื้อขายสุดท้ายระบบใช้ `trade-calendar` modal แทนการเสนอวันทำการถัดไป
+- IPO Buy ที่ยังอยู่ใน offering period แสดง `ipo-period` ก่อน cutoff; หลัง cutoff แสดง `ipo-period-over-cut-off-time` เว้นแต่วันนี้เป็นวันสุดท้ายของ offering ซึ่งใช้ `trade-calendar`
 - สำหรับ switch ที่มี `target_product_id`, source switch-out holiday/trade-calendar result ไม่ได้แสดง `holiday` หรือ `trade-calendar` modal ใน response; กรณีไม่มี calendar คืน `current_date` อย่างเดียว และกรณี holiday คืน effective date/pair cutoff โดย `show_modal` เป็น `nil`
 - `60001` เป็น business response code ที่อยู่ใน HTTP `200` เมื่อ placement precheck พบว่าเลย cutoff; validation อื่นของ switching ยังใช้ HTTP `403` หรือ error mapping ของ handler
 - Mobile รุ่นปัจจุบันอ่าน `show_modal`, `current_date`, `effective_date` และ cutoff จาก availability response; holiday endpoint v1 ใช้เป็น date list สำหรับ calendar เท่านั้น
@@ -273,7 +279,8 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - `handler/order_handler.go`: `CreateSwitchingOrder`, `CancelSwitchingOrder`
 - `pkg/order/service.go`: `ValidateSwitchOrder`, `ValidateSwitchCutOffTime`, `VerifyPlaceOrderSwitching`, `OrderSwitch`, `CancelSwitchOrderByCustomer`, cutoff response-code parity
 - `pkg/order/order_helpers.go`: switching request creation, FundConnext approval/cancel และ cutoff helpers
-- `pkg/product/service.go`: v1/v2 switching product list, `GetTradeAvailability`, `GetCutOffTimeByOrderType` และ displayed cutoff calculation
+- `pkg/product/service.go`: v1/v2 switching product list, `GetTradeAvailability` และ displayed cutoff calculation
+- `pkg/product/service.go`: `GetCutOffTimeAndLastTradeDateByOrderType` และการอ่าน `LastTradeDate` จาก trade calendar
 - `storages/postgres/productrespository/product_mf_switching_repository.go`: customer/sale-channel/investor-class filter และ `switch_in_trade_flag`/`SWI` trade-calendar predicate
 - `pkg/holiday/helper.go`: holiday/workday และ switch-in/switch-out cutoff resolution
 - `internal/constants/error.go`: `ErrTradeCalendarNotConfigOpenFlag`, `CodeNoTradeDateConfig`

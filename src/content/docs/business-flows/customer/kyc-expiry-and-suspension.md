@@ -3,11 +3,11 @@ title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal, xspring-mobile-app]
-aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, id-card-update, retake-id-card-update, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, อัปเดต suitability, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, cancel orders on expired suitability, CustomerSync expired date cancellation, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, id-card-update, retake-id-card-update, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, อัปเดต suitability, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, ยกเลิกคำสั่งเมื่อ suitability หมดอายุ, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002", ID_CARD_EXPIRED, SUIT_EXPIRED]
 status: active
-lastUpdated: 2026-10-14
+lastUpdated: 2026-10-17
 documentType: flow
 ---
 
@@ -36,7 +36,7 @@ documentType: flow
 | Service | Role |
 | :--- | :--- |
 | `onboarding-service` | Business owner และ executor ของ expiry calculation, state update, KYC rejection status, application creation, suspension และ audit/batch result; publish `CustomerSync` จาก rejection path |
-| `order-consumer` | Executing service ของ `CustomerSync` persistence และ trigger เรียก system cancellation เมื่อ account status ไม่ใช่ `active` |
+| `order-consumer` | Executing service ของ `CustomerSync` persistence และ trigger เรียก system cancellation เมื่อ account status ไม่ใช่ `active` หรือ feature-gated KYC expiry check ผ่าน |
 | `order-service` | Business owner/executor ของ order status gate และ executor ของ cancellation ที่ `order-consumer` trigger |
 | `asset-consumer` | Executing service ของ downstream customer/account sync และ ledger/portfolio processing ที่เกี่ยวข้อง; status sync จาก `CustomerSync` เป็น raw status storage |
 | `web-portal` | Supporting client ที่ map identification/account status `freeze` เป็น label และ disable บาง action ใน White Glove; ไม่ override backend status policy |
@@ -51,7 +51,7 @@ documentType: flow
 
 **Executing service: `onboarding-service`**
 
-Job `CalculateKycExpiryBackgroundJob` ป้องกันงานซ้อนด้วย distributed lock แล้วรันสอง phase: คำนวณ/บันทึก expiry ก่อน จากนั้นประเมิน suspension แม้ phase แรกมี error job ยังพยายาม phase suspension และคืน phase-one error หลัง phase สองจบ
+Job `CalculateKycExpiryBackgroundJob` ป้องกันงานซ้อนด้วย distributed lock แล้วรันสอง phase: `pkg/customer/re-kyc/service.go` คุม orchestration และ `pkg/customer/kyc-expiry/service.go` ทำ calculation/upsert expiry; จากนั้น job ประเมิน suspension. แม้ phase แรกมี error job ยังพยายาม phase suspension และคืน phase-one error หลัง phase สองจบ
 
 ### 2. Load expiry inputs
 
@@ -171,17 +171,17 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 
 **Owner service: `onboarding-service`**
 
-**Executing service: `onboarding-service` สำหรับการ publish; `order-consumer` และ `asset-consumer` เป็น event executors เมื่อได้รับ `CustomerSync`
+**Executing service: `onboarding-service` สำหรับการ publish; `order-consumer` และ `asset-consumer` เป็น event executors เมื่อได้รับ `CustomerSync`**
 
 `ProduceCustomerData` ของ rejection path publish `CustomerSync` แยกไปยัง order, asset, product และ sale ตาม implementation ของ `onboarding-service` แต่ `applySuspendedKycByIdentification` สำหรับ KYC expiry ไม่ได้เรียก `ProduceCustomerData` ใน source path ที่ตรวจพบ การเปลี่ยน status ใน onboarding database จึงยังไม่ใช่หลักฐานว่า read model ของ downstream ถูก sync แล้ว
 
-เมื่อ `order-consumer` ได้รับ `CustomerSync` ที่มี account status ใด ๆ ที่ lower-case แล้วไม่ใช่ `active` จะ:
+เมื่อ `order-consumer` ได้รับ `CustomerSync`, หลัง local data commit และพยายาม account-unitholder sync แล้ว จะเรียก cancellation trigger เมื่อ account status ใด ๆ lower-case แล้วไม่ใช่ `active` หรือเมื่อ feature `FeatureReKycCDDTriggeredOnly` เปิดและพบ expiry trigger. Expiry trigger เป็นจริงเมื่อ Traditional suitability หรือ Digital suitability expiry หาย/เลยวันปัจจุบัน หรือ ID-card expiry เลยวันปัจจุบัน; missing suitability expiry นับเป็น expired แต่ missing card expiry ไม่ trigger cancellation:
 
 1. upsert identification, customer account และ investment account ใน transaction
 2. เรียก `account-unitholder-sync` ของ `order-service`
-3. เรียก `/api/v1/customer/suspend/cancel-orders` เมื่อพบ account ใดเป็น `suspended`, `closed`, `freeze` หรือค่าอื่นที่ไม่ใช่ `active`
+3. เรียก `/api/v1/customer/suspend/cancel-orders` เมื่อพบ account ที่ไม่ใช่ `active` หรือ expiry trigger ข้างต้นเป็นจริง; expiry trigger ไม่ได้เปลี่ยน account status เป็น `suspended`
 
-<mark class="changed-feature" data-updated-on="2026-10-03">ก่อนเรียก API ทั้งสอง `order-consumer` ขอ service-account token; token failure คืน error หลัง transaction ที่ upsert customer data commit แล้ว และไม่เรียก unitholder sync หรือ cancellation. เมื่อมี token, account-unitholder-sync ถูกเรียกก่อน; parse/network/non-2xx failures ถูก log และไม่หยุดการลอง cancel เมื่อเข้าเงื่อนไข ส่วน cancellation endpoint failure ก็ถูก log และกลืนไว้โดย event handler</mark>
+<mark class="changed-feature" data-updated-on="2026-10-17">ก่อนเรียก API ทั้งสอง `order-consumer` ขอ service-account token; token failure คืน error หลัง transaction ที่ upsert customer data commit แล้ว และไม่เรียก unitholder sync หรือ cancellation. เมื่อมี token, account-unitholder-sync ถูกเรียกก่อน; parse/network/non-2xx failures ถูก log และไม่หยุดการลอง cancel เมื่อเข้าเงื่อนไข ส่วน cancellation endpoint failure ก็ถูก log และกลืนไว้โดย event handler. เมื่อ feature flag เปิด เงื่อนไข expiry ใช้ OR ระหว่าง ID-card, Traditional และ Digital suitability แทนการต้องหมดอายุร่วมกันทุกประเภท</mark>
 
 `order-service` จะอ่านสถานะปัจจุบันของ MF และ Digital Asset account แล้วเลือก cancellation set ตาม operation: `suspended` ยกเลิก MF buy/switch, ICO, pending fiat deposit และ swap-limit BUY; `closed`/`freeze` เพิ่ม MF sell, fiat/crypto withdrawal และ swap-limit SELL การ cancel เป็นราย order ตาม predicate ไม่ใช่การเปลี่ยนสถานะทุก order แบบ blanket
 
@@ -207,7 +207,7 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 | Surface | Current behavior ที่ตรวจพบ | Owner/executor ที่เกี่ยวข้อง |
 | :--- | :--- | :--- |
 | `order-service` | อ่าน `suspended`, `closed`, `freeze` และใช้ operation-level gate; inbound MF buy/switch และ digital deposit/ICO/swap-buy ถูก block เมื่อ non-active ส่วน outbound exception ขึ้นกับ operation | `order-service` เป็น executor ของ order validation/cancellation |
-| `order-consumer` | lower-case account status ที่ไม่ใช่ `active` trigger `/api/v1/customer/suspend/cancel-orders` หลัง `CustomerSync` และ log แล้วกลืน error จาก cancellation endpoint | `order-consumer` เป็น event/cancellation trigger executor |
+| `order-consumer` | lower-case account status ที่ไม่ใช่ `active` หรือ feature-gated expiry trigger จาก ID card/Traditional/Digital suitability เรียก `/api/v1/customer/suspend/cancel-orders` หลัง `CustomerSync`; log แล้วกลืน cancellation endpoint error | `order-consumer` เป็น event/cancellation trigger executor |
 | `asset-consumer` | upsert status จาก `CustomerSync` เป็น raw value; ไม่พบ business gate เพิ่มเติม | `asset-consumer` เป็น sync executor; asset portfolio effect ต้อง trace จาก ledger event แยก |
 | `web-portal` | `EnumIdentificationStatus.FREEZE` map เป็น label `Freeze`; `InvestmentAccountStatus` รองรับ `Freeze` และ White Glove แยก `isSuspended` จาก `isFreezeAccount`, disable main trading action เมื่อ freeze/knowledge test required และ disable deposit เมื่อ suspended | `web-portal` เป็น supporting client/BFF; backend ยังเป็น owner |
 | `trading-web` | current status enum/UI ที่ตรวจใน repository ยังเน้น active/suspended; ไม่พบการเปลี่ยน Freeze UI ใน commit range นี้ | `trading-web` เป็น supporting client และอาจล้าหลัง backend contract |
@@ -243,6 +243,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 ### Unresolved implementation boundaries
 
 - `order-consumer` จะ trigger cancellation สำหรับค่า status ใด ๆ ที่ไม่ใช่ `active` แต่ enum constants ที่ประกาศมีเพียง `active`, `suspended`, `closed`, `freeze`; behavior ของ unknown status ยังต้องยืนยันกับเจ้าของระบบ
+- `order-consumer` expiry trigger อ่าน expiry fields ที่มากับ `CustomerSync`; source ที่ตรวจไม่ยืนยัน freshness/producer contract ของ suitability/card date fields เมื่อ feature flag เปิด
 - `order-service` customer lookup ใช้ `LIMIT 1` โดยไม่กำหนด precedence เมื่อมีหลาย account ของ product เดียวกันคนละ status
 - `IsMutualFundNotAllowOrder` ทิ้ง lookup error สำหรับ order type ที่ไม่ใช่ `sell` และ status ว่างถูกประเมินเป็น not allowed สำหรับ buy/switch; เอกสารนี้จึงแยก intended status matrix ออกจาก defect/inconsistency นี้
 - `ProcessFreezeCustomerStatus` มี implementation ใน `onboarding-service` แต่ไม่พบ production caller ใน tree ที่ตรวจ; freeze ที่ยืนยันในรอบนี้มาจาก rejection calculation path
@@ -267,10 +268,11 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - KYC rejection ของ existing/migrated customer หรือ `re-kyc` ใช้ `SUP-007` (`KYC_REJECTED`); manual/non-auto reject ทำให้ identification เป็น `active` และ accounts เป็น `suspended`, ส่วน auto-reject case ทำให้ทั้งคู่เป็น `freeze`
 - Rejection email ใช้ `Bcc` สำหรับ prospect/RM และ extra recipients ที่มาจาก migrated Digital Asset account; ชื่อ parameter เดิม `ccEmail` ใน service ไม่ได้แปลว่า transport ปัจจุบันใช้ CC
 - `order-service` ใช้ account status แยกตาม operation: MF sell และ digital-asset withdrawal/swap sell ยังผ่านเมื่อ `suspended`; MF buy/switch และ digital-asset deposit/ICO/swap buy ไม่ผ่าน และ `closed`/`freeze` ไม่ผ่านทุก operation ที่ helper นี้ตรวจ
-- `order-consumer` เรียก system cancellation เมื่อ `CustomerSync` มี account status ที่ไม่ใช่ `active`; order-service cancel เฉพาะ pending order ที่เข้า predicate และเลือก side ตาม status
+- `order-consumer` เรียก system cancellation เมื่อ `CustomerSync` มี account status ที่ไม่ใช่ `active` หรือ feature-gated expiry trigger ผ่าน; `order-service` ตรวจ expiry/status ปัจจุบันแล้ว cancel เฉพาะ pending order ที่เข้า predicate
 - `bank-account-setting` และ `new-bank-account-request` ถูกข้ามใน cancel helper; cancellation แบบเฉพาะทางรองรับ upgrade investor class และ withdrawal-level upgrade
 - Auto-cancel re-KYC ลบ/restore ข้อมูลใน transaction เดียวกับการยกเลิก application แต่คำนวณ KYC expiry ใหม่หลัง transaction เพื่อให้ query เห็นข้อมูลที่ restore แล้ว
 - `kyc_expiry_data` เป็น metadata ของ ID-card/suitability expiry และ warning ที่ re-KYC option/status ใช้; existing background KYC ที่ metadata ว่างหรือ invalid จะถูก backfill ระหว่าง expiry upsert
+- เมื่อ `FeatureReKycCDDTriggeredOnly` เปิด, `order-consumer` เรียก cancellation ถ้า ID-card expiry เลยวันปัจจุบัน หรือ Traditional/Digital suitability expiry หายหรือเลยวันปัจจุบัน; เป็น trigger จาก event payload ไม่ใช่ account status transition
 - Force re-KYC email ใช้ `customer_background_kyc.KycExpiryDate` เป็น final date เมื่อระบบส่ง `EmailEventTypeReKycForce`; ไม่ใช้ current time เป็นวันหมดอายุของ email
 - การ patch `change-request-log` แยก reviewer rejection (`to-review`) ออกจาก rejection อื่น: reviewer ถูก stamp ใน reviewed fields และ approved fields ใช้ AML actor ปัจจุบัน ส่วน rejection อื่นใช้ staff ผู้ทำรายการใน approved fields
 - การ soft-delete registration history ของ re-KYC ระบุ `application_id`; ไม่ลบ history ของ flow อื่นของ customer ใน path นี้
@@ -294,7 +296,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 | Existing re-KYC application | current status → `cancelled-by-system` เมื่อ auto-cancel condition เป็นจริง |
 | Customer change-request log account metadata | reviewer rejection จาก `to-review` → reviewer ใน `reviewed_*` และ AML actor ใน `approved_*`; rejection อื่น → acting staff ใน `approved_*` |
 | Restored customer data | customer tables → snapshot จาก capture หลัง cancellation transaction commit |
-| Downstream pending orders | `CustomerSync` non-active account → order-consumer trigger → selected order cancellation in `order-service` |
+| Downstream pending orders | `CustomerSync` non-active account or feature-gated expiry trigger → order-consumer trigger → selected order cancellation in `order-service` |
 
 ## Error and recovery behavior
 
@@ -345,6 +347,8 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - `pkg/customer/kyc-expiry/service.go`: CDD/suitability expiry periods
 - `handler/customer-handler.go`, `handler/customer_dto.go`: `/api/v1/customer/status` และ `expirations` response mapping
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: ID-card/suitability expiry status
+- `pkg/customer/re-kyc/service.go`: `CalculateKycExpiryBackgroundJob` phase orchestration
+- `pkg/customer/kyc-expiry/service.go`: KYC expiry calculation, metadata upsert และ expiry candidates
 - `pkg/customer/re-kyc/kyc_suspend_service.go`: suspension, application/cancellation processing และ `sendReKycForce` ที่อ่าน `KycExpiryDate`
 - `internal/storages/postgres/applicationrepository/application_repository.go`: active-identification และ active-account selection สำหรับ expiry suspension
 - `pkg/customer/application/customer-application-repo/customer-application-repository.go`: current re-KYC application lookup และ suspension candidates
@@ -365,7 +369,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 
 Supporting current-contract references:
 
-- `order-consumer/pkg/customer-account/service.go`: `CustomerSync` persistence และ conditional cancel-orders เมื่อพบ status ที่ไม่ใช่ `active`
+- `order-consumer/pkg/customer-account/service.go`: `CustomerSync` persistence, non-active account trigger และ feature-gated `hasExpiredDate` cancellation trigger
 - `order-service/pkg/order/service.go`: MF operation-level account-status validation และ order-placement pre-check
 - `order-service/pkg/customer/suspend_service.go`: status-specific cancellation orchestration
 - `order-service/handler/digital_asset_suspension.go`: Digital Asset operation-level status validation และ `60002`

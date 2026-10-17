@@ -4,10 +4,10 @@ description: Flow ขอราคาและยืนยันรายกา�
 capability: Trading
 services: [order-service, product-service, asset-consumer]
 integrations: [Kafka, Payment Gateway, KTB]
-aliases: [White Glove FX Trade, dealer FX trade, FX trade, FX-trade submit, order_fx_trade, order_fx_trade_id, bank_gateway, order_side, net receive, amount_display, FX amount currency, ซื้อขาย FX แบบ Dealer, รายการ FX สำหรับ Dealer, ซื้อขาย USD/THB, คำสั่ง FX ของ White Glove, ยอดรับสุทธิ, ยอดค่าธรรมเนียม FX]
+aliases: [White Glove FX Trade, dealer FX trade, FX trade, FX-trade submit, order_fx_trade, order_fx_trade_id, bank_gateway, order_side, net receive, amount_display, FX amount currency, AllInRate precision, FX order ledger timing, logical hold ledger, ซื้อขาย FX แบบ Dealer, รายการ FX สำหรับ Dealer, ซื้อขาย USD/THB, คำสั่ง FX ของ White Glove, ยอดรับสุทธิ, ยอดค่าธรรมเนียม FX, สถานะ FX ก่อนลง ledger]
 errorCodes: ["400", "401", "403", "404", "409", "500", "504"]
 status: active
-lastUpdated: 2026-10-14
+lastUpdated: 2026-10-17
 documentType: flow
 ---
 
@@ -73,7 +73,7 @@ Submit response คืน amount fields (`bank_fee`, `transfer_fee`, `you_pay`, 
 
 **Executing service: `order-service`**
 
-ภายใน database transaction, `order-service` lock และตรวจ order ซ้ำ, เปลี่ยนสถานะ `created → processing`, แล้วบันทึก logical-ledger batch เพื่อย้ายยอดจาก customer `AVAILABLE` ไป `HOLD_IN_ORDER`. ขั้นตอน hold นี้เกิดก่อนเรียก accept Gateway
+ภายใน database transaction, `order-service` lock และตรวจ order ซ้ำ แล้วเปลี่ยนสถานะ `created → processing` และ commit transaction. หลัง transaction จบจึงเรียก `fxTradeLogicalBatch` เพื่อย้ายยอดจาก customer `AVAILABLE` ไป `HOLD_IN_ORDER` และ publish logical-ledger event. สถานะ `processing` จึงอาจถูกบันทึกแล้วแม้การสร้าง ledger batch หรือ publish event จะล้มเหลว; source ไม่ยืนยัน rollback ร่วมกันหรือ automatic recovery ของสองขั้นตอน
 
 ### 4. ส่ง accept และตรวจผลจาก Gateway
 
@@ -95,9 +95,9 @@ Submit response คืน amount fields (`bank_fee`, `transfer_fee`, `you_pay`, 
 | :--- | :--- | :--- |
 | `pmg000` พร้อม `status = SUCCESS` และ `response_code = 00` หรือ `200` | `processing → completed` | ลด customer `HOLD_IN_ORDER`; เพิ่มยอดที่จ่ายสุทธิให้ XD main; ลด XD main ด้วยสกุลเงิน/ยอดรับ; เพิ่ม customer `AVAILABLE` ด้วยยอดรับสุทธิ; บันทึก fee ใน XD fee ledger เมื่อมี fee |
 | `pmg999` พร้อม `status = FAIL` หรือ response code `400` | `processing → rejected` | ลด customer `HOLD_IN_ORDER` และคืนยอดเข้า customer `AVAILABLE` |
-| `pmg005` ที่ยัง unresolved หรือ response ที่ไม่เข้า outcome ที่รู้จัก | คง `processing` | ยอดยังอยู่ใน `HOLD_IN_ORDER`; source path นี้ไม่ finalize หรือปล่อย hold เมื่อผลยังไม่ชัดเจน |
+| `pmg005` ที่ยัง unresolved หรือ response ที่ไม่เข้า outcome ที่รู้จัก หลัง hold สำเร็จ | คง `processing` | ยอดยังอยู่ใน `HOLD_IN_ORDER`; source path นี้ไม่ finalize หรือปล่อย hold เมื่อผลยังไม่ชัดเจน |
 
-การเปลี่ยน order state และสร้าง logical-ledger batch ทำผ่าน transaction ของ `order-service`. ผลจาก Gateway ถูกใช้จำแนกเฉพาะใน service นี้; behavior ภายใน Gateway อยู่นอกขอบเขตหลักฐาน
+`order-service` เขียน order status เป็น `completed` หรือ `rejected` ใน database transaction ก่อน จากนั้นจึงเรียก `fxTradeLogicalBatch` เพื่อสร้าง logical-ledger batch และ publish customer transaction event นอก transaction นั้น. ดังนั้น status update กับ logical ledger/event ไม่ได้ commit แบบ atomic เดียวกัน: status ปลายทางอาจคงอยู่แม้ขั้น ledger หรือ event publish ล้มเหลว. ผลจาก Gateway ถูกใช้จำแนกเฉพาะใน service นี้; behavior ภายใน Gateway อยู่นอกขอบเขตหลักฐาน
 
 ### 6. Project logical ledger ไปยัง portfolio
 
@@ -123,7 +123,7 @@ Service-account endpoint `POST /api/v1/white-glove/fx-trade/deal/expire` เป�
 
 **Executing service: `order-service`**
 
-`GET /api/v1/white-glove/fx-trade/order-history` map counterparty เป็น `KTB` และ direction เป็น `Buy`/`Sell`. `GET /api/v1/white-glove/fx-trade/{order_id}` ก็จัดรูป counterparty/direction และคืน `created_by` เป็นชื่อผู้สร้าง. ใน order detail, SELL แสดง placed amount เป็น capture amount บวก transfer fee และ received amount เป็น contra amount; BUY แสดง placed amount เป็น contra amount บวก bank fee และ received amount เป็น capture amount. วันที่ detail serialize เป็น JSON time value แทน formatted date string
+`GET /api/v1/white-glove/fx-trade/order-history` map counterparty เป็น `KTB` และ direction เป็น `Buy`/`Sell`. `GET /api/v1/white-glove/fx-trade/{order_id}` ก็จัดรูป counterparty/direction และคืน `created_by` เป็นชื่อผู้สร้าง. ใน order detail, SELL แสดง placed amount เป็น capture amount บวก transfer fee และ received amount เป็น contra amount; BUY แสดง placed amount เป็น contra amount บวก bank fee และ received amount เป็น capture amount. Currency amount ที่คืนใน history/detail ใช้จำนวน decimal ตาม product currency configuration และ fallback เป็นจำนวน decimal ขั้นต่ำของ fiat เมื่อ lookup ไม่มีค่า; format ของ `AllInRate` ไม่ได้เปลี่ยน. วันที่ detail serialize เป็น JSON time value แทน formatted date string. การจัดรูปที่ client แสดงจริงยังตรวจซ้ำไม่ได้เพราะ Web Portal checkout มี local changes และถูกข้ามรอบนี้
 
 ## Business rules
 
@@ -131,6 +131,7 @@ Service-account endpoint `POST /api/v1/white-glove/fx-trade/deal/expire` เป�
 - Fee ถูกหาแยกตาม `side`; bank fee ต้องเป็น THB และ transfer fee ต้องเป็น USD. ถ้าไม่มี fee row ที่ match side จะใช้ active fee ที่ match เงื่อนไขว่างได้
 - Submit ต้องได้ net receive มากกว่า 0 หลังรับ Gateway response จึงจะ persist local order; SELL capture amount ที่ส่งไป Gateway เป็น quantity ลบ transfer fee แม้ผลลบหรือศูนย์ แล้วปล่อยให้ Gateway/การตรวจ net receive ตัดสินผล
 - Submit amount fields มี `amount`, `currency`, `amount_display`; precision สำหรับ display ใช้ currency decimal configuration หากได้จาก `product-service` และ fallback ของ order-service เมื่อ configuration lookup ล้มเหลว
+- FX order history/detail format จำนวน FCY/base ด้วย currency decimal configuration จาก `product-service`; เมื่อ lookup ไม่มีค่าจะใช้ minimum fiat decimal digits. รูปแบบ `AllInRate` ยังคงเดิม
 - Submit quote ตั้ง `is_auto_accept = false`; order เริ่ม `created` และต้องผ่าน accept endpoint แยกต่างหาก
 - `order_side` และ `bank_gateway` ใน `order_fx_trade` ใหม่ถูก persist เป็น lowercase. Accept request ส่ง `bank_gateway = ktb`; list/detail API แปลงค่าที่แสดงกลับเป็น `KTB` และ `Buy`/`Sell`
 - จัดการ pending hold และ settlement จากผลที่ Backend จำแนก; ห้ามสรุปว่า HTTP success ของ submit เท่ากับ completed trade
@@ -142,14 +143,14 @@ Service-account endpoint `POST /api/v1/white-glove/fx-trade/deal/expire` เป�
 
 ```text
 Gateway quote success → created
-created → processing + customer AVAILABLE to HOLD_IN_ORDER
-processing → completed + settlement ledger       [Gateway success is classified]
-processing → rejected + hold released            [Gateway rejection is classified]
+created → processing [status commit] → hold ledger/event [separate step]
+processing → completed                            [Gateway success is classified; status commits before settlement ledger]
+processing → rejected                             [Gateway rejection is classified; status commits before hold-release ledger]
 processing → processing + hold retained          [outcome pending or unrecognized]
 created → expired                                [expire endpoint; deal_expire_at reached]
 ```
 
-ไม่พบหลักฐานใน Flow นี้ว่ามีการเปลี่ยน `processing` ที่ unresolved กลับเป็น `created` หรือปล่อย hold ด้วย background recovery
+สถานะ order กับ logical-ledger batch/event เป็นคนละ transaction boundary; หาก ledger path ล้มเหลว หลังสถานะ finalize อาจเห็น `completed`/`rejected` โดย ledger ยังไม่ครบ. ไม่พบหลักฐานใน Flow นี้ว่ามีการเปลี่ยน `processing` ที่ unresolved กลับเป็น `created`, ปล่อย hold ด้วย background recovery หรือ reconcile สถานะ finalize กับ ledger ที่ขาด
 
 ## Error and recovery behavior
 
@@ -160,10 +161,11 @@ created → expired                                [expire endpoint; deal_expire
 - ก่อนเรียก accept หาก customer `available` ไม่พอ: คืน HTTP `400` และไม่เริ่ม hold
 - Order ไม่อยู่สถานะ `created` หรือมี accept ซ้ำหลัง finalize: คืน HTTP `409`
 - อ่าน detail ด้วย order ID ที่ไม่พบ: คืน HTTP `404`
-- Gateway ปฏิเสธด้วย `pmg999`/`FAIL` หรือ code `400`: order ถูก finalize เป็น `rejected` และปล่อย hold แต่ handler map Gateway error เป็น HTTP `500`
+- Gateway ปฏิเสธด้วย `pmg999`/`FAIL` หรือ code `400`: order ถูก finalize เป็น `rejected` และพยายามปล่อย hold ผ่าน ledger step ที่แยกจาก status transaction; handler map Gateway error เป็น HTTP `500`
 - Gateway outcome เป็น `pmg005` หรือ request timeout: ทำ inquiry ได้ไม่เกิน 3 ครั้งตาม configured delay; หากยัง unresolved handler คืน HTTP `504` และ order ยังคง `processing` พร้อม hold
 - Gateway success และ `net_receive > 0` แต่สร้าง local order row ไม่สำเร็จ: submit คืน error พร้อม log request/ref/deal identifiers เพราะ bank-side deal อาจมีอยู่แล้วและต้อง reconcile
-- Gateway success แต่ local finalize/ledger transaction ล้มเหลว: accept คืน error; transaction rollback ทำให้ order ยัง `processing` และ hold จาก transaction ก่อนหน้าอยู่ โดย source ที่ตรวจไม่ยืนยัน automatic recovery
+- Hold ledger batch/event failure หลัง commit `created → processing`: order ยังคง `processing`; source ที่ตรวจไม่ยืนยัน automatic recovery หรือการ rollback สถานะร่วมกับ ledger
+- หลัง Gateway outcome, order status (`completed`/`rejected`) commit ใน transaction แยกจาก `fxTradeLogicalBatch`; หาก logical-ledger creation หรือ event publication ล้มเหลว สถานะอาจ finalize แล้วแต่ ledger/event ยังไม่ครบ และ source ไม่ยืนยัน automatic recovery
 - Net receive ถูกคำนวณหลัง Gateway response: BUY = capture amount − transfer fee; SELL = contra amount − bank fee. ถ้าผลไม่เป็นบวก service คืน error ก่อน local row จะถูก persist
 - Failure ระหว่าง accept, logical-ledger creation หรือ event publish ถูกส่งกลับจาก `order-service`; source ที่ตรวจไม่ยืนยัน retry/DLQ หรือ automatic recovery สำหรับ failure เหล่านี้
 - `asset-consumer` บันทึก ledger projection และ update portfolio ใน consumer transaction; retry/offset behavior ของ runtime ไม่สรุปจาก business service อย่างเดียว
@@ -171,10 +173,10 @@ created → expired                                [expire endpoint; deal_expire
 ## Final outcomes
 
 - `created`: quote/deal ถูกบันทึกและรอ accept หรือ expiry
-- `completed`: Gateway outcome ผ่าน success rule และ ledger settlement ถูกสร้าง
-- `rejected`: Gateway rejection ถูกจำแนกและ customer hold ถูกปล่อย
+- `completed`: Gateway outcome ผ่าน success rule และ order status ถูก commit; logical-ledger settlement เป็นขั้นแยกที่อาจล้มเหลวหลัง status เปลี่ยน
+- `rejected`: Gateway rejection ถูกจำแนกและ order status ถูก commit; hold-release ledger เป็นขั้นแยกที่อาจล้มเหลวหลัง status เปลี่ยน
 - `expired`: deal ที่ยัง created หมดเวลาและถูก service-account endpoint เปลี่ยนสถานะ
-- `processing`: accept ยังทำงานหรือผล Gateway ยังไม่ยืนยัน; customer funds ยังคงถูก hold
+- `processing`: accept ยังทำงานหรือผล Gateway ยังไม่ยืนยัน; เมื่อ hold step สำเร็จ customer funds อยู่ใน `HOLD_IN_ORDER`. หาก hold ledger/event step ล้มเหลวหลัง status commit order ยังอาจเป็น `processing` โดยยืนยันการ hold จาก status อย่างเดียวไม่ได้
 - หลัง ledger event ถูก consume, `asset-consumer` ปรับ logical-ledger projection และ customer asset portfolio
 
 ## Related shared rules

@@ -2,7 +2,7 @@
 title: Ledger and Money Flow
 description: บทบาทบัญชี ประเภท Ledger และกฎความถูกต้องของการเคลื่อนไหวเงินและสินทรัพย์
 status: active
-lastUpdated: 2026-10-14
+lastUpdated: 2026-10-17
 documentType: shared-rule
 ---
 
@@ -56,8 +56,11 @@ documentType: shared-rule
 
 - **No overdraw:** ตรวจ `AVAILABLE` ก่อนทำ `DECREASE`
 - **Transaction matching:** รายการ Double Entry ต้องใช้ `TransactionId` UUID ชุดเดียวกัน
-- สถานะสำเร็จของ Order ต้องรอให้ `sync-ledger` สำเร็จ
+- ตรวจ transaction boundary ของแต่ละ flow ก่อนสรุปว่า order status กับ ledger สำเร็จพร้อมกัน; ห้ามนำกฎจาก flow หนึ่งไปใช้กับทุก order โดยไม่มีหลักฐานจาก production path
+- **Dealer FX boundary:** `order-service` commit `completed`/`rejected` ก่อนเรียก `fxTradeLogicalBatch` เพื่อสร้าง logical ledger และ publish customer event. หากขั้นหลังล้มเหลว สถานะอาจ finalize แล้วแต่ ledger/event ยังไม่ครบ; ยังไม่มี recovery behavior ที่ยืนยันได้. ต้องยืนยันกับเจ้าของ `order-service` ว่านี่เป็น intended behavior และมีกระบวนการ reconcile ใด
 - Database write กับ Kafka publish ไม่ใช่ distributed transaction เดียวกัน จึงต้องมี monitoring/retry เมื่อสองฝั่งสำเร็จไม่พร้อมกัน
+
+Dealer FX sequence และ failure boundary อธิบายใน [White Glove Dealer FX Trade](/business-flows/trading/dealer-fx-trade/)
 
 ## Withdrawal money flow
 
@@ -92,6 +95,8 @@ documentType: shared-rule
 
 - `pkg/order_fiat/service_ledger.go`
 - `pkg/order_trade/service_ledger.go`
+- `order-service/pkg/order_fx_trade/service_accept_flow.go`: state status commits before the FX ledger path
+- `order-service/pkg/order_fx_trade/service_ledger.go`: logical-ledger batch and customer event publication for Dealer FX
 - `order-service/internal/domain/ledger_fx_rate.go`
 - `asset-consumer/internal/domain/ledger-transactions.go`
 - `asset-consumer/internal/domain/ledger-transaction.go`

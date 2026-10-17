@@ -4,9 +4,9 @@ description: Flow อ่านยอดสินทรัพย์ คำนว�
 capability: Asset Management
 services: [customer-service, asset-service, asset-consumer, web-portal]
 integrations: [Asset Monthly, Product FX Mark-to-Market]
-aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, fiat allocation, aggregated fiat allocation, multi-currency fiat, USD portfolio, fiat product type, fiat portfolio cost, USD logical ledger, xpg customer code, xpg account code, investment account code, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงินหลายสกุล, สัดส่วน fiat, สัดส่วน fiat รวม, พอร์ต USD, ต้นทุนพอร์ต fiat, ledger USD, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, ค้นหาด้วยรหัสลูกค้า XPG, ค้นหาด้วยรหัสบัญชี XPG, ค้นหาด้วยรหัสบัญชีลงทุน, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด, THB FX rate, THB NavPU, GetFXRate, THB first fiat balance, USD THB direct FX, อัตรา FX THB, จัด THB ไว้ลำดับแรก, ตีมูลค่าพอร์ต THB USD]
+aliases: [portfolio, asset balance, fiat wallet overview, trading wallet overview, white glove portfolio, monthly statement, report, customer list by RM, customer status monthly statement, fiat allocation, aggregated fiat allocation, multi-currency fiat, USD portfolio, fiat product type, fiat portfolio cost, USD logical ledger, default fiat product, zero-balance fiat, fiat unrealized P/L, unrealized P/L percent, xpg customer code, xpg account code, investment account code, account freeze portfolio, account status portfolio, closed account portfolio, พอร์ต, ยอดกระเป๋าเงิน fiat, กระเป๋าเงินหลายสกุล, สัดส่วน fiat, สัดส่วน fiat รวม, พอร์ต USD, ต้นทุนพอร์ต fiat, ledger USD, กระเป๋าเงิน trading, พอร์ต white glove, รายงานสินทรัพย์, รายชื่อลูกค้า RM, ค้นหาด้วยรหัสลูกค้า XPG, ค้นหาด้วยรหัสบัญชี XPG, ค้นหาด้วยรหัสบัญชีลงทุน, สถานะลูกค้ารายงานรายเดือน, พอร์ตบัญชีถูกระงับ, พอร์ตบัญชี freeze, พอร์ตบัญชีปิด, fiat ที่ไม่มี balance, P/L ไม่นับ fiat, ผลตอบแทนพอร์ตไม่รวม fiat, THB FX rate, THB NavPU, GetFXRate, THB first fiat balance, USD THB direct FX, อัตรา FX THB, จัด THB ไว้ลำดับแรก, ตีมูลค่าพอร์ต THB USD]
 status: active
-lastUpdated: 2026-10-02
+lastUpdated: 2026-10-17
 documentType: flow
 ---
 
@@ -70,6 +70,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - `AvailableUnitBalance = UnitBalance - PendingOutUnitBalance - PledgeUnit`
 - Digital Asset market value แสดงเป็น THB
 - `Unrealized P/L = (NAV - AverageCost) * UnitBalance`
+- <mark class="changed-feature" data-updated-on="2026-10-17">Portfolio overview รวม `Unrealized P/L` และ `Unrealized P/L Percent` จาก non-fiat asset values เท่านั้น; digital-asset fiat ถูกข้ามทั้งใน P/L numerator และ total-cost denominator ของ percent</mark>
 - Mark-to-Market แปลงสินทรัพย์ทุกประเภทเป็น THB เพื่อหา Total Equity
 - <mark class="changed-feature" data-updated-on="2026-10-02">`GetFiatBalanceByAccountID` รวม fiat portfolio ตาม product/currency และใช้ `NavPU` จาก `dw_product.product_fx_mark_to_market` เมื่อมี FX row รวมถึง THB; ถ้าไม่มี THB row จะ fallback เป็น rate `1`, ส่วน currency อื่นที่ไม่มี rate จะถูกข้าม แล้ว `AmountTHB` ปัดลงสองตำแหน่ง</mark>
 - <mark class="changed-feature" data-updated-on="2026-10-02">Portfolio mapper ที่รับ asset list ใช้ FX `NavPU` ของ USD และ THB โดยตรงตาม `AssetCode` และ override market price ของ product เมื่อมี row ที่ตรงกัน; เมื่อไม่มี FX row จะไม่มี direct-FX override เพิ่ม</mark>
@@ -80,6 +81,7 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - Current trading/White Glove portfolio valuation ใช้ `NavPU`; `OriginalNavPU` ที่ `asset-consumer` persist ไม่ได้ถูกเลือกใน mapper ของ asset-service path นี้
 - <mark class="changed-feature" data-updated-on="2026-09-29">ก่อนอ่าน portfolio state, `asset-consumer` materialize logical-ledger `AVAILABLE` + `INCREASE` ที่มี `ProductType = FIAT` ด้วย `average_cost = 1` และ `total_cost = 1`; จึงไม่ใช้ชื่อ symbol เป็นตัวตัดสินว่า USD หรือ fiat อื่นต้องถูกคำนวณเป็น crypto cost</mark>
 - Portfolio list path เก็บแถว fiat ที่มี `UnitBalance = 0` ไว้ได้ เพื่อให้ product/currency fiat ยังปรากฏในผลลัพธ์ ขณะที่ zero-balance asset ประเภทอื่นถูกกรองตาม path ที่ใช้ `WithoutZeroUnitBalance`
+- <mark class="changed-feature" data-updated-on="2026-10-17">`GetDefaultFiatProducts` อ่าน active fiat products และ decimal/icon metadata; trading wallet เพิ่ม THB default เมื่อไม่มี balance row ส่วน White Glove wallet เติม fiat product ที่ยังไม่มี row เป็น zero balance. Non-dealer ได้เฉพาะ THB, Dealer ได้ active fiat currencies ทั้งหมด</mark>
 
 ### 4. Return portfolio overview
 
@@ -128,6 +130,8 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 - White Glove `GetTradingPortfolioOverview` รวม fiat allocation ที่ไม่เป็นศูนย์ทุก currency เป็นแถว `FIAT` เดียว และคำนวณ crypto residual ใหม่; ถ้าไม่มี fiat allocation ที่ไม่เป็นศูนย์ หรือไม่มี crypto row ให้ปรับ จะคง overview เดิม
 - Fiat allocation overview ใช้ `ProductType = FIAT` เป็นตัวคัดกรอง ไม่ถือว่า symbol เช่น `THB` เป็น fiat โดยอัตโนมัติ และไม่มี THB fallback เมื่อ optional account/portfolio lookup ใช้งานไม่ได้
 - Cost ที่ materialize จาก logical ledger ใช้ `ProductType = FIAT` เป็นหลักใน `asset-consumer`; `product_type_code` หรือ symbol อย่างเดียวไม่ override กฎนี้
+- `GetUnrealizedPL` และ `GetUnrealizedPLPercent` ข้าม asset values ที่ `IsDigitalAssetFiat()` เป็น true; P/L percent คำนวณ denominator จาก total cost ของ non-fiat เท่านั้น
+- Wallet default rows ใช้ active fiat product master; THB default ของ trading wallet และ missing-fiat zero rows ของ White Glove wallet เป็น response defaults ไม่ใช่ ledger postings หรือ balance state transitions
 
 `asset-service` เป็น owner และ executor ของ portfolio aggregation/valuation, RM customer selection และ monthly-report API; `Asset Monthly` เป็น external report generator ที่ถูกเรียกจาก service
 
@@ -177,7 +181,9 @@ Portfolio overview รวมยอดทุก Asset Group ของลูกค
 ## Code references
 
 - `internal/domain/asset_portfolio.go`
+- `internal/domain/portfolio_overview.go`: `GetUnrealizedPL` และ `GetUnrealizedPLPercent` ไม่รวม digital-asset fiat
 - `pkg/asset/service.go`
+- `pkg/asset/service.go`: `GetDefaultFiatProducts` และการอ่าน active fiat products/decimal extensions
 - `pkg/trading/service.go`: `GetTradingWalletAssetBalanceOverview`, `GetWhiteGloveFiatBalance` และ fiat/portfolio mappers
 - `pkg/trading/service.go`: `getFiatAllocations`, `fiatAllocationsFromAssetValues`, `applyFiatAllocationsToOverview`
 - `internal/domain/digital_market_price.go`: mapping FX ของ USD/THB โดยตรงใน `MarketPriceTHBMappingForAssets`

@@ -3,11 +3,11 @@ title: KYC Review Retake and DOPA Reverification
 description: Flow ที่เจ้าหน้าที่ส่ง KYC กลับให้ลูกค้าถ่ายบัตรและยืนยัน DOPA ใหม่ ก่อนเทียบ profile/address และส่ง application กลับเข้า review
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, complete draft retake, retake watchlist completion, auto-reject complete draft, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, product_code, product_type, hide_enhance_button, disable_reject_button, submit_as_approve_button, application_actions, FundConnext customer sync, FundConnext account sync, FundConnext account IC name, FundConnext IC license mismatch, customer account IcLicense, customer account IcName, relationship manager lookup, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, refresh watchlist report, refresh_watchlist, refresh action audit, ActionReviewed approval actionflow, WatchlistTypes, RetakeWatchlistTypes, maximum_age, investment_experience, disability, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, refresh watchlist แบบเลือก field, complete draft retake หลังแก้ข้อมูล, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ชื่อ IC จาก FundConnext, sync ชื่อ IC ตาม IcLicense, relationship manager ตาม IC, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์, TriggerReKycNationalityEnabled, re-KYC nationality reset, post-DOPA watchlist best effort, IdentityVerificationAppmanUnderMinAge, ล้างสัญชาติเมื่อเริ่ม re-KYC, watchlist หลัง DOPA, อายุไม่ถึงเกณฑ์ KYC]
+aliases: [KYC retake, request retake, KYC customer list, KYC customer status, review-information, edit_data_allow, KYC general information edit, update KYC general information, middle name EN, middle_name_en, general-information re-KYC, address-on-id-card re-KYC, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, retake-re-kyc, complete draft retake, retake watchlist completion, auto-reject complete draft, force re-KYC, force re-KYC sell, force re-KYC withdrawal, force re-KYC swap, re-KYC expiry date, re-KYC is_force, pending re-KYC expiry timeline, id card expiry timezone display, auto-cancel re-KYC, cancelled-by-system, customer capture, default investment bank account, investment bank account, product_code, product_type, hide_enhance_button, disable_reject_button, submit_as_approve_button, visible_submit_button_for_id_update, application_actions, FundConnext customer sync, FundConnext account sync, FundConnext account IC name, FundConnext IC license mismatch, customer account IcLicense, customer account IcName, relationship manager lookup, non-closed customer account, permission not found, bank name change, bank account name change warning, bank grace period, DOPA reverification, retake ID card, clear retake sensitive data, customer image verification, laser code, watchlist report, KYC watchlist, refresh watchlist report, refresh_watchlist, refresh action audit, ActionReviewed approval actionflow, WatchlistTypes, RetakeWatchlistTypes, maximum_age, investment_experience, disability, forgery verification, manual verify forgery, KYC forgery, re-KYC step selection, selected re-KYC steps, re_kyc_step, re-KYC option, re-KYC option steps, re-kyc/option, re-kyc-cdd-triggered-only, nationality re-KYC, step-based re-KYC, รายการลูกค้า KYC, สถานะลูกค้า KYC, review ข้อมูล KYC, แก้ไขข้อมูลทั่วไป KYC, ชื่อกลางภาษาอังกฤษ, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, แจ้งเตือนเปลี่ยนชื่อบัญชีธนาคาร, ตรวจสอบ forgery, ถ่ายบัตรใหม่, ยืนยัน DOPA ใหม่, ส่ง KYC กลับแก้ไข, ล้างข้อมูลบัตร retake, ล้าง laser code, รายงาน watchlist KYC, refresh watchlist แบบเลือก field, complete draft retake หลังแก้ข้อมูล, ยกเลิก re-KYC อัตโนมัติ, บัญชีธนาคารลงทุน, บังคับทบทวน KYC, ขายเมื่อบังคับทบทวน KYC, ถอนเมื่อบังคับทบทวน KYC, สลับเมื่อบังคับทบทวน KYC, วันหมดอายุ re-KYC, บังคับ re-KYC หลังวันหมดอายุ, ซิงค์ลูกค้า FundConnext, ซิงค์บัญชี FundConnext, ชื่อ IC จาก FundConnext, sync ชื่อ IC ตาม IcLicense, relationship manager ตาม IC, ไม่ใช่บัญชีปิด, ไม่พบสิทธิ์, TriggerReKycNationalityEnabled, re-KYC nationality reset, post-DOPA watchlist best effort, IdentityVerificationAppmanUnderMinAge, ล้างสัญชาติเมื่อเริ่ม re-KYC, watchlist หลัง DOPA, อายุไม่ถึงเกณฑ์ KYC, ไทม์ไลน์ re-KYC ที่กำลังดำเนินการ, วันหมดอายุบัตรประชาชนแสดงผล]
 integrations: [DOPA, AppMan, AdvanceAI, Keycloak, FundConnext]
 errorCodes: ["1000", "200", "2009", "400", "401", "403", "4001", "4409", "500", "6600", "INVALID_APPLICATION_STATUS", "INVALID_REQUEST", "permission not found"]
 status: active
-lastUpdated: 2026-10-14
+lastUpdated: 2026-10-17
 documentType: flow
 ---
 
@@ -78,6 +78,14 @@ Backend คืน `is_show_button_retake` เป็น nullable boolean: `nil` �
 - branch `rejected`, `invalidStatus` หรือ `nameChanged` ยังคง block ทุก operation
 
 นี่เป็น client-side navigation/action gate เท่านั้น; `onboarding-service` และ operation backend ยังคงเป็นผู้ยืนยัน state, permission และ validation สุดท้าย
+
+### Supporting Mobile expiry timeline during pending re-KYC
+
+**Owner service: `onboarding-service` สำหรับ application state และ expiry metadata**
+
+**Executing service: `xspring-mobile-app` สำหรับ timeline และ expiry notices**
+
+เมื่อ Mobile อยู่ในสถานะ `review`, `inProgress` หรือ `forceInProgress` และมี re-KYC application ที่ `draft`/`to-review`, client แสดง process timeline พร้อม ID-card/suitability expiry notice ที่ยังไม่อยู่ใน `requested.re_kyc_steps`. การแสดง notice นี้ต้องมี `personal-information` step; ถ้า re-KYC steps มี `identification-verification` หรือ `suitability-test` แล้ว Mobile จะไม่แสดง expiry sheet แยกซ้ำสำหรับประเภทนั้น. เป็น supporting presentation จาก expiry metadata ไม่ได้เปลี่ยน re-KYC state หรือ Backend eligibility
 
 ### Bank-account step after a name change
 
@@ -313,6 +321,8 @@ CDD date ที่ส่งใน current/previous KYC information ถูก tru
 
 ตอนบันทึก approved actionflow, `onboarding-service` อ่าน actionflow `ActionReviewed` แล้วใช้ `EndBy`, `EndByName` และ `EndDate` เป็น `StartBy`, `StartByName` และ `StartDate` ของ approved actionflow หากอ่าน `ActionReviewed` ไม่สำเร็จ approval preparation คืน error ก่อนบันทึก actionflow ใหม่นี้
 
+หลังอนุมัติ re-KYC, service ล้าง re-KYC flag ใน background KYC แล้วเรียก `KYCExpiryService.CalculateKycExpiryDate` สำหรับ identification นั้น. Calculation error ถูก log จากผลที่คืนมา แต่ไม่ทำให้ approval return error; หาก recalculation ล้มเหลว expiry metadata อาจยังไม่สะท้อนข้อมูลหลัง approval
+
 ### 11. Verify forgery and expose KYC decision
 
 **Owner service: `onboarding-service`**
@@ -335,7 +345,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 
 **Executing service: `onboarding-service` สำหรับ response flags; `web-portal` เป็น supporting client**
 
-`GET /web/api/v2/kyc/{application_id}/application-info` คืน `application_actions.hide_enhance_button`, `disable_reject_button` และ `submit_as_approve_button`. เมื่อ application เป็น `id-card-update` และ change-request log ไม่มี name/address/CDD data change, Backend ตั้ง flags ทั้งสามเป็น `true`; read path นี้ไม่เปลี่ยน application state. Current `web-portal` rendering/click behavior ของ flags เหล่านี้ยังไม่ยืนยันจาก client source
+`GET /web/api/v2/kyc/{application_id}/application-info` คืน `application_actions.hide_enhance_button`, `disable_reject_button`, `submit_as_approve_button` และ `visible_submit_button_for_id_update`. เมื่อ application เป็น `id-card-update` และ change-request log ไม่มี name/address/CDD data change, Backend ตั้ง flags ทั้งสี่เป็น `true`; read path นี้ไม่เปลี่ยน application state. Current `web-portal` rendering/click behavior ของ flags เหล่านี้ยังไม่ยืนยันจาก client source เพราะ checkout มี local changes และถูกข้ามรอบนี้
 
 ## Business rules
 
@@ -350,6 +360,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - Backend รองรับ step-based re-KYC ผ่าน `re_kyc_step`; option/status read และ mobile review flow ใช้ selected parent steps ชุดเดียวกัน ส่วน request ว่างยังคง legacy type-based behavior
 - `TriggerReKycNationalityEnabled()` เปิดการล้าง nationality เฉพาะเมื่อ re-KYC มี personal-information step; selected-step re-KYC ที่ไม่รวม step นี้คง nationality เดิม
 - `GET /api/v1/customer/re-kyc/option` ตัดเวลาปัจจุบันเป็น date ตาม business timezone ก่อนเทียบ expiry: step จะเริ่มแสดงเมื่อถึง `warning_date` (`today >= warning_date`) แต่ `is_force` จะเป็น `true` เฉพาะเมื่อเลย `expiry_date` (`today > expiry_date`); ในวันหมดอายุเองยังแสดง `expiry_date` แต่ไม่ถือเป็น forced step
+- หลัง re-KYC approval, KYC expiry recalculation เป็น best-effort หลังล้าง re-KYC flag; calculation errors ถูก log แต่ไม่เปลี่ยน approval response
+- `visible_submit_button_for_id_update` เป็น backend response flag สำหรับ ID-card update ที่ไม่มีข้อมูลเปลี่ยน; rendering/click behavior ใน Web Portal ยังไม่ได้ยืนยัน
 - Mobile step-selection ปัจจุบันเลือก option ทุก stepเป็นค่าเริ่มต้น, lock เฉพาะ forced step และ route หลัง start จาก customer status ที่ refresh แล้ว; onboarding-service ยังคงเป็น owner ของ selected-step history และ registration state
 - สำหรับ re-KYC ที่อยู่ `to-review`, `edit_data_allow.general_information` และ `address_on_id_card` เปิดเมื่อ selected/reason มี identity-verification หรือเป็น `id-card-expired`/`force-expired`; CDD/suitability-only ที่ไม่มี identity step ปิดสองส่วนนี้ และ mobile เป็นเพียงผู้ส่งต่อ UX guard
 - เมื่อ re-KYC nationality ถูกบันทึกด้วย `flow_type = re-kyc`, registration history/status ใช้ `FlowReKYC`; mobile เป็นเพียงผู้ส่ง flow context
@@ -506,6 +518,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `handler/customer-re-kyc-handler.go`: optional `re_kyc_step` request และ `steps[]` status response
 - `handler/customer_re_kyc.dto.go`: re-KYC status response fields และ deprecated compatibility fields
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: re-KYC option/status calculation จาก expiry และ selected steps
+- `pkg/customer/kyc-expiry/service.go`: `CalculateKycExpiryDate` used by re-KYC approval recalculation
 - `internal/domain/customer_background_kyc.go`: `KYCExpiryData` ที่ใช้สร้าง expiry metadata ของ option/status
 - `internal/constants/enum/xpg-customer-registartion-status.go`: allowed `ReKYCSteps` และ required sub-status mapping
 - `internal/domain/customer-resigtration-status.go`: step-based/type-based history builder และ initial status
@@ -523,6 +536,8 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `xspring-mobile-app/lib/domains/ekyc/open_account/additional_account/review/widget/review_your_information_widget.dart`: normal bank display vs name-change warning
 - `xspring-mobile-app/lib/domains/re_kyc/review_re_kyc/screen.dart`: re-KYC name-change warning condition
 - `xspring-mobile-app/lib/utils/data_source.dart`: `re-kyc-cdd-triggered-only` feature-toggle read
+- `xspring-mobile-app/lib/utils/data_source.dart`: pending re-KYC expiry notice selection and skip rules for steps already included in `re_kyc_steps`
+- `xspring-mobile-app/lib/domains/app_main_page/home/controller.dart`: pending re-KYC process timeline dispatch
 - `xspring-mobile-app/lib/services/re_kyc/re_kyc_service.dart`: option read และ selected-step start request
 - `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/controller.dart`: default/forced step selection
 - `xspring-mobile-app/lib/domains/re_kyc/re_kyc_step_selection/screen.dart`: selected-step review navigation and row selection UI
@@ -536,6 +551,7 @@ KYC approval map reason code ที่รู้จักเป็นคำอธ
 - `onboarding-service/pkg/customer/kyc_approver/service.go`: suitability V1 fallback, risk/answer mapping และ unchanged ID-card action flags
 - `onboarding-service/handler/webportal/kyc-customer-handler.go`: investment-bank-account endpoint
 - `pkg/customer/application/service.go`: `ProcessApproveApplicationCustomer` และ non-fatal `step_check_account_error` handling
+- `pkg/customer/application/service.go`: clear re-KYC flag then recalculate KYC expiry after approval, logging calculation errors without failing approval
 - `pkg/customer/customer-process/customer-process-service.go`: `CheckAndCreateCustomerInvestmentBankAccount` และ non-closed account selection
 - `pkg/customer/kyc_approver/customer-service.go` and `pkg/customer/kyc_approver/service_output.go`: investment-bank-account item mapping with product metadata
 - `handler/webportal/kyc-customer-dto.go`: KYC approval response fields `product_code` and `product_type`
