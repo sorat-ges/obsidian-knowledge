@@ -1,19 +1,19 @@
 ---
 title: Customer ID Card Update and Retake
-description: Flow เริ่ม ID-card update จากวันเตือนหรือ retake ใน Mobile ไปจนถึง DOPA verification, การตรวจ watchlist และการส่ง draft เข้า KYC review เมื่อไม่มีข้อมูลเปลี่ยน
+description: Flow เริ่ม ID-card update หรือ retake ใน Mobile ไปจนถึง DOPA verification, การทำ steps ที่เปลี่ยน และการส่ง application เข้า KYC review
 capability: Customer
 services: [onboarding-service, order-service, xspring-mobile-app]
-integrations: [DOPA]
-aliases: [customer identity update, ID card update, id-card-update, id-update, retake-id-card-update, ID Update, expired ID card update, ID_CARD_EXPIRED, capture name changed, address changed ID update, CDD risk change ID update, visible_submit_button_for_id_update, default bank ID update step, อัปเดตบัตรประชาชน, ขออัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, ถ่ายบัตรประชาชนใหม่, retake บัตรประชาชน, เปลี่ยนที่อยู่หลังตรวจบัตร, เปลี่ยนระดับความเสี่ยง CDD, เปลี่ยนชื่อจาก capture]
+integrations: [DOPA, Keycloak, Zendesk]
+aliases: [customer identity update, ID card update, id-card-update, id-update, retake-id-card-update, ID Update, expired ID card update, ID_CARD_EXPIRED, capture name changed, address changed ID update, CDD risk change ID update, visible_submit_button_for_id_update, default bank ID update step, อัปเดตบัตรประชาชน, ขออัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, ถ่ายบัตรประชาชนใหม่, retake บัตรประชาชน, เปลี่ยนที่อยู่หลังตรวจบัตร, เปลี่ยนระดับความเสี่ยง CDD, เปลี่ยนชื่อจาก capture, CompleteRetakeVerification, CompleteDraftRetake, IDCardUpdateWaitingApprove, retake ID card update without expiry, personal-information/ndid, ถ่ายบัตรประชาชนใหม่โดยไม่มีวันหมดอายุ, id_card_update_enhance_document_xd, id_card_update_enhance_document_xam, id_card_update_enhance_document_xpg, Zendesk ID-card-update enhance document, ขอเอกสารเพิ่มบัตรประชาชน]
 errorCodes: ["APPLICATION_NOT_ALLOWED", "ID_CARD_EXPIRED", "400", "401", "500"]
 status: active
-lastUpdated: 2026-10-17
+lastUpdated: 2026-10-20
 documentType: flow
 ---
 
 ## Purpose and scope
 
-อธิบายการเริ่ม `id-card-update` จาก Mobile, การอ่านสถานะ/วันเตือน, การสร้าง draft, DOPA verification และผลหลังเปรียบเทียบข้อมูลลูกค้า หน้านี้ระบุเส้นทางที่ยืนยันได้ใน `onboarding-service` และ `xspring-mobile-app`; การส่ง application เข้า KYC review ยืนยันได้เฉพาะกรณีที่ verification ไม่พบข้อมูลเปลี่ยน ส่วนเส้นทางหลังพบข้อมูลเปลี่ยนยังมีจุดที่ต้องยืนยันกับเจ้าของระบบ
+อธิบายการเริ่ม `id-card-update` จาก Mobile, การอ่านสถานะ/วันเตือน, การสร้าง draft และผล DOPA โดยแยก `FlowIDCardUpdate` ออกจาก `FlowRetakeIDCardUpdate`. Retake ใช้ completion path ของ retake และส่ง application เข้า KYC review หลังทำ steps ที่ถูกเปิดใหม่ได้ ส่วน regular `FlowIDCardUpdate` ที่พบข้อมูลเปลี่ยนยังไม่มี production caller ที่ยืนยันการ submit หลังทำ steps แล้ว
 
 ## Trigger and preconditions
 
@@ -46,6 +46,8 @@ documentType: flow
 
 `onboarding-service` ส่ง ID-card expiry ใน `GET /api/v1/customer/status` จาก metadata ที่เก็บใน `customer_background_kyc.kyc_expiry_data`; Mobile แสดง Home banner และเปิด ID Card Required screen เมื่อผู้ใช้เลือกดำเนินการต่อ หาก `flowType` เป็น retake ของ ID-card update, Home ใช้ retake-specific banner/sheet; หน้า ID Card Required แสดง retake banner เมื่อ flow type อยู่ในกลุ่ม retake
 
+เมื่อเป็น `retake-id-card-update`, Home แสดง retake sheet แม้มี pending application หรือไม่มี ID-card expiry; ถ้าไม่มี expiry จะใช้ข้อความแบบ force/expired ที่ไม่มีวันกำกับ การกด Continue เปิด ID Card Required. ถ้ามี pending ID-card-update application Mobile ใช้ status/sub-status เพื่อนำทางกลับไปยัง personal-information steps; เมื่อ status เป็น `complete-draft` จะไม่เปิด step เพิ่ม
+
 ใน order journey, Mobile แสดง expiry sheet แล้วปุ่มหลักของ ID-card sheet นำไป `IdCardRequiredScreen` และข้าม suitability sheet ที่เหลือในรอบนั้น
 
 ### 2. อ่านสถานะ ID-card update
@@ -75,7 +77,13 @@ documentType: flow
 
 **Executing service: `onboarding-service`**
 
-หลัง DOPA verification, `EKycHandler` ส่ง flow type ของ request ไป `CompleteIDCardUpdateVerification`. Service โหลด application/verification, สร้างข้อมูลที่ยืนยันแล้ว, เปรียบเทียบข้อมูลลูกค้าเดิม, บันทึก verified customer data และชื่อใน Keycloak, คำนวณ watchlist ใหม่ และตรวจ address change, CDD risk-level change และ capture-name change ก่อนอัปเดต change-request log/registration state
+หลัง DOPA verification, `EKycHandler` dispatch `FlowIDCardUpdate` ไป `CompleteIDCardUpdateVerification` และ dispatch `FlowRetakeIDCardUpdate` ไป `CompleteRetakeVerification`. ทั้งสอง path อัปเดตข้อมูลที่ยืนยันแล้วและชื่อใน Keycloak; retake path ยังตรวจ profile/address change และ CDD risk-level change แยกกัน
+
+สำหรับ `FlowRetakeIDCardUpdate`:
+
+- ถ้า profile/address และ CDD risk level ไม่เปลี่ยน ระบบตั้ง registration ไป `identity-verification/ndid` แล้วเรียก `CompleteDraftRetake` ทันที
+- ถ้ามี name/address/CDD change ระบบบันทึก flags ใน change-request log, soft-delete personal-information history เพื่อให้ทำ steps เหล่านั้นใหม่ และ soft-delete bank-account history เมื่อชื่อจาก capture เดิมเปลี่ยน จากนั้นตั้ง registration ไป `identity-verification/ndid`
+- DOPA completion ของ retake ID-card path ไม่คำนวณ watchlist ในจุดนี้; การส่งกลับเข้า completion หลังลูกค้าทำ steps จะใช้ `CompleteDraftRetake`
 
 ### 5. เลือกผลจากการเปลี่ยนข้อมูล
 
@@ -83,10 +91,12 @@ documentType: flow
 
 **Executing service: `onboarding-service`**
 
-- **ไม่พบการเปลี่ยนข้อมูล:** เรียก `CompleteDraftIDCardUpdate`, อ่าน watchlist, ประเมิน auto-reject และส่ง application เข้า submission path; เมื่อไม่ auto-reject ระบบส่ง application ไป `to-review` และส่ง `IDCardUpdateWaitingApprove` email/notification
-- **พบการเปลี่ยนข้อมูล:** cleanup branch ทำงานเมื่อ address เปลี่ยน, CDD risk level เปลี่ยน หรือ capture name เปลี่ยน. ระบบ clear FATCA/CRS/nationality และ soft-delete personal-information history; เมื่อ capture name เปลี่ยนจะ soft-delete bank-account history ด้วย เพื่อให้ steps ที่ต้องทำใหม่ปรากฏอีกครั้ง
+- **Regular `FlowIDCardUpdate` ไม่พบข้อมูลเปลี่ยน:** เรียก `CompleteDraftIDCardUpdate`, อ่าน watchlist, ประเมิน auto-reject และส่ง application เข้า submission path; เมื่อไม่ auto-reject ระบบส่ง application ไป `to-review` และส่ง `IDCardUpdateWaitingApprove` email/notification
+- **`FlowRetakeIDCardUpdate` ไม่พบ profile/address หรือ CDD change:** `CompleteDraftRetake` ข้ามการคำนวณ watchlist ซ้ำ, อัปเดต bank-account expiry และประเมิน auto-reject; ผลไม่ reject ไป `to-review`, ส่วนผล auto-reject ไป `rejected`. Retake completion helper นี้ไม่ได้ส่ง `IDCardUpdateWaitingApprove` email/notification
+- **`FlowRetakeIDCardUpdate` พบการเปลี่ยน:** หลังลูกค้าทำ personal-information และ bank-account step ที่ถูกเปิดใหม่แล้ว `CompleteDraftRetake` คำนวณ `RetakeWatchlistTypes`, อัปเดต bank-account expiry และประเมิน auto-reject ก่อนส่งไป `to-review` หรือ `rejected`
+- **Regular `FlowIDCardUpdate` พบข้อมูลเปลี่ยน:** cleanup ทำงานเมื่อ address, CDD risk level หรือ capture name เปลี่ยน; ระบบ clear FATCA/CRS/nationality และ soft-delete personal-information history และเมื่อ capture name เปลี่ยนจะ soft-delete bank-account history ด้วย
 
-สำหรับกรณีพบการเปลี่ยนข้อมูล ไม่พบ production caller ของ `CompleteDraftIDCardUpdate` นอก no-change branch ใน source tree ที่ตรวจ จึงยังยืนยันการส่ง application เข้า KYC review หลังผู้ใช้ทำ steps ที่ถูก reset ไม่ได้
+สำหรับ retake ID-card flow, `CompleteDraftRetake` เป็น production completion path หลังทำ steps ที่ถูก reset. สำหรับ regular ID-card update ที่พบข้อมูลเปลี่ยน ยังไม่พบ production caller ของ `CompleteDraftIDCardUpdate` หลังผู้ใช้ทำ steps ที่ถูก reset
 
 ## Business rules
 
@@ -94,6 +104,11 @@ documentType: flow
 - Backend ตรวจ application eligibility ก่อนสร้าง draft; client ไม่สามารถ override application type ที่กำลัง block request
 - ID-card status endpoint อ่าน expiry metadata จาก background KYC; การไม่มีหรือ parse metadata ไม่ได้ทำให้ status endpoint คำนวณวันจาก profile โดยตรง
 - `AllowEditData` ปิดทุก field สำหรับ ID-card update ที่ไม่มี name/address/CDD data change ใน change-request log; เมื่อมี data change จะเปิด field flags ตาม implementation ปัจจุบัน
+- Mobile ซ่อนส่วนผู้แนะนำและปิด city-of-birth selector ในทุก non-onboarding flow รวมถึง ID-card retake; Backend ยังคงเป็นผู้ตัดสินข้อมูลและ state ที่บันทึกได้
+- `CompleteDraftRetake` ต้องอ่านและ parse change-request log ได้; หาก log หายหรือ `RequestTo` parse ไม่ได้ completion จะคืน error ก่อนจบ application
+- Rejection ของ `id-card-update` ใช้ existing-customer rejection path: manual/non-auto rejection คง identification เป็น `active` และระงับ accounts; auto-reject case ทำให้ identification และ accounts เป็น `freeze` พร้อม reason `KYC_REJECTED`
+- `CompleteDraftIDCardUpdate` บันทึก application date และ updater ลง application ก่อนตรวจ auto-reject; หาก update นี้ล้มเหลวจะคืน error ก่อน submission decision
+- เมื่อมีการขอเอกสารเพิ่มสำหรับ `id-card-update`, `EnhanceDocumentService` เลือก Zendesk template ตาม company (`XD`, `XAM` หรือ `XPG`) จาก `id_card_update_enhance_document_*`
 - Auto-reject/watchlist decision อยู่ใน `onboarding-service`; `onboarding-service` เป็น owner ของ application outcome ไม่ใช่ DOPA หรือ Mobile
 - การ rejection และ status/email effects ใช้ rejection path กลางที่สรุปใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 
@@ -102,8 +117,10 @@ documentType: flow
 | Trigger | Application | Registration |
 | :--- | :--- | :--- |
 | Mobile POST ผ่าน eligibility | ไม่มี application ที่ block → `draft` (`id-card-update`) | → `identity-verification/front-card-scan`; สร้าง history ของ steps ที่อาจต้องทำ |
-| DOPA verification ไม่พบข้อมูลเปลี่ยน และไม่ auto-reject | `draft` → submission path → `to-review` | `identity-verification` → `ndid`; ส่ง waiting-approve email/notification |
-| DOPA verification พบข้อมูลเปลี่ยน | ยังไม่ยืนยันการ submit ปลายทาง | reset personal-information history เมื่อ personal information เปลี่ยน; reset bank history เมื่อ capture name เปลี่ยน |
+| `FlowIDCardUpdate` ไม่พบข้อมูลเปลี่ยนและไม่ auto-reject | `draft` → `to-review` | `identity-verification` → `ndid`; ส่ง waiting-approve email/notification |
+| `FlowRetakeIDCardUpdate` ไม่พบ profile/address หรือ CDD change และไม่ auto-reject | `to-retake` → `to-review` | `identity-verification` → `ndid`; `CompleteDraftRetake` ข้าม watchlist calculation |
+| `FlowRetakeIDCardUpdate` พบข้อมูลเปลี่ยน | คง application ระหว่างทำ steps ที่ถูก reset; หลัง completion → `to-review` หรือ `rejected` | personal-information histories ถูก reset; bank-account history ถูก reset เมื่อ capture name เปลี่ยน; completion คำนวณ `RetakeWatchlistTypes` |
+| Regular `FlowIDCardUpdate` พบข้อมูลเปลี่ยน | ยังไม่ยืนยันการ submit ปลายทาง | reset personal-information history; reset bank history เมื่อ capture name เปลี่ยน |
 | Watchlist auto-reject | → `rejected` ตาม shared KYC rejection path | ผล downstream ใช้ rejection path กลาง |
 
 ## Error and recovery behavior
@@ -114,14 +131,17 @@ documentType: flow
 - Eligibility lookup หรือ create transaction ล้มเหลว: HTTP `500`; ตรวจ application/registration state ก่อน retry
 - เรียก `GET /api/v1/customer/id-card-update` ก่อน warning date: service คืน error และ Handler ตอบ HTTP `500`
 - DOPA verification, customer-data update, watchlist calculation หรือ CDD comparison ล้มเหลว: verification completion คืน error; source ที่ตรวจไม่ยืนยัน automatic retry หรือ rollback ครอบคลุม external calls
+- Retake completion อ่าน change-request log ไม่ได้หรือ `RequestTo` ไม่ถูกต้อง: `CompleteDraftRetake` คืน error และไม่ส่ง application เข้า final completion path
+- Regular ID-card update บันทึก application date/updater ไม่สำเร็จ: `CompleteDraftIDCardUpdate` คืน error ก่อนประเมิน auto-reject หรือ submit
 - RM/WS rejection-email failure ถูก log โดย rejection path; ไม่เปลี่ยน application rejection response ตาม path ที่ตรวจ
 
 ## Final outcomes
 
 - Mobile แสดงวันหมดอายุ/steps และให้เริ่ม ID-card update เมื่อถึงช่วง warning
 - ผ่าน create request: มี draft `id-card-update` พร้อม registration state สำหรับตรวจบัตรและ steps ต่อไป
-- Verification ไม่พบการเปลี่ยนและไม่ auto-reject: application เข้า `to-review`
-- Verification พบการเปลี่ยน: customer data ถูกบันทึกและบาง registration histories ถูก reset; เส้นทาง submit หลังทำ steps ต่อไปยังต้องยืนยัน
+- Regular `FlowIDCardUpdate` ที่ไม่พบการเปลี่ยนและไม่ auto-reject: application เข้า `to-review`
+- `FlowRetakeIDCardUpdate` ที่ไม่พบการเปลี่ยนจะข้าม watchlist calculation ซ้ำและจบผ่าน `CompleteDraftRetake`; หากพบการเปลี่ยน ลูกค้าทำ steps ที่ถูก reset ก่อน completion คำนวณ watchlist และตัดสิน `to-review`/`rejected`
+- Regular `FlowIDCardUpdate` ที่พบการเปลี่ยน: customer data ถูกบันทึกและ histories ถูก reset; final submit หลังทำ steps ต่อไปยังต้องยืนยัน
 - Auto-reject หรือ KYC rejection: ยึด state และ communication behavior ใน [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
 
 ## Related shared rules
@@ -139,8 +159,12 @@ documentType: flow
 - `handler/customer-id-card-update-handler.go`: auth, eligibility, create request and status response
 - `pkg/customer/id-card-update/service.go`: warning-date check, status steps and transaction creating draft/snapshots/history
 - `pkg/customer/id-card-update/service.go`: Personal Information/Bank step eligibility from change-request data and default-bank state
-- `pkg/ekyc/ekyc-verification/service.go`: `CompleteIDCardUpdateVerification`, data-change comparison and branch behavior
-- `pkg/customer/registrationcomplete/service.go`: `CompleteDraftIDCardUpdate` submission/watchlist path
+- `handler/ekyc-handler.go`: dispatch `FlowIDCardUpdate` และ `FlowRetakeIDCardUpdate` หลัง DOPA
+- `pkg/ekyc/ekyc-verification/service.go`: `CompleteIDCardUpdateVerification`, `CompleteRetakeVerification`, change-request update และ reset history
+- `pkg/customer/registrationcomplete/service.go`: `CompleteDraftIDCardUpdate` และ `CompleteDraftRetake` submission/watchlist paths
+- `pkg/customer/application/reject_application.go`: existing-customer state updates เมื่อ ID-card-update application ถูก reject
+- `pkg/enhancedocument/enhance-document-service.go`: Zendesk template selection for ID-card-update enhance-document requests
+- `internal/constants/enum/ticket-email-template.go`: ID-card-update Zendesk template IDs
 - `pkg/customer/customer-resigtration-status/customer-resigtration-status-svc/customer-resigtration-status-service.go`: expiry and registration status
 - `pkg/kyc/helper.go`: `AllowEditData` behavior for ID-card update applications
 - `internal/constants/enum/flow-type.go` and `internal/constants/enum/application_type_status.go`: flow/application type values
@@ -148,8 +172,9 @@ documentType: flow
 `xspring-mobile-app`:
 
 - `lib/services/id_card_required/service.dart`: GET/POST calls to `/api/v1/customer/id-card-update`
-- `lib/domains/Id_card_required/controller.dart` and `lib/domains/Id_card_required/screen.dart`: status steps and retake banner
-- `lib/domains/app_main_page/home/screen.dart`: expiry and retake-ID-card banners
+- `lib/domains/Id_card_required/controller.dart` and `lib/domains/Id_card_required/screen.dart`: status steps, pending-application navigation and retake banner
+- `lib/domains/app_main_page/home/controller.dart` and `lib/domains/app_main_page/home/screen.dart`: expiry and retake-ID-card banner/sheet trigger
+- `lib/domains/ekyc/onboarding/personal/personal_controller.dart`: non-onboarding personal-screen field visibility
 - `lib/utils/order_validation_utils.dart`: expiry sheet and navigation to ID Card Required screen
 - `lib/utils/order_validation_utils.dart`: ID-card expiry timestamp is shifted by +7 hours before date-only display formatting
 
@@ -160,6 +185,5 @@ documentType: flow
 
 ## Unresolved implementation boundaries
 
-- `CompleteDraftIDCardUpdate` has a production caller only in the no-change branch; changed-data registration completion and final KYC submission are not connected in the source paths found.
-- Change request `NameChanged` ใช้ capture-name comparison และ step builder รวม address/CDD data-change predicates แล้ว; changed-data cleanup ทำงานตาม `addressChanged || cddRiskLevelChanged || captureNameChanged`. อย่างไรก็ตามยังไม่พบ production caller ที่พา changed-data application กลับเข้า `CompleteDraftIDCardUpdate` หลังผู้ใช้ทำ steps ที่ reset แล้ว จึงต้องยืนยันการ submit ปลายทางกับเจ้าของระบบ
+- Regular `FlowIDCardUpdate` ที่พบข้อมูลเปลี่ยนยังไม่มี production caller ที่พา application กลับเข้า `CompleteDraftIDCardUpdate` หลังทำ steps ที่ reset; ต้องยืนยัน final submission path กับเจ้าของระบบ
 - Mobile's order-expiry sheet defaults `isRetakeIdCard` to false; the retake-specific sheet is explicitly selected from the Home banner path. Retake behavior after an order error is not confirmed.

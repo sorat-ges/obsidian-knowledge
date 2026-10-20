@@ -3,11 +3,11 @@ title: KYC Expiry and Account Suspension
 description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal, xspring-mobile-app]
-aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, cancel orders on expired suitability, CustomerSync expired date cancellation, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, id-card-update, retake-id-card-update, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, อัปเดต suitability, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, ยกเลิกคำสั่งเมื่อ suitability หมดอายุ, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture]
+aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, cancel orders on expired suitability, CustomerSync expired date cancellation, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, id-card-update, retake-id-card-update, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, อัปเดต suitability, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, ยกเลิกคำสั่งเมื่อ suitability หมดอายุ, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture, checkUnitholder, ID_CARD_EXPIRED switch cancellation, SEG switch order cancellation, OMN anonymous switch order, ยกเลิก switch เฉพาะ SEG เมื่อบัตรหมดอายุ]
 integrations: [FundConnext, Kafka]
 errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002", ID_CARD_EXPIRED, SUIT_EXPIRED]
 status: active
-lastUpdated: 2026-10-17
+lastUpdated: 2026-10-20
 documentType: flow
 ---
 
@@ -230,6 +230,8 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 
 ใน `CancelOrdersOnSuspend`, `order-service` ขอ expiry check ของบัตรและ suitability ทั้งสองประเภท; ผล `SUIT_EXPIRED` ซึ่งหมายถึงทั้ง Traditional และ Digital หมดอายุจะทำให้ active MF และ Digital Asset accounts เข้า cancellation path ตามเงื่อนไขของแต่ละ account. ผล expiry ประเภทเดียวจะเลือก cancellation เฉพาะ account type ที่สัมพันธ์กัน; `ID_CARD_EXPIRED` ส่ง MF path ไปตรวจ unitholder ก่อน cancel
 
+เมื่อ MF account ยัง `active` และ response เป็น `ID_CARD_EXPIRED`, `order-service` เปลี่ยนสถานะที่ใช้ใน cancellation path เป็น `suspended` และส่ง `checkUnitholder = true`. Query ของ switch จะเลือกเฉพาะ order ที่ status เป็น `order-request`, `order-confirm` หรือ `waiting-allot`, channel ไม่ใช่ `WeAreWeb`, และ `customer_account_unitholder_id = SEG`; จึงไม่เลือก OMN. Cancellation trigger อื่นส่ง `checkUnitholder = false` และไม่มี filter เพิ่มตาม unitholder
+
 Mobile อ่าน `expirations` จาก `/api/v1/customer/status` และใช้ warning/expired ใน expiry sheet; ID-card sheet นำผู้ใช้ไป `IdCardRequiredScreen`. Mobile's order action selector เลือก type `id-card-update` และ `suitability-update` ขณะที่ Backend ส่ง `traditional-suit-update`/`digital-suit-update`; type/status mismatch ยังเป็น inconsistency. Home banner ใช้ retake-specific ID-card copy/sheet เมื่อ flow เป็น `retake-id-card-update`; expiry sheet ที่ถูกเรียกจาก order action ใช้ค่า `isRetakeIdCard=false` ตาม default จึงยังไม่ยืนยัน retake-specific behavior ใน error path. รายละเอียด endpoint และ steps อยู่ใน [Customer ID Card Update and Retake](/business-flows/customer/identity-update/)
 
 **Owner service: `onboarding-service`**
@@ -296,7 +298,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 | Existing re-KYC application | current status → `cancelled-by-system` เมื่อ auto-cancel condition เป็นจริง |
 | Customer change-request log account metadata | reviewer rejection จาก `to-review` → reviewer ใน `reviewed_*` และ AML actor ใน `approved_*`; rejection อื่น → acting staff ใน `approved_*` |
 | Restored customer data | customer tables → snapshot จาก capture หลัง cancellation transaction commit |
-| Downstream pending orders | `CustomerSync` non-active account or feature-gated expiry trigger → order-consumer trigger → selected order cancellation in `order-service` |
+| Downstream pending orders | `CustomerSync` non-active account or feature-gated expiry trigger → order-consumer trigger → selected order cancellation in `order-service`; switch cancellation caused by `ID_CARD_EXPIRED` filters to SEG |
 
 ## Error and recovery behavior
 
@@ -310,6 +312,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - Rejection path ที่ publish `CustomerSync` ถ้า `order-consumer` เรียก cancellation endpoint แล้วได้ network/HTTP error จะ log error และไม่คืน error จาก `EventCustomerSync`; ต้องตรวจ order state แยก
 - <mark class="changed-feature" data-updated-on="2026-10-03">ถ้าขอ service-account token ไม่สำเร็จ `EventCustomerSync` คืน error ก่อนเรียก `account-unitholder-sync` และ cancel endpoint; ถ้า unitholder-sync ล้มแต่ได้ token แล้ว consumer ยังลอง cancellation ต่อ</mark>
 - System cancellation เก็บ failure ต่อรายการและส่ง internal notification แบบ asynchronous; source ไม่ยืนยัน rollback ของรายการที่ cancel สำเร็จก่อนหน้า
+- Switch cancellation จาก `ID_CARD_EXPIRED` เลือกเฉพาะ pending switch orders ของ SEG; source ไม่ยืนยันการยกเลิกรายการ OMN จาก path นี้
 - auto-cancel re-KYC ล้ม: ไม่เดินต่อไปสร้าง suspended-by-system application ให้ customer รายเดียวกันใน invocation นั้น และ source ไม่ยืนยัน retry อัตโนมัติของ auto-cancel
 - Force re-KYC path อ่าน `customer_background_kyc` ไม่ได้หรือได้ record เป็น nil: ไม่ส่ง force email/notification และคืน error detail `failed to get background KYC`
 - job เขียน audit, batch log และ failure email; source ไม่ยืนยัน manual replay command
@@ -326,6 +329,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - ถ้าเป็น existing/migrated หรือ re-KYC rejection ที่เป็น auto-reject case: identification และ accounts เป็น `freeze`, ใช้ `SUP-007`, แล้ว rejection path publish `CustomerSync` เมื่อไม่เข้า early return
 - ถ้าเข้าเงื่อนไข force re-KYC notification ระบบส่ง email ที่อ้างอิง `KycExpiryDate` และ notification; ถ้าอ่าน background KYC ไม่ได้ ผลลัพธ์ของ customer รายนี้เป็น error แทนการส่งข้อความ
 - ถ้า downstream ได้รับ `CustomerSync` ครบและ cancellation predicate ผ่าน ระบบยกเลิกเฉพาะ pending order ตาม status/side matrix; event propagation ไม่เกิดใน KYC expiry path ที่ตรวจพบ
+- ถ้า cancellation เกิดจาก `ID_CARD_EXPIRED`, `order-service` เลือก pending switch order ของ SEG ตาม query filter; switch orders ของ OMN ไม่อยู่ใน result set นี้
 
 ## Related shared rules
 
@@ -372,6 +376,7 @@ Supporting current-contract references:
 - `order-consumer/pkg/customer-account/service.go`: `CustomerSync` persistence, non-active account trigger และ feature-gated `hasExpiredDate` cancellation trigger
 - `order-service/pkg/order/service.go`: MF operation-level account-status validation และ order-placement pre-check
 - `order-service/pkg/customer/suspend_service.go`: status-specific cancellation orchestration
+- `order-service/storages/postgres/orderrepository/order_repository.go`: pending switch query และ SEG filter เมื่อ `checkUnitholder` เปิด
 - `order-service/handler/digital_asset_suspension.go`: Digital Asset operation-level status validation และ `60002`
 - `order-service/internal/constants/enum/customer_enum.go`: MF account status and inbound/outbound allowance
 - `order-service/internal/constants/enum/order_trade_enum.go`: Digital Asset operation types

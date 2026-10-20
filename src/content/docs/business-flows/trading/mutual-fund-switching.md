@@ -3,11 +3,11 @@ title: Mutual Fund Switching
 description: Flow สับเปลี่ยนกองทุนรวมตั้งแต่เลือกคู่กองทุน ตรวจวันมีผลและ cutoff จนถึงส่ง FundConnext และยกเลิกคำสั่ง
 capability: Trading
 services: [order-service, order-consumer, xspring-mobile-app]
-aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, last trade date, IPO cutoff modal, ipo-period, ipo-period-over-cut-off-time, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, ID_CARD_EXPIRED, SUIT_EXPIRED, expiry validation, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, "91000", trade calendar not configured, no trade date config, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ไม่มีปฏิทินวันซื้อขาย, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันซื้อขายสุดท้าย, ปิดรับคำสั่ง IPO, วันเสนอขาย IPO เลย cutoff, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี]
+aliases: [mutual fund switching, MF switching, switch order, switching order, Switch MF, switching-in-products-v2, product switching v2, holiday calendar, trade calendar refresh, available-trade-date, available trade date response, trade availability, last trade date, IPO cutoff modal, ipo-period, ipo-period-over-cut-off-time, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, ID_CARD_EXPIRED, SUIT_EXPIRED, expiry validation, cut-off-time, switch cutoff, switch-in availability, switch-in holiday modal, over cut off time, "91000", trade calendar not configured, no trade date config, customer account freeze switch, suspended mobile sell, mobile account freeze switch, cancel switch by system, สับเปลี่ยนกองทุน, สับเปลี่ยนกองทุนรวม, เปลี่ยนกองทุน, ปฏิทินวันหยุดกองทุน, ไม่มีปฏิทินวันซื้อขาย, วันที่มีผลคำสั่ง, เวลาตัดรอบคำสั่ง, วันซื้อขายสุดท้าย, ปิดรับคำสั่ง IPO, วันเสนอขาย IPO เลย cutoff, วันหยุดกองทุนเป้าหมาย, ยกเลิกสับเปลี่ยนเมื่อระงับบัญชี, checkUnitholder, SEG, OMN, ID_CARD_EXPIRED switch cancellation, ยกเลิก switch เฉพาะ SEG เมื่อบัตรหมดอายุ]
 integrations: [FundConnext]
 errorCodes: ["400", "401", "500", "60001", "60002", "60005", "60007", "91000", "ID_CARD_EXPIRED", "SUIT_EXPIRED"]
 status: active
-lastUpdated: 2026-10-17
+lastUpdated: 2026-10-20
 documentType: flow
 ---
 
@@ -236,8 +236,11 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 | `waiting-allot` | allotment transition ตาม enum mapping | `completed` |
 | `waiting-allot` | customer cancellation ผ่าน predicate และ FundConnext cancel สำเร็จ | `cancelled` |
 | `waiting-allot` | system cancellation หลัง `CustomerSync` non-active และ switch predicate ผ่าน | `cancelled` |
+| `waiting-allot` | system cancellation จาก `ID_CARD_EXPIRED` ที่เลือก switch order ของ SEG | `cancelled` |
 
 `order-consumer` หรือ executor ของ allotment transition ยังไม่ถูกยืนยัน จึงไม่ระบุ ledger effect หรือผู้รับผิดชอบการเปลี่ยน `waiting-allot → completed`
+
+สำหรับ system cancellation, `order-service` เป็น owner และ executor ของการเลือก/เปลี่ยน order state; `order-consumer` เป็น executor ของ `CustomerSync` trigger. เมื่อ `CancelOrdersOnSuspend` พบ MF account ที่ยัง active แต่ expiry check คืน `ID_CARD_EXPIRED`, service ตั้ง `checkUnitholder = true`; switch query จึงเลือกเฉพาะ order ที่อยู่ `order-request`, `order-confirm` หรือ `waiting-allot`, ไม่ใช่ `WeAreWeb`, และมี unitholder เป็น `SEG`. Query นี้ไม่เลือก OMN. Trigger จาก status/expiry อื่นไม่เปิด filter นี้
 
 ## Error and recovery behavior
 
@@ -286,6 +289,7 @@ State mapping ของ switch อนุญาต `waiting-allot → completed` 
 - `internal/constants/error.go`: `ErrTradeCalendarNotConfigOpenFlag`, `CodeNoTradeDateConfig`
 - `internal/constants/enum/order_enum.go`: switching success/cancel state mappings
 - `order-service/pkg/customer/suspend_service.go`: system cancellation ของ pending switch หลัง non-active account status
+- `order-service/storages/postgres/orderrepository/order_repository.go`: switch order query และ SEG-only filter เมื่อ `checkUnitholder` เปิด
 
 `order-consumer`:
 
