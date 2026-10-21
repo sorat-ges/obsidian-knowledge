@@ -3,10 +3,11 @@ title: Onboarding Status and Suitability
 description: Flow อ่านความคืบหน้า onboarding, คำนวณ suitability แยก Traditional/Digital, รวมข้อมูล vulnerable-investor detail และยืนยันผลเพื่อเดิน registration ต่อ
 capability: Customer
 services: [onboarding-service, web-portal, xspring-mobile-app]
-aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, complete draft, completed-draft, registration confirm, retake watchlist completion, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, AgeCondition, minimum age rejection, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, ยืนยันการลงทะเบียน, complete draft onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, complete draft หลังแก้ข้อมูล, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ, VULNERABLE_MAXIMUM_AGE, configured vulnerable maximum age, VulnerableDetail.YearsOld60, อายุเกณฑ์ผู้ลงทุนเปราะบาง]
+integrations: [DOPA]
+aliases: [onboarding status, suitability v2, suitability answers, V1 suitability, legacy suitability, V1 suitability version, suitability version ID, KYC suitability result, traditional suitability, digital suitability, vulnerable investor, vulnerable detail, NoInvestmentKnowledge, VulnerableFlag, watchlist refresh, complete draft, completed-draft, registration confirm, retake watchlist completion, background watchlist refresh, suitability confirm watchlist boundary, customer background risk, DOPA watchlist, AgeCondition, minimum age rejection, onboarding change request log, offline account-opening review, application status date, application status_date, review-information, name_changed, has_default_bank_account, has_submitted_bank_account, submitted bank account, active bank accounts, ordered bank accounts, has default bank account, bank name change, bank grace period, accept bank grace period, bank account step, preserve background data, personal information payload, onboarding back navigation, source income selection, current work, work information, occupation, business type, business_type, occupation code, CDD product risk, product service risk, ProductServiceRiskData, เริ่ม onboarding, ยืนยันการลงทะเบียน, complete draft onboarding, change-request log, review ข้อมูลลูกค้า, สถานะเปิดบัญชี, แบบประเมินความเสี่ยง, ความเสี่ยง Traditional/Digital, ความเสี่ยง product service, ผู้ลงทุนเปราะบาง, ไม่มีความรู้การลงทุน, suitability test, รีเฟรช watchlist, complete draft หลังแก้ข้อมูล, รีเฟรช watchlist หลังแก้ background, confirm suitability ไม่ refresh watchlist, บันทึกเริ่มเปิดบัญชี, เปลี่ยนชื่อบัญชีธนาคาร, ยอมรับระยะผ่อนผันบัญชีธนาคาร, บัญชีธนาคารที่ใช้งานอยู่, บัญชีธนาคารที่ส่งแล้ว, เรียงบัญชีธนาคาร, ไม่ล้างข้อมูล background, ย้อนกลับขั้นตอน onboarding, เลือกรายได้จากแหล่งรายได้, ข้อมูลการทำงาน, อาชีพ, ประเภทธุรกิจ, VULNERABLE_MAXIMUM_AGE, configured vulnerable maximum age, VulnerableDetail.YearsOld60, อายุเกณฑ์ผู้ลงทุนเปราะบาง, CalculateWatchlist DOPA retry, DOPA error retry in onboarding, watchlist DOPA repost, DOPA error in onboarding watchlist, เรียก DOPA ซ้ำเมื่อ onboarding watchlist error, ลอง DOPA ซ้ำตอน completion]
 errorCodes: ["400", "401", "404", "500"]
 status: active
-lastUpdated: 2026-10-20
+lastUpdated: 2026-10-21
 documentType: flow
 ---
 
@@ -135,7 +136,7 @@ Mobile เก็บข้อมูล personal information ไว้ใน local
 
 ถ้า flow เป็น retake หลังบันทึก `background`, service จะอ่าน registration status, application และ change-request log อีกครั้ง ถ้า `name_changed = true` หรือสถานะล่าสุดยังไม่ใช่ `completed-draft` จะจบเฉพาะการบันทึก step และปล่อยให้ flow เดินผ่าน `bank-account`/ขั้นถัดไปตาม rule เดิม ถ้าเป็น `completed-draft` และไม่มี name change จึงเรียก `CompleteDraftRetake` ซึ่งเป็น completion path ของ retake
 
-`CompleteDraftRetake` คำนวณ watchlist ด้วย `RetakeWatchlistTypes`, persist report ของ personal/background-risk/vulnerable-investor และอัปเดต bank-account expiry; เมื่อผล watchlist ครบจะพยายามคำนวณ CDD และ ensure enhanced documents โดย failure ของ side effect นี้ถูก log และไม่หยุด completion ถ้าผ่าน auto-reject decision ระบบส่ง customer capture เป็น `Submit`, เปลี่ยน application เป็น `rejected` และ patch change-request log ด้วย actor ของ AML; ถ้าไม่ auto-reject ระบบเปลี่ยน application เป็น `to-review`, บันทึก submitted action-flow/metadata, resolve vulnerable ticket เมื่อจำเป็น และส่ง customer capture เป็น `Submit`
+`CompleteDraftRetake` คำนวณ watchlist ด้วย `RetakeWatchlistTypes`, persist report ของ personal/background-risk/vulnerable-investor และอัปเดต bank-account expiry; เมื่อเลือก `Dopa` และผลที่บันทึกอยู่เป็น `Error`, `CalculateWatchlist` re-post verification ไปยัง DOPA แล้วอ่านผลที่ persist ล่าสุดกลับมาจัดประเภทก่อนบันทึก report ตาม [กฎ DOPA retry สำหรับ KYC watchlist](/shared-rules/kyc-watchlist-dopa-retry/). เมื่อผล watchlist ครบจะพยายามคำนวณ CDD และ ensure enhanced documents โดย failure ของ side effect นี้ถูก log และไม่หยุด completion ถ้าผ่าน auto-reject decision ระบบส่ง customer capture เป็น `Submit`, เปลี่ยน application เป็น `rejected` และ patch change-request log ด้วย actor ของ AML; ถ้าไม่ auto-reject ระบบเปลี่ยน application เป็น `to-review`, บันทึก submitted action-flow/metadata, resolve vulnerable ticket เมื่อจำเป็น และส่ง customer capture เป็น `Submit`
 
 #### Final completion via registration-confirm
 
@@ -145,7 +146,7 @@ Mobile เก็บข้อมูล personal information ไว้ใน local
 
 `POST /api/v1/customer/registration-confirm` อ่าน registration status ปัจจุบัน, เดิน next status/history แล้วเรียก `RegistrationCompleteService.CompleteDraft` สำหรับ flow ที่ส่งมา โดย completion path นี้:
 
-1. คำนวณ watchlist ด้วย `AllWatchlistTypes` และ persist report ทั้งสามกลุ่ม
+1. คำนวณ watchlist ด้วย `AllWatchlistTypes` และ persist report ทั้งสามกลุ่ม; เนื่องจากชุดนี้มี `Dopa`, ผลที่บันทึกอยู่เป็น `Error` จะเข้า DOPA re-post rule ก่อนบันทึก report
 2. เมื่อผลคำนวณครบ พยายามคำนวณ CDD และ ensure enhanced documents โดย side effect นี้ log failure แล้วเดินต่อ
 3. อัปเดต bank-account expiry, `application_date` และ submitted-date ของ application/customer background ที่เกี่ยวข้อง
 4. ถ้าไม่ auto-reject จะบันทึก submitted action-flow, เปลี่ยน application เป็น `to-review`, patch change-request log, resolve vulnerable ticket และส่ง customer capture เป็น `Submit`
@@ -252,6 +253,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - Mobile address request ใช้ cloned cards สำหรับการล้าง fields ของ address ที่อ้างอิง address อื่น จึงไม่ควรตีความการล้าง outgoing payload เป็นการลบ address ที่เก็บใน backend
 - ใน legacy `CheckAndSaveCustomerWatchlist` path ระบบ pre-create `customer_background_risk` ของ `customer` และ `spouse` ก่อน parallel checks และใช้ `personalType` ที่ร้องขอเมื่อสร้าง PEP/AMLO record เพื่อป้องกัน duplicate record จาก concurrent insert
 - ใน non-retake watchlist refresh, stored DOPA report ที่มีสถานะ `Passed` เท่านั้นที่ทำให้ DOPA check ถูกข้าม; report ที่ `Error`, ไม่มี flag หรือไม่ใช่ `Passed` จะไม่ถูกใช้เป็น filter และจะคำนวณตาม allowed watchlist types ของ registration status
+- <mark class="changed-feature" data-updated-on="2026-10-21">เมื่อ `CalculateWatchlist` เลือก `Dopa` และผล DOPA ที่บันทึกไว้จัดเป็น `Error`, `onboarding-service` ส่ง verification ไปยัง DOPA ซ้ำและอ่าน `customer_background_kyc` ใหม่เพื่อใช้ผลล่าสุด; กฎเดียวกันใช้กับ completion, retake completion และ KYC approval refresh ที่เลือก `dopa` ดู [KYC Watchlist DOPA Retry](/shared-rules/kyc-watchlist-dopa-retry/)</mark>
 - Registration status ใน migrated/offline/open-initial-account paths update record เดิมเมื่อพบ `identification_id` ภายใน transaction แทนการเพิ่มแถวซ้ำ
 - Offline account-opening review confirm กำหนด `application.status_date` จากเวลาที่ reviewer update และสร้าง submitted action-flow โดยอ้างอิง `application.StatusDate()` เป็น start date; timestamp alignment นี้ไม่เปลี่ยน required-step rule
 - KYC approval ใช้ v2 suitability ก่อน และ fallback ไป V1 เฉพาะเมื่อข้อมูล v2 ของฝั่งที่ต้องแสดงไม่มีอยู่/เป็น record-not-found และ V1 มี `SuitabilityVersionID` ที่ใช้ได้
@@ -295,6 +297,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - `handleWorkStep` และ `handleBackgroundStep` ไม่ propagate error จากการอ่าน existing background; `handleBackgroundStep` ยังไม่ propagate error จากการ unmarshal `VulnerableDetail` ถ้าอ่าน/parse เดิมล้มเหลว source ปัจจุบันยังเดินต่อด้วยข้อมูลที่มีและพยายาม upsert จึงไม่ควรสรุปว่า field เดิมจะถูก preserve ในกรณี dependency/JSON error
 - การตั้ง `has_submitted_bank_account` เกิดหลัง bank row ถูกสร้าง; ถ้า change-request log update ล้มเหลว service log error และยังดำเนิน bank-account flow ต่อ โดย `review-information` อาจยังคืนค่าเป็น nil
 - `CompleteDraft`/`CompleteDraftRetake` หาก `CalculateWatchlist` ล้มเหลวจะคืน service error ก่อน final application transition; CDD/enhanced-document side effect ที่ถูกเรียกหลังผล watchlist ครบเป็น best effort และ log error แล้วเดินต่อ
+- DOPA re-post error ระหว่าง watchlist calculation ถูก log และไม่ถูกคืนเป็น calculation error; ถ้าอ่าน stored result กลับได้ report ใช้ผล DOPA ล่าสุดที่ persist ซึ่งอาจยังเป็น `Error`
 - Completion ที่เปลี่ยน application หรือ customer capture สำเร็จบางส่วนแล้ว ถ้า patch change-request log, vulnerable ticket หรือ capture submit ล้มเหลว อาจเหลือ state บางส่วนที่ต้องตรวจจาก application/action-flow/capture log; source ไม่ยืนยัน rollback ครอบคลุมทุก external side effect
 - KYC approval suitability dependency error ถูกแปลงเป็นผล `incomplete` ใน `getSuitability`; error ตอนอ่าน answer ทำให้ response ไม่มี answer ที่ map ได้ ส่วน legacy risk-result path จะคืน error เมื่อทั้ง legacy และ fallback v2 อ่านไม่ได้
 
@@ -313,6 +316,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 
 ## Related shared rules
 
+- [KYC Watchlist DOPA Retry](/shared-rules/kyc-watchlist-dopa-retry/)
 - [Customer Onboarding and KYC](/business-flows/customer/)
 - [KYC Review Retake and DOPA Reverification](/business-flows/customer/kyc-review-retake/)
 - [KYC Expiry and Account Suspension](/business-flows/customer/kyc-expiry-and-suspension/)
@@ -332,7 +336,7 @@ Current `ConfirmSuitabilityTraditionalAndDigital` ไม่เรียก `Refr
 - `pkg/kyc/watchlist.go`: stored DOPA flag filtering และ watchlist refresh orchestration
 - `pkg/ekyc/ekyc-verification/service.go`: AgeCondition watchlist calculation ก่อน minimum-age rejection
 - `pkg/kyc/helper.go`: `filterPassedWatchlistTypes`
-- `pkg/kyc/kyc-service.go`: legacy watchlist save และ pre-create ของ customer/spouse background risk
+- `pkg/kyc/kyc-service.go`: legacy watchlist save และ pre-create ของ customer/spouse background risk; `processDopa` re-post behavior for saved Error results
 - `internal/models/customer-background-db-model.go`: unmarshal และ composite calculation ของ `VulnerableDetail`
 - `internal/config/config.go`: อ่าน `VULNERABLE_MAXIMUM_AGE` เข้า `KYCConfig`
 - `Makefile`: local development environment ตั้ง `VULNERABLE_MAXIMUM_AGE=60`

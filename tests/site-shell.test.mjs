@@ -356,6 +356,24 @@ test("Pagefind finds the bank-account flow from English and segmented Thai alias
   );
 });
 
+test("Pagefind finds the KYC DOPA watchlist retry rule in English and Thai", async () => {
+  const ruleRoute = "/shared-rules/kyc-watchlist-dopa-retry/";
+  const flowRoute = "/business-flows/customer/kyc-review-retake/";
+
+  assert.ok((await searchUrls("DOPA watchlist retry")).includes(ruleRoute));
+  assert.ok((await searchUrls("DOPA watchlist retry")).includes(flowRoute));
+  assert.ok(
+    (await searchUrls("เรียก DOPA ซ้ำ ระหว่าง refresh watchlist")).includes(
+      ruleRoute,
+    ),
+  );
+  assert.ok(
+    (await searchUrls("เรียก DOPA ซ้ำ ระหว่าง refresh watchlist")).includes(
+      flowRoute,
+    ),
+  );
+});
+
 test("Pagefind ranks the browser-segmented Thai Swap Limit query first", async () => {
   const response = await pagefind.search("คำ สั่ง ลิ มิต", {
     ranking: pagefindRanking,
