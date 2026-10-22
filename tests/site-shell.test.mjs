@@ -374,6 +374,15 @@ test("Pagefind finds the KYC DOPA watchlist retry rule in English and Thai", asy
   );
 });
 
+test("Pagefind finds the suitability update flow in English and segmented Thai", async () => {
+  const flowRoute = "/business-flows/customer/kyc-expiry-and-suspension/";
+
+  assert.ok((await searchUrls("suit-update application")).includes(flowRoute));
+  assert.ok(
+    (await searchUrls("คำขอ อัปเดต suitability")).includes(flowRoute),
+  );
+});
+
 test("Pagefind ranks the browser-segmented Thai Swap Limit query first", async () => {
   const response = await pagefind.search("คำ สั่ง ลิ มิต", {
     ranking: pagefindRanking,

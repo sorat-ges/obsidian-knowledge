@@ -7,7 +7,7 @@ integrations: [DOPA, Keycloak, Zendesk]
 aliases: [customer identity update, ID card update, id-card-update, id-update, retake-id-card-update, ID Update, expired ID card update, ID_CARD_EXPIRED, capture name changed, address changed ID update, CDD risk change ID update, visible_submit_button_for_id_update, default bank ID update step, อัปเดตบัตรประชาชน, ขออัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, ถ่ายบัตรประชาชนใหม่, retake บัตรประชาชน, เปลี่ยนที่อยู่หลังตรวจบัตร, เปลี่ยนระดับความเสี่ยง CDD, เปลี่ยนชื่อจาก capture, CompleteRetakeVerification, CompleteDraftRetake, IDCardUpdateWaitingApprove, retake ID card update without expiry, personal-information/ndid, ถ่ายบัตรประชาชนใหม่โดยไม่มีวันหมดอายุ, id_card_update_enhance_document_xd, id_card_update_enhance_document_xam, id_card_update_enhance_document_xpg, Zendesk ID-card-update enhance document, ขอเอกสารเพิ่มบัตรประชาชน]
 errorCodes: ["APPLICATION_NOT_ALLOWED", "ID_CARD_EXPIRED", "400", "401", "500"]
 status: active
-lastUpdated: 2026-10-20
+lastUpdated: 2026-10-22
 documentType: flow
 ---
 
@@ -48,7 +48,7 @@ documentType: flow
 
 เมื่อเป็น `retake-id-card-update`, Home แสดง retake sheet แม้มี pending application หรือไม่มี ID-card expiry; ถ้าไม่มี expiry จะใช้ข้อความแบบ force/expired ที่ไม่มีวันกำกับ การกด Continue เปิด ID Card Required. ถ้ามี pending ID-card-update application Mobile ใช้ status/sub-status เพื่อนำทางกลับไปยัง personal-information steps; เมื่อ status เป็น `complete-draft` จะไม่เปิด step เพิ่ม
 
-ใน order journey, Mobile แสดง expiry sheet แล้วปุ่มหลักของ ID-card sheet นำไป `IdCardRequiredScreen` และข้าม suitability sheet ที่เหลือในรอบนั้น
+ใน order journey, Mobile แสดง expiry sheet แล้วปุ่มหลักของ ID-card sheet นำไป `ApplicationRequiredStepScreen` และข้าม suitability sheet ที่เหลือในรอบนั้น
 
 ### 2. อ่านสถานะ ID-card update
 
@@ -171,8 +171,8 @@ documentType: flow
 
 `xspring-mobile-app`:
 
-- `lib/services/id_card_required/service.dart`: GET/POST calls to `/api/v1/customer/id-card-update`
-- `lib/domains/Id_card_required/controller.dart` and `lib/domains/Id_card_required/screen.dart`: status steps, pending-application navigation and retake banner
+- `lib/services/application_required_step/service.dart`: GET/POST calls to `/api/v1/customer/id-card-update`; shared service defaults to ID-card update
+- `lib/domains/application_required_step/controller.dart` and `lib/domains/application_required_step/screen.dart`: ID-card status steps, pending-application navigation and retake banner; the shared screen also accepts suitability update as a separate application type
 - `lib/domains/app_main_page/home/controller.dart` and `lib/domains/app_main_page/home/screen.dart`: expiry and retake-ID-card banner/sheet trigger
 - `lib/domains/ekyc/onboarding/personal/personal_controller.dart`: non-onboarding personal-screen field visibility
 - `lib/utils/order_validation_utils.dart`: expiry sheet and navigation to ID Card Required screen

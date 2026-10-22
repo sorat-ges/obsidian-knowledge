@@ -1,13 +1,13 @@
 ---
 title: KYC Expiry and Account Suspension
-description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี และ re-KYC รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
+description: Background Flow คำนวณ KYC expiry จาก ID card, CDD และ suitability หรือ branch CDD-only ตาม feature flag แล้วจัดการสถานะลูกค้า บัญชี re-KYC และการเริ่ม suitability update รวมถึง Freeze จาก auto-rejected KYC และการยกเลิกคำสั่ง downstream
 capability: Customer
 services: [onboarding-service, order-consumer, order-service, asset-consumer, web-portal, xspring-mobile-app]
-aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, cancel orders on expired suitability, CustomerSync expired date cancellation, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, id-card-update, retake-id-card-update, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, อัปเดต suitability, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, ยกเลิกคำสั่งเมื่อ suitability หมดอายุ, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture, checkUnitholder, ID_CARD_EXPIRED switch cancellation, SEG switch order cancellation, OMN anonymous switch order, ยกเลิก switch เฉพาะ SEG เมื่อบัตรหมดอายุ]
+aliases: [KYC expiry, KYC expiry candidate, KYC expiry customer selection, GetListWithExistsCustomer, re-KYC, auto-cancel re-KYC, cancelled-by-system, suspended by system, Suspended by System, force re-KYC email, force re-KYC notification, EmailEventTypeReKycForce, NotificationTemplateReKycForce, KycExpiryDate, change-request-log approver, reviewer rejection audit, restore customer capture, Freeze, freeze status, customer account freeze, account status freeze, account portfolio freeze, cancel orders on suspension, cancel orders on freeze, cancel orders on expired suitability, CustomerSync expired date cancellation, closed account, onboarding status, rejected status, CDD expiry, suitability expiry, suitability update application, suit-update, traditional-suit-update, digital-suit-update, APPLICATION_NOT_ALLOWED, CDD-only KYC expiry, CDD-only re-KYC expiry, kyc_expiry_data, KYC expiry warning, FEATURE_RE_KYC_CDD_TRIGGERED_ONLY, KYC rejection email, rejection email BCC, ID_CARD_EXPIRED, SUIT_EXPIRED, id-card-update, retake-id-card-update, customer id-card expiration, traditional suitability expiration, digital suitability expiration, อัปเดตบัตรประชาชน, บัตรประชาชนหมดอายุ, อัปเดต suitability, คำขออัปเดต suitability, อัปเดตแบบประเมินความเหมาะสม, ทำ suitability test ซ้ำ, อีเมล reject KYC, ส่งอีเมล re-KYC แบบ force, ผู้อนุมัติ change request, KYC หมดอายุ, คัดลูกค้า KYC expiry, สถานะ onboarding, สถานะ rejected, ระงับบัญชี, ระงับชั่วคราว, Freeze ลูกค้า, Freeze บัญชี, พอร์ตบัญชี freeze, ยกเลิกคำสั่งเมื่อระงับบัญชี, ยกเลิกคำสั่งเมื่อ suitability หมดอายุ, บัญชีปิด, ทบทวน KYC, คืนข้อมูล capture, checkUnitholder, ID_CARD_EXPIRED switch cancellation, SEG switch order cancellation, OMN anonymous switch order, ยกเลิก switch เฉพาะ SEG เมื่อบัตรหมดอายุ]
 integrations: [FundConnext, Kafka]
-errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002", ID_CARD_EXPIRED, SUIT_EXPIRED]
+errorCodes: [SUP-001, SUP-004, SUP-005, SUP-006, SUP-007, "60002", APPLICATION_NOT_ALLOWED, ID_CARD_EXPIRED, SUIT_EXPIRED]
 status: active
-lastUpdated: 2026-10-20
+lastUpdated: 2026-10-22
 documentType: flow
 ---
 
@@ -232,7 +232,21 @@ Auto-reject set ที่ source ระบุรวม `AutoRejectByAMLO`, `Auto
 
 เมื่อ MF account ยัง `active` และ response เป็น `ID_CARD_EXPIRED`, `order-service` เปลี่ยนสถานะที่ใช้ใน cancellation path เป็น `suspended` และส่ง `checkUnitholder = true`. Query ของ switch จะเลือกเฉพาะ order ที่ status เป็น `order-request`, `order-confirm` หรือ `waiting-allot`, channel ไม่ใช่ `WeAreWeb`, และ `customer_account_unitholder_id = SEG`; จึงไม่เลือก OMN. Cancellation trigger อื่นส่ง `checkUnitholder = false` และไม่มี filter เพิ่มตาม unitholder
 
-Mobile อ่าน `expirations` จาก `/api/v1/customer/status` และใช้ warning/expired ใน expiry sheet; ID-card sheet นำผู้ใช้ไป `IdCardRequiredScreen`. Mobile's order action selector เลือก type `id-card-update` และ `suitability-update` ขณะที่ Backend ส่ง `traditional-suit-update`/`digital-suit-update`; type/status mismatch ยังเป็น inconsistency. Home banner ใช้ retake-specific ID-card copy/sheet เมื่อ flow เป็น `retake-id-card-update`; expiry sheet ที่ถูกเรียกจาก order action ใช้ค่า `isRetakeIdCard=false` ตาม default จึงยังไม่ยืนยัน retake-specific behavior ใน error path. รายละเอียด endpoint และ steps อยู่ใน [Customer ID Card Update and Retake](/business-flows/customer/identity-update/)
+Mobile อ่าน `expirations` จาก `/api/v1/customer/status` และใช้ warning/expired ใน expiry sheet. Client map `traditional-suit-update` และ `digital-suit-update` เป็น application type `suit-update` สำหรับการแสดงสถานะ pending; contract type ระหว่าง expiry response กับ sheet จึงตรงกันแล้ว. ID-card action เปิด `ApplicationRequiredStepScreen` และข้าม suitability sheet ที่เหลือในรอบนั้น; suitability action เปิดหน้าจอเดียวกันด้วย `ApplicationType.suitUpdate`. Home banner ใช้ retake-specific ID-card copy/sheet เมื่อ flow เป็น `retake-id-card-update`; expiry sheet ที่ถูกเรียกจาก order action ใช้ค่า `isRetakeIdCard=false` ตาม default จึงยังไม่ยืนยัน retake-specific behavior ใน error path.
+
+#### Suitability update application entry
+
+**Owner service: `onboarding-service`**
+
+**Executing service: `xspring-mobile-app` สำหรับ expiry sheet และ navigation; `onboarding-service` สำหรับ eligibility และ application state**
+
+- เมื่อมี pending applications, Home banner คงไว้เฉพาะ expiry ที่ application type ตรงกันและ application ยังเป็น `draft`; sheet แสดง draft เป็น in progress. ถ้าไม่มี pending application ประเภทเดียวกัน Mobile เปิด shared `ApplicationRequiredStepScreen` จาก expiry sheet. หน้านี้เลือก expiry date ที่เร็วที่สุดระหว่าง Traditional/Digital, ใช้ `expired` เป็น force state และแสดงเฉพาะ suitability test step
+- ถ้ามี pending `suit-update` อยู่แล้ว Mobile refresh onboarding status แล้วเปิด suitability questions ต่อ; ถ้าไม่มี Mobile เรียก `POST /api/v1/customer/application/suit-update`
+- `onboarding-service` ตรวจ `PortalClaims`, parse `UserUUID` และเรียก `ValidateApplicationRequestAllowed` ก่อนสร้าง application. ภายใน transaction ระบบสร้าง application `suit-update` สถานะ `draft`, action flow `request`/`created`, ล้าง watchlist report ประเภท `InvestmentExperience` และตั้ง registration status/sub-status เป็น `suitability-test` พร้อม `flow_type = suit-update` และ application ID
+- หลัง transaction commit service เรียก waiting-approve email/notification helper. ปัจจุบัน `NotificationTemplateSuitUpdateWaitingApprove` เป็นค่าว่าง; helper คืน error ก่อนส่งทั้ง email และ notification และ caller ไม่ส่งต่อ error ดังนั้น application ที่สร้างสำเร็จไม่ทำให้มีข้อความ waiting-approve จาก path นี้
+- Mobile อ่านคำตอบเดิมผ่าน `GET /api/v2/customer/suitability/re-kyc`, ส่งคำตอบไป `POST /api/v2/suitability/` และส่ง `flow_type = suit-update` ไป `PATCH /api/v2/suitability/confirm`. เมื่อ Mobile ได้ผล confirm สำเร็จ UI กลับไปหน้าแรก แต่ผล application/registration ฝั่ง Backend ของการ confirm ยังไม่ยืนยันตาม code path ปัจจุบัน; ดู unresolved boundary ด้านล่าง
+
+รายละเอียด ID-card update และ retake อยู่ใน [Customer ID Card Update and Retake](/business-flows/customer/identity-update/); behavior การคำนวณและยืนยัน suitability ปกติอยู่ใน [Onboarding Status and Suitability](/business-flows/customer/onboarding-status-and-suitability/)
 
 **Owner service: `onboarding-service`**
 
@@ -250,7 +264,9 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - `IsMutualFundNotAllowOrder` ทิ้ง lookup error สำหรับ order type ที่ไม่ใช่ `sell` และ status ว่างถูกประเมินเป็น not allowed สำหรับ buy/switch; เอกสารนี้จึงแยก intended status matrix ออกจาก defect/inconsistency นี้
 - `ProcessFreezeCustomerStatus` มี implementation ใน `onboarding-service` แต่ไม่พบ production caller ใน tree ที่ตรวจ; freeze ที่ยืนยันในรอบนี้มาจาก rejection calculation path
 - `asset-service` ตัด `closed` ออกจาก portfolio/account query หลายกลุ่ม แต่ monthly statement และ direct account-ID read ใช้ method ที่ไม่มี predicate ใหม่ จึงยังไม่ยืนยันว่า `closed` ถูกตัดจากทุก asset endpoint
-- Mobile modal selector ใช้ชื่อ `suitability-update` แต่ `onboarding-service` ส่ง `traditional-suit-update`/`digital-suit-update`; warning/expired gate และ modal จึงไม่ใช้ type/status set เดียวกัน
+- Mobile ส่ง `flow_type = suit-update` ให้ V2 suitability insert/confirm. `CreateAndCalculateScoreSuitabilityTraditionalAndDigital` อ่าน application ผ่าน `GetLatestFlowKycApprovalApplicationByIdentificationId` ซึ่ง filter เฉพาะ account-opening/new/re-kyc/id-card-update และไม่รวม `suit-update`; confirm path เปลี่ยน application type เฉพาะ `re-kyc` ส่วน flow type อื่นรวม `suit-update` ใช้ `new`. ผล application ที่ผูกกับ suitability update และ state หลัง confirm จึงยังต้องยืนยันกับเจ้าของ `onboarding-service`
+- `FlowSuitUpdate` ยังไม่มี mapping ใน `GetSequenceAuditLog` และ `GetApplicationFormType`; code ที่อาศัย mapping เหล่านี้ยังไม่ยืนยัน behavior สำหรับ flow นี้
+- `onboarding-service` เรียก communication helper หลัง transaction commit แต่ notification template ของ `suit-update` ยังว่าง; helper จึงคืน error ก่อนส่ง email/notification และ create path ไม่ส่ง error นี้กลับให้ผู้ใช้
 - Retake-specific ID-card sheet ถูกเลือกจาก Home banner ด้วย `isRetakeIdCard=true`; order action expiry sheet ใช้ default false จึงต้องยืนยัน client behavior หลัง order error กับเจ้าของ Mobile
 - `OrderBuy` create path ไม่เรียก expiry precheck ที่ `/api/v1/order/validate` ใช้; การ enforce Buy เมื่อ feature เปิดต้องยืนยันกับเจ้าของ `order-service`
 
@@ -262,6 +278,8 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - KYC expiry ใช้ candidate ที่เร็วที่สุด ไม่ใช่เลือกตามลำดับ ID/CDD/suitability
 - CDD risk level 3 หมดอายุใน 1 ปี; risk level อื่นใน 2 ปี
 - Suitability Traditional/Digital หมดอายุ 2 ปีหลัง evaluation date
+- Mobile แสดง suitability update จาก expiry type `traditional-suit-update`/`digital-suit-update` และจับคู่ pending application ด้วย type `suit-update`; Backend ยังคงเป็นผู้ตัดสิน eligibility ของคำขอผ่าน `ValidateApplicationRequestAllowed`
+- การสร้าง `suit-update` application เขียน application, action flow, watchlist cleanup และ registration status ใน transaction เดียวกัน; waiting-approve communication ถูกเรียกหลัง transaction commit
 - เมื่อ `FEATURE_RE_KYC_CDD_TRIGGERED_ONLY` เปิด initial expiry ใช้ CDD เท่านั้น และ existing record จะเปลี่ยน type เฉพาะ `suitability-expired` → `cdd-expired` เมื่อ CDD หมดอายุ
 - ลูกค้ามีทั้ง XAM และ XD ต้องมี evaluation date ของทั้งสองฝั่ง; ฝั่งใดหายทำให้ suitability candidate เป็นเมื่อวาน
 - Missing CDD date/risk level ทำให้ CDD candidate เป็นเมื่อวาน
@@ -299,6 +317,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 | Customer change-request log account metadata | reviewer rejection จาก `to-review` → reviewer ใน `reviewed_*` และ AML actor ใน `approved_*`; rejection อื่น → acting staff ใน `approved_*` |
 | Restored customer data | customer tables → snapshot จาก capture หลัง cancellation transaction commit |
 | Downstream pending orders | `CustomerSync` non-active account or feature-gated expiry trigger → order-consumer trigger → selected order cancellation in `order-service`; switch cancellation caused by `ID_CARD_EXPIRED` filters to SEG |
+| Suitability update application | ไม่มี application ที่ pending และ Backend อนุญาต → `draft` (`suit-update`); registration → `suitability-test` / `suitability-test` ด้วย `flow_type = suit-update` |
 
 ## Error and recovery behavior
 
@@ -315,6 +334,8 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - Switch cancellation จาก `ID_CARD_EXPIRED` เลือกเฉพาะ pending switch orders ของ SEG; source ไม่ยืนยันการยกเลิกรายการ OMN จาก path นี้
 - auto-cancel re-KYC ล้ม: ไม่เดินต่อไปสร้าง suspended-by-system application ให้ customer รายเดียวกันใน invocation นั้น และ source ไม่ยืนยัน retry อัตโนมัติของ auto-cancel
 - Force re-KYC path อ่าน `customer_background_kyc` ไม่ได้หรือได้ record เป็น nil: ไม่ส่ง force email/notification และคืน error detail `failed to get background KYC`
+- `POST /api/v1/customer/application/suit-update`: missing claims ตอบ `401`; `UserUUID` parse ไม่ได้ตอบ `400`; request ถูก block ตอบ `400` พร้อม `APPLICATION_NOT_ALLOWED`; eligibility lookup หรือ transaction failure ตอบ `500` และไม่ยืนยัน automatic retry
+- Suit-update waiting-approve notification template ว่างทำให้ helper คืน error ก่อนส่ง email/notification; caller ละ error ไว้และ application transaction ที่ commit แล้วไม่ rollback
 - job เขียน audit, batch log และ failure email; source ไม่ยืนยัน manual replay command
 
 ## Final outcomes
@@ -330,6 +351,7 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - ถ้าเข้าเงื่อนไข force re-KYC notification ระบบส่ง email ที่อ้างอิง `KycExpiryDate` และ notification; ถ้าอ่าน background KYC ไม่ได้ ผลลัพธ์ของ customer รายนี้เป็น error แทนการส่งข้อความ
 - ถ้า downstream ได้รับ `CustomerSync` ครบและ cancellation predicate ผ่าน ระบบยกเลิกเฉพาะ pending order ตาม status/side matrix; event propagation ไม่เกิดใน KYC expiry path ที่ตรวจพบ
 - ถ้า cancellation เกิดจาก `ID_CARD_EXPIRED`, `order-service` เลือก pending switch order ของ SEG ตาม query filter; switch orders ของ OMN ไม่อยู่ใน result set นี้
+- Suitability update create ที่ผ่าน eligibility ได้ draft application และ registration `suitability-test`; Mobile กลับหน้าแรกเมื่อ confirm API ตอบสำเร็จ แต่ Backend code ที่ตรวจยังไม่ยืนยันว่า suit-update application ใดถูกผูกและ transition ไปสถานะใด
 
 ## Related shared rules
 
@@ -366,6 +388,13 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 - `pkg/customer/customer-process/process-delete.go`: scoped registration-history deletion และ restore entry point
 - `pkg/customer/customer-process/customer-process-service.go`: capture restore mapping รวม account, suitability และ watchlist report
 - `pkg/customer/application/service.go`: `OldCaptureId` ที่ผูกกับ application ใหม่, `patchDataCustomerChangeRequestLog` และ `applyApprovalPatchByStatus`
+- `routes/routes.go`: `POST /api/v1/customer/application/suit-update`
+- `handler/customer-application-handler.go`: claims, eligibility validation และ suit-update create handler
+- `pkg/customer/application/service.go`: transactional suit-update creation และ waiting-approve communication หลัง commit
+- `pkg/customer/application/customer-application-repo/customer-application-repository.go`: KYC approval application lookup ที่ไม่รวม `suit-update`
+- `handler/suitability-handler.go`, `pkg/suitability/suitability-service.go`: V2 suitability insert/confirm และ application type selection
+- `internal/constants/enum/flow-type.go`: `FlowSuitUpdate` และ flow/application mappings
+- `pkg/customer/application/send_email_and_notification.go`, `third_party/notification/constant.go`: suit-update message templates
 - `pkg/customer/re-kyc/helper.go`: suspension/cancellation eligibility
 - `internal/constants/enum/rekyc_type.go`
 - `internal/constants/enum/xd-customer-account-reason.go`
@@ -373,6 +402,10 @@ Backend ส่ง digital suitability expiry ด้วย แต่ใน Mobile
 
 Supporting current-contract references:
 
+- `lib/services/application_required_step/service.dart`: ID-card and suit-update application API calls
+- `lib/domains/application_required_step/controller.dart`: ID-card/suit-update status, pending application resume and navigation
+- `lib/utils/order_validation_utils.dart`: expiry sheet, pending-application mapping and navigation to ID-card/suit-update step
+- `lib/domains/ekyc/suitability/controller.dart`, `lib/domains/ekyc/suitability/service.dart`: previous-answer prefill, `suit-update` request flow type and confirm navigation
 - `order-consumer/pkg/customer-account/service.go`: `CustomerSync` persistence, non-active account trigger และ feature-gated `hasExpiredDate` cancellation trigger
 - `order-service/pkg/order/service.go`: MF operation-level account-status validation และ order-placement pre-check
 - `order-service/pkg/customer/suspend_service.go`: status-specific cancellation orchestration
