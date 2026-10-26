@@ -7,7 +7,7 @@ aliases: [big lot, biglot, bulk order, white glove, customer status, customer_st
 integrations: [Remarketer, kafka]
 errorCodes: ["400", "401", "500", "60002", "80002", "80006"]
 status: active
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-25
 documentType: flow
 ---
 
@@ -16,6 +16,10 @@ documentType: flow
 Big Lot เป็น White Glove swap ที่เจ้าหน้าที่ RM หรือ Dealer ดำเนินการแทนลูกค้า โดยเลือก quantity ที่ตรงกับ Big Lot order book, คำนวณค่าธรรมเนียมด้วย `volume_size = bulk`, สร้าง order ใน `order-service` แล้วให้ `order-consumer` hold balance และส่งคำสั่งไป Remarketer แบบ asynchronous ก่อน `order-service` รับ webhook เพื่อบันทึกผลและ settle ledger
 
 ![Big Lot flow](/assets/FlowBiglot.png)
+
+## Big Lot Limit Order ที่อยู่ระหว่าง refinement
+
+<mark class="changed-feature" data-updated-on="2026-10-25">อ่าน [Big Lot Limit Order](/business-flows/trading/big-lot-limit-order/) สำหรับ requirement XM-17566 และผลตรวจโค้ดตั้งแต่ RM placement ถึง Dealer matching</mark> หน้าดังกล่าวแยก requirement ใหม่ออกจากพฤติกรรมปัจจุบัน และยังไม่ใช่การยืนยันว่า Big Lot Limit เปิดใช้งานแล้ว
 
 ## Trigger and preconditions
 

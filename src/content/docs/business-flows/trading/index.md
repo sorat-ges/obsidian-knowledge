@@ -5,7 +5,7 @@ capability: Trading
 services: [order-service]
 aliases: [trading, trade, ซื้อขาย]
 status: active
-lastUpdated: 2026-10-11
+lastUpdated: 2026-10-25
 documentType: flow
 ---
 
@@ -14,6 +14,7 @@ documentType: flow
 - [Swap Market Order](/business-flows/trading/swap-market-order/) — เปิดเมื่อไล่การซื้อขายทันที ตั้งแต่ตรวจคำสั่ง เลือก route, execute, ledger, portfolio จนถึง hedge
 - [Swap Limit Order](/business-flows/trading/swap-limit-order/) — เปิดเมื่อไล่คำสั่งตั้งราคา การล็อกยอด Remarketer webhook, partial fill, refund และ portfolio
 - [Big Lot](/business-flows/trading/big-lot/) — เปิดเมื่อทำ White Glove/Bulk ซึ่งบังคับ dealer route และมีกฎ bypass กับ precision เฉพาะ
+- [Big Lot Limit Order](/business-flows/trading/big-lot-limit-order/) — อ่าน requirement XM-17566 และผลตรวจโค้ด RM ↔ Dealer: ราคา/จำนวนแบบ Exact Match, routing, extapi, FIFO, expiry และ Detail; ยังไม่ใช่ feature ที่ implement แล้ว
 - [Routing](/business-flows/trading/routing/) — เปิดเมื่อหาสาเหตุว่าทำไม route หนึ่งถูกเลือก การมองเห็นของ Customer/Dealer หรือ error `90006`
 - [Hedging](/business-flows/trading/hedging/) — เปิดเมื่อไล่ FX exposure หลังเทรด USD, threshold และคำสั่ง hedge กับธนาคาร
 - [White Glove Dealer FX Trade](/business-flows/trading/dealer-fx-trade/) — เปิดเมื่อไล่การขอราคาและยืนยัน USD/THB FX deal ผ่าน Dealer, hold, ledger และ KTB Gateway
